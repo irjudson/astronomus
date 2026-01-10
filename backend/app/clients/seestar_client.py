@@ -119,7 +119,7 @@ class SeestarClient:
     UDP_DISCOVERY_PORT = 4720
     FILE_TRANSFER_PORT = 4801  # Port 4801 for file downloads
     CONNECTION_TIMEOUT = 10.0
-    COMMAND_TIMEOUT = 10.0
+    COMMAND_TIMEOUT = 30.0  # Increased from 10s - telescope can be slow to respond
     RECEIVE_BUFFER_SIZE = 4096
 
     def __init__(self, logger: Optional[logging.Logger] = None, private_key_path: Optional[str] = None):
@@ -962,10 +962,10 @@ class SeestarClient:
         return response.get("result") == 0
 
     async def park(self) -> bool:
-        """Park telescope at home position (azimuth=0, altitude=0).
+        """Park telescope at home position in equatorial mode.
 
-        For Seestar, there's no explicit park command. Instead, we move
-        to azimuth=0, altitude=0 which is the parked/stowed position.
+        Uses the scope_park command which sets the telescope to its parked
+        position and switches to equatorial tracking mode.
 
         Returns:
             True if park initiated successfully
@@ -973,12 +973,12 @@ class SeestarClient:
         Raises:
             CommandError: If park command fails
         """
-        self.logger.info("Parking telescope (moving to 0,0)")
+        self.logger.info("Parking telescope")
 
         self._update_status(state=SeestarState.PARKING)
 
-        # Move to azimuth=0, altitude=0 (parked position)
-        response = await self._send_command("scope_move_to_horizon", {"azimuth": 0.0, "altitude": 0.0})
+        # Park telescope in equatorial mode
+        response = await self._send_command("scope_park", {"equ_mode": True})
 
         self.logger.info(f"Park response: {response}")
         return response.get("result") == 0
@@ -2149,7 +2149,13 @@ class SeestarClient:
         """
         response = await self._send_command("pi_is_verified", {})
 
-        return response.get("result", {}).get("is_verified", False)
+        # Result can be either a bool directly or nested in a dict
+        result = response.get("result", False)
+        if isinstance(result, bool):
+            return result
+        elif isinstance(result, dict):
+            return result.get("is_verified", False)
+        return False
 
     # ==========================================
     # Phase 10: Image Retrieval
