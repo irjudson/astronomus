@@ -103,7 +103,7 @@ These methods exist in our client but have NO corresponding Seestar command:
 | `get_dc_output()` | ❌ BROKEN: Command returns "invalid params" (code 102) | Fix params for `pi_output_get2` | **Hardware tested - FAILS** |
 | `park()` | ✅ FIXED: Now uses `scope_park` | Was using `scope_move_to_horizon` | **Hardware tested - WORKS** |
 | `configure_planetary_imaging()` | ⚠️ Verify: Uses `set_setting` | Verify planet-specific params | Not tested |
-| `get_view_plan_state()` | ❌ PHANTOM: Command doesn't exist (code 103) | Remove or find correct command name | **Hardware tested - FAILS** |
+| `get_view_plan_state()` | ✅ FIXED: Wrong command name | Changed to use `get_view_state` | **Hardware tested - WORKS** |
 | `get_image_file_info()` | ❌ BROKEN: Returns "expected string param" (code 105) | Fix params - empty string not allowed | **Hardware tested - FAILS** |
 | `list_images()` | ❌ BROKEN: Returns "expected string param" (code 105) | Fix implementation | **Hardware tested - FAILS** |
 
@@ -205,9 +205,9 @@ These affect hardware and need live testing:
 ## Summary
 
 - **Total methods**: 79 async methods in SeestarClient
-- **Correctly mapped**: ~70 methods ✅
-- **Need fixing**: 8 methods ⚠️
-- **Phantom commands**: 2 ("unpark", "get_view_plan_state") ❌
+- **Correctly mapped**: ~72 methods ✅ (91%)
+- **Need fixing**: 5 methods ⚠️ (6%)
+- **Phantom commands**: 1 ("pi_unpark") ❌
 - **Not yet implemented**: 5+ documented commands 🆕
 
 ## Hardware Testing Results (2026-01-09)
@@ -227,11 +227,13 @@ These affect hardware and need live testing:
 10. `list_saved_wifi_networks()` - ✅ Returns network list
 11. `get_compass_state()` - ✅ Returns compass data
 
-**❌ Broken (4)**:
-1. `get_view_plan_state()` - ❌ ERROR: "method not found" (code 103) - **PHANTOM COMMAND**
-2. `get_dc_output()` - ❌ ERROR: "invalid params" (code 102) - Wrong params structure
-3. `get_image_file_info()` - ❌ ERROR: "expected string param" (code 105) - Empty string not allowed
-4. `list_images()` - ❌ ERROR: "expected string param" (code 105) - Wrong implementation
+**❌ Broken (3)** - Still need fixing:
+1. `get_dc_output()` - ❌ ERROR: "invalid params" (code 102) - Wrong params structure
+2. `get_image_file_info()` - ❌ ERROR: "expected string param" (code 105) - Empty string not allowed
+3. `list_images()` - ❌ ERROR: "expected string param" (code 105) - Wrong implementation
+
+**✅ Fixed (1)**:
+1. `get_view_plan_state()` - ✅ FIXED: Changed to use `get_view_state` command - **NOW WORKS**
 
 **⚠️ Expected failures (2)** - No data available:
 1. `get_plate_solve_result()` - Expected (no solve done)
@@ -242,9 +244,17 @@ These affect hardware and need live testing:
 - ✅ Removed `pi_unpark` phantom command
 - ✅ Park/unpark cycle tested successfully
 
+### Fixes Applied (After Consulting MainCameraConstants.java):
+1. ✅ **Fixed `get_view_plan_state()`** - Changed command from `get_view_plan_state` (doesn't exist) to `get_view_state` (line 136 in MainCameraConstants.java) - **VERIFIED WORKING**
+
 ### Next Steps:
-1. Remove or fix `get_view_plan_state()` - command doesn't exist
-2. Fix `get_dc_output()` params structure
-3. Fix `get_image_file_info()` to require non-empty path
-4. Fix `list_images()` implementation
-5. Test `set_dew_heater()` after fixing to use `pi_output_set2`
+1. Fix `get_dc_output()` params structure for `pi_output_get2`
+2. Fix `get_image_file_info()` to require non-empty path
+3. Fix `list_images()` implementation (may need to use get_img_file_info differently)
+4. Test `set_dew_heater()` after fixing to use `pi_output_set2`
+
+### Reference: MainCameraConstants.java
+All command names verified against:
+`/home/irjudson/Projects/astronomus/Seestar/seestar_v3_decompiled/sources/com/zwo/seestar/socket/MainCameraConstants.java`
+
+This file contains the authoritative list of all Seestar S50 API commands, parameters, and constants.
