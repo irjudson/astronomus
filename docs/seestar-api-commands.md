@@ -119,10 +119,15 @@ Nice-to-have features for better control.
 
 **`scope_move_to_horizon`** - Move to horizon position
 - **Priority**: LOW
-- **Use**: Safe parking at horizon
+- **Use**: Move to specific horizon coordinates
 - **Params**: Azimuth/altitude
 
-**✅ `scope_park`** - Already implemented
+**✅ `scope_park`** - Park telescope at home position
+- **Priority**: MEDIUM
+- **Use**: Park telescope in equatorial mode
+- **Params**: `{"equ_mode": true}`
+- **Implementation**: `park()` method in SeestarClient
+- **Note**: Sets `mount.close` to True (arm closed/parked)
 
 #### Focus Control
 

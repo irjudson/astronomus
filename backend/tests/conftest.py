@@ -533,3 +533,51 @@ async def seestar_client_with_playback(playback_server):
     yield client
 
     await client.disconnect()
+
+
+# ==========================================
+# Real Telescope Hardware Testing
+# ==========================================
+
+
+def pytest_addoption(parser):
+    """Add custom pytest command line options for telescope hardware testing."""
+    import os
+
+    parser.addoption(
+        "--real-hardware",
+        action="store_true",
+        default=False,
+        help="Run tests against real telescope hardware (CAUTION: requires actual telescope)"
+    )
+    parser.addoption(
+        "--telescope-host",
+        action="store",
+        default=os.environ.get("TELESCOPE_HOST", "192.168.2.47"),
+        help="Telescope IP address for real hardware tests"
+    )
+    parser.addoption(
+        "--telescope-port",
+        action="store",
+        type=int,
+        default=int(os.environ.get("TELESCOPE_PORT", "4700")),
+        help="Telescope port for real hardware tests"
+    )
+
+
+@pytest.fixture(scope="session")
+def real_hardware(request):
+    """Check if running in real hardware mode."""
+    return request.config.getoption("--real-hardware")
+
+
+@pytest.fixture(scope="session")
+def telescope_host(request):
+    """Get telescope host from command line or environment."""
+    return request.config.getoption("--telescope-host")
+
+
+@pytest.fixture(scope="session")
+def telescope_port(request):
+    """Get telescope port from command line or environment."""
+    return request.config.getoption("--telescope-port")

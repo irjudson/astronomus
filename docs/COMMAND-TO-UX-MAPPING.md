@@ -30,7 +30,6 @@ Complete mapping of all Seestar S50 commands, their implementation status, backe
 | `iscope_start_view` | ✅ | `goto_target()` | `POST /api/telescope/goto` | "Slew to Target" button | `ra` (hours), `dec` (degrees), `target_name` (optional) |
 | `scope_move` (stop) | ✅ | `stop_slew()` | `POST /api/telescope/stop-slew` | "Stop Motion" button | None |
 | `scope_park` | ✅ | `park()` | `POST /api/telescope/park` | "Park Telescope" button | None |
-| `pi_unpark` | 🟡 | None | `POST /api/telescope/unpark` | None | None |
 | `scope_get_equ_coord` | 🟡 | `get_current_coordinates()` | `GET /api/telescope/coordinates` | None | Returns `ra_hours`, `dec_degrees`, `timestamp` |
 | `scope_move` (slew) | 🟡 | `slew_to_coordinates()` | `POST /api/telescope/slew` | None | `ra` (hours), `dec` (degrees) |
 | `scope_move_to_horizon` | 🟡 | `move_to_horizon()` | `POST /api/telescope/horizon` | None | `azimuth` (degrees), `altitude` (degrees) |
@@ -87,9 +86,11 @@ Complete mapping of all Seestar S50 commands, their implementation status, backe
 
 ## 5. VIEW PLANS (AUTOMATION)
 
+**See [View Plan Configuration Guide](seestar/VIEW-PLAN-CONFIGURATION.md) for complete `plan_config` structure documentation.**
+
 | Command | Status | SeestarClient Method | Backend API | Frontend UX | Parameters |
 |---------|--------|---------------------|-------------|-------------|------------|
-| `start_view_plan` | 🟡 | `start_view_plan()` | `POST /api/telescope/plan/start` | None | `plan_config` (dict): targets, exposures, filters, etc. |
+| `start_view_plan` | 🟡 | `start_view_plan()` | `POST /api/telescope/plan/start` | None | `plan_config` (dict) - See VIEW-PLAN-CONFIGURATION.md |
 | `stop_view_plan` | 🟡 | `stop_view_plan()` | `POST /api/telescope/plan/stop` | None | None |
 | `get_view_plan_state` | 🟡 | `get_view_plan_state()` | `GET /api/telescope/plan/state` | None | Returns `current_target`, `progress`, `state` |
 
