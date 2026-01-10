@@ -96,13 +96,16 @@ These methods exist in our client but have NO corresponding Seestar command:
 
 ### ⚠️ NEEDS FIXING
 
-| Our Method | Issue | Fix Required |
-|-----------|-------|--------------|
-| `set_dew_heater()` | ❌ CRITICAL: Uses wrong command | Change from `set_setting` to `pi_output_set2` |
-| `set_dc_output()` | ⚠️ Verify: Uses `pi_output_set2` | Verify params structure |
-| `get_dc_output()` | ⚠️ Verify: Uses `pi_output_get2` | Verify command exists |
-| `park()` | ⚠️ Wrong command: Uses `scope_move_to_horizon` | Change to `scope_park` command |
-| `configure_planetary_imaging()` | ⚠️ Verify: Uses `set_setting` | Verify planet-specific params |
+| Our Method | Issue | Fix Required | Status |
+|-----------|-------|--------------|--------|
+| `set_dew_heater()` | ❌ CRITICAL: Uses wrong command | Change from `set_setting` to `pi_output_set2` | Not tested |
+| `set_dc_output()` | ⚠️ Verify: Uses `pi_output_set2` | Verify params structure | Not tested |
+| `get_dc_output()` | ❌ BROKEN: Command returns "invalid params" (code 102) | Fix params for `pi_output_get2` | **Hardware tested - FAILS** |
+| `park()` | ✅ FIXED: Now uses `scope_park` | Was using `scope_move_to_horizon` | **Hardware tested - WORKS** |
+| `configure_planetary_imaging()` | ⚠️ Verify: Uses `set_setting` | Verify planet-specific params | Not tested |
+| `get_view_plan_state()` | ❌ PHANTOM: Command doesn't exist (code 103) | Remove or find correct command name | **Hardware tested - FAILS** |
+| `get_image_file_info()` | ❌ BROKEN: Returns "expected string param" (code 105) | Fix params - empty string not allowed | **Hardware tested - FAILS** |
+| `list_images()` | ❌ BROKEN: Returns "expected string param" (code 105) | Fix implementation | **Hardware tested - FAILS** |
 
 ### 🆕 NOT YET IMPLEMENTED (Documented as Real Commands)
 
@@ -203,8 +206,45 @@ These affect hardware and need live testing:
 
 - **Total methods**: 79 async methods in SeestarClient
 - **Correctly mapped**: ~70 methods ✅
-- **Need fixing**: 5 methods ⚠️
-- **Phantom commands**: 1 ("unpark") ❌
+- **Need fixing**: 8 methods ⚠️
+- **Phantom commands**: 2 ("unpark", "get_view_plan_state") ❌
 - **Not yet implemented**: 5+ documented commands 🆕
 
-Next step: Fix the critical bugs (`set_dew_heater`, `park`) before any further testing.
+## Hardware Testing Results (2026-01-09)
+
+### Commands Tested: 17 read-only commands
+
+**✅ Working (11/15 = 73.3%)**:
+1. `check_client_verified()` - ✅ Verified: True
+2. `get_device_state()` - ✅ Returns full device state
+3. `get_current_coordinates()` - ✅ Returns RA/Dec
+4. `get_app_state()` - ✅ Returns imaging state
+5. `check_stacking_complete()` - ✅ Returns completion status
+6. `check_polar_alignment()` - ✅ Returns alignment data
+7. `get_pi_info()` - ✅ Returns system info
+8. `get_pi_time()` - ✅ Returns timestamp
+9. `get_station_state()` - ✅ Returns WiFi connection info
+10. `list_saved_wifi_networks()` - ✅ Returns network list
+11. `get_compass_state()` - ✅ Returns compass data
+
+**❌ Broken (4)**:
+1. `get_view_plan_state()` - ❌ ERROR: "method not found" (code 103) - **PHANTOM COMMAND**
+2. `get_dc_output()` - ❌ ERROR: "invalid params" (code 102) - Wrong params structure
+3. `get_image_file_info()` - ❌ ERROR: "expected string param" (code 105) - Empty string not allowed
+4. `list_images()` - ❌ ERROR: "expected string param" (code 105) - Wrong implementation
+
+**⚠️ Expected failures (2)** - No data available:
+1. `get_plate_solve_result()` - Expected (no solve done)
+2. `get_field_annotations()` - Expected (no solve done)
+
+### Verified Fixes:
+- ✅ `park()` - Fixed to use `scope_park` command - **WORKS**
+- ✅ Removed `pi_unpark` phantom command
+- ✅ Park/unpark cycle tested successfully
+
+### Next Steps:
+1. Remove or fix `get_view_plan_state()` - command doesn't exist
+2. Fix `get_dc_output()` params structure
+3. Fix `get_image_file_info()` to require non-empty path
+4. Fix `list_images()` implementation
+5. Test `set_dew_heater()` after fixing to use `pi_output_set2`
