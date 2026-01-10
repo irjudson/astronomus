@@ -1216,7 +1216,10 @@ class SeestarClient:
         Raises:
             CommandError: If query fails
         """
-        response = await self._send_command("get_view_plan_state", {})
+        # Fixed: Use correct command name from MainCameraConstants.java
+        # Was using "get_view_plan_state" (doesn't exist)
+        # Correct command is "get_view_state" (line 136 in MainCameraConstants.java)
+        response = await self._send_command("get_view_state", {})
 
         return response.get("result", {})
 
