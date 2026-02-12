@@ -336,6 +336,7 @@
                                 </div>
                                 <div class="form-group">
                                     <button id="sidebar-goto-target-btn" class="btn btn-primary" disabled>Goto Target</button>
+                                    <button id="sidebar-unpark-telescope-btn" class="btn btn-success" disabled>Unpark</button>
                                     <button id="sidebar-park-telescope-btn" class="btn btn-secondary" disabled>Park</button>
                                 </div>
                             </div>
@@ -360,6 +361,22 @@
                                 </div>
                                 <div class="form-group">
                                     <button id="toggle-dew-heater-btn" class="btn btn-secondary" disabled>Toggle Dew Heater</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Messages Panel -->
+                        <div class="panel panel-collapsible collapsed" id="messages-panel">
+                            <div class="panel-header">
+                                <h3>Telescope Messages</h3>
+                                <span class="panel-chevron">▼</span>
+                            </div>
+                            <div class="panel-body">
+                                <div id="telescope-messages" class="message-list" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85em;">
+                                    <div class="empty-state" style="color: #888; padding: 8px;">No messages</div>
+                                </div>
+                                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                    <button id="clear-messages-btn" class="btn btn-sm btn-secondary" style="flex: 1;">Clear</button>
                                 </div>
                             </div>
                         </div>
@@ -406,6 +423,8 @@
         <!-- Main Content Area -->
         <main class="app-main" id="app-main">
             <div class="main-content" id="main-content">
+                <!-- Scrollable content wrapper -->
+                <div class="content-scroll-wrapper" style="flex: 1; overflow-y: auto; overflow-x: hidden;">
                 <!-- Catalog View (Discovery Context) -->
                 <div class="catalog-view" id="catalog-view">
                     <!-- Catalog Grid -->
@@ -519,6 +538,54 @@
                 <div class="execution-view" id="execution-view" style="display: none;">
                     <div class="telescope-control-layout">
 
+                        <!-- Preview & Navigation Panel -->
+                        <div class="control-panel" id="preview-panel">
+                            <h3>Preview & Navigation</h3>
+
+                            <!-- Preview Image -->
+                            <div class="preview-image-container" style="position: relative; background: #000; border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 4px; aspect-ratio: 4/3; overflow: hidden; margin-bottom: clamp(12px, 2.5%, 16px);">
+                                <img id="preview-image" src="" alt="No preview" style="width: 100%; height: 100%; object-fit: contain; display: none;">
+                                <div id="preview-placeholder" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: rgba(255, 255, 255, 0.3); font-size: clamp(13px, 1.2vw, 15px);">
+                                    No preview available
+                                </div>
+                            </div>
+
+                            <!-- Navigation Controls -->
+                            <div class="navigation-controls">
+                                <label class="control-label">Manual Navigation</label>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1%, 6px); max-width: 200px; margin: 0 auto;">
+                                    <!-- Top row: Up -->
+                                    <div></div>
+                                    <button id="nav-up-btn" class="btn btn-secondary nav-btn" style="padding: clamp(8px, 2%, 12px);">▲</button>
+                                    <div></div>
+                                    <!-- Middle row: Left, Stop, Right -->
+                                    <button id="nav-left-btn" class="btn btn-secondary nav-btn" style="padding: clamp(8px, 2%, 12px);">◀</button>
+                                    <button id="nav-stop-btn" class="btn btn-warning nav-btn" style="padding: clamp(8px, 2%, 12px);">⬛</button>
+                                    <button id="nav-right-btn" class="btn btn-secondary nav-btn" style="padding: clamp(8px, 2%, 12px);">▶</button>
+                                    <!-- Bottom row: Down -->
+                                    <div></div>
+                                    <button id="nav-down-btn" class="btn btn-secondary nav-btn" style="padding: clamp(8px, 2%, 12px);">▼</button>
+                                    <div></div>
+                                </div>
+
+                                <!-- Preview Controls -->
+                                <div style="margin-top: clamp(8px, 2%, 12px);">
+                                    <label class="control-label">Preview Mode</label>
+                                    <select id="preview-mode" class="form-control" style="margin-bottom: clamp(6px, 1.5%, 8px);">
+                                        <option value="scenery">Scenery (Landscape)</option>
+                                        <option value="star">Star (DSO)</option>
+                                        <option value="moon">Moon</option>
+                                        <option value="planet">Planet</option>
+                                        <option value="sun">Sun</option>
+                                    </select>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(6px, 1.5%, 8px);">
+                                        <button id="start-preview-btn" class="btn btn-success" style="width: 100%;">Start Preview</button>
+                                        <button id="stop-preview-btn" class="btn btn-warning" style="width: 100%;">Stop Preview</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Main Controls -->
                         <div class="control-panel" id="main-controls">
                             <h3>Telescope Control</h3>
@@ -526,56 +593,62 @@
                             <!-- Target Input -->
                             <div class="control-section">
                                 <label class="control-label">Target Coordinates</label>
-                                <input type="text" id="target-name" placeholder="Target Name (optional)" class="form-control" style="margin-bottom: 8px;">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                                    <input type="text" id="target-ra" placeholder="RA (HH:MM:SS)" class="form-control">
-                                    <input type="text" id="target-dec" placeholder="Dec (±DD:MM:SS)" class="form-control">
+                                <div style="position: relative; margin-bottom: clamp(6px, 1.5%, 8px);">
+                                    <input type="text" id="target-name" placeholder="Search target..." class="form-control" autocomplete="off">
+                                    <div id="target-autocomplete" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: #2a2a2a; border: 1px solid #444; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(4px, 1%, 6px); margin-bottom: clamp(8px, 2%, 12px);">
+                                    <input type="text" id="target-ra" placeholder="RA" class="form-control" readonly>
+                                    <input type="text" id="target-dec" placeholder="Dec" class="form-control" readonly>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(6px, 1.5%, 8px);">
                                     <button id="slew-to-target-btn" class="btn btn-primary" disabled style="width: 100%;">Slew to Target</button>
                                     <button id="stop-motion-btn" class="btn btn-warning" disabled style="width: 100%;">Stop Motion</button>
                                 </div>
-                                <button id="park-telescope-btn" class="btn btn-secondary" disabled style="width: 100%; margin-top: 8px;">Park Telescope</button>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(6px, 1.5%, 8px); margin-top: clamp(6px, 1.5%, 8px);">
+                                    <button id="unpark-telescope-btn" class="btn btn-success" disabled style="width: 100%;">Unpark</button>
+                                    <button id="park-telescope-btn" class="btn btn-secondary" disabled style="width: 100%;">Park</button>
+                                </div>
                             </div>
 
                             <!-- Imaging -->
-                            <div class="control-section" style="margin-top: 20px;">
+                            <div class="control-section">
                                 <label class="control-label">Imaging</label>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(4px, 1%, 6px); margin-bottom: clamp(8px, 2%, 12px);">
                                     <div>
-                                        <label style="font-size: 0.9em; margin-bottom: 4px; display: block;">Exposure (sec)</label>
+                                        <label style="font-size: clamp(11px, 1vw, 13px); margin-bottom: clamp(2px, 0.5%, 3px); display: block; opacity: 0.8;">Exposure (s)</label>
                                         <input type="number" id="exposure-time" value="10" min="0.1" max="600" step="0.1" class="form-control">
                                     </div>
                                     <div>
-                                        <label style="font-size: 0.9em; margin-bottom: 4px; display: block;">Gain</label>
+                                        <label style="font-size: clamp(11px, 1vw, 13px); margin-bottom: clamp(2px, 0.5%, 3px); display: block; opacity: 0.8;">Gain</label>
                                         <input type="number" id="gain-value" value="80" min="0" max="200" class="form-control">
                                     </div>
                                 </div>
-                                <button id="auto-focus-btn" class="btn btn-success" disabled style="width: 100%; margin-bottom: 8px;">Auto Focus</button>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <button id="auto-focus-btn" class="btn btn-success" disabled style="width: 100%; margin-bottom: clamp(6px, 1.5%, 8px);">Auto Focus</button>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(6px, 1.5%, 8px);">
                                     <button id="start-imaging-btn" class="btn btn-primary" disabled style="width: 100%;">Start Imaging</button>
                                     <button id="stop-imaging-btn" class="btn btn-danger" disabled style="width: 100%;">Stop Imaging</button>
                                 </div>
                             </div>
 
                             <!-- Current Position -->
-                            <div class="control-section" style="margin-top: 20px;">
+                            <div class="control-section">
                                 <label class="control-label">Current Position</label>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-family: monospace;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 2%, 12px); font-family: monospace; font-size: clamp(12px, 1.1vw, 14px);">
                                     <div>
-                                        <span style="opacity: 0.7; font-size: 0.9em;">RA:</span>
-                                        <span id="current-ra" style="margin-left: 8px;">--:--:--</span>
+                                        <span style="opacity: 0.7;">RA:</span>
+                                        <span id="current-ra" style="margin-left: clamp(4px, 1%, 8px);">--:--:--</span>
                                     </div>
                                     <div>
-                                        <span style="opacity: 0.7; font-size: 0.9em;">Dec:</span>
-                                        <span id="current-dec" style="margin-left: 8px;">--°--'--"</span>
+                                        <span style="opacity: 0.7;">Dec:</span>
+                                        <span id="current-dec" style="margin-left: clamp(4px, 1%, 8px);">--°--'--"</span>
                                     </div>
                                 </div>
-                                <div style="margin-top: 8px;">
-                                    <span style="opacity: 0.7; font-size: 0.9em;">Tracking:</span>
-                                    <span id="tracking-status" style="margin-left: 8px;">Not tracking</span>
+                                <div style="margin-top: clamp(6px, 1.5%, 8px); font-size: clamp(12px, 1.1vw, 14px);">
+                                    <span style="opacity: 0.7;">Tracking:</span>
+                                    <span id="tracking-status" style="margin-left: clamp(4px, 1%, 8px);">Not tracking</span>
                                 </div>
-                                <div id="control-status" class="status-message" style="margin-top: 12px;"></div>
+                                <div id="control-status" class="status-message" style="margin-top: clamp(8px, 2%, 12px);"></div>
                             </div>
                         </div>
 
@@ -689,6 +762,17 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- End content-scroll-wrapper -->
+
+                <!-- Telescope Messages - Always Visible at Bottom -->
+                <div id="status-console" style="background: #1a1a1a; border-top: 2px solid #333; padding: 8px 0; font-family: monospace; font-size: 0.85em; margin-top: auto; margin-left: -24px; margin-right: -24px; margin-bottom: -24px; flex-shrink: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding: 0 24px;">
+                        <strong style="color: #4a9eff; font-size: 0.9em;">Telescope Messages</strong>
+                        <button id="clear-status-console-btn" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 0.8em;">Clear</button>
+                    </div>
+                    <div id="status-console-messages" style="color: #ccc; padding: 0 24px; max-height: 60px; overflow-y: auto; line-height: 1.4;">
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -751,41 +835,6 @@
             </div>
         </div>
 
-        <!-- Connection Modal -->
-        <div class="modal" id="connection-modal" style="display: none;">
-            <div class="modal-content modal-dark">
-                <div class="modal-header">
-                    <h2>Device Connection</h2>
-                    <button class="modal-close" id="connection-modal-close">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="connection-info">
-                        <div class="info-row">
-                            <label>Device:</label>
-                            <span id="connection-device-name">None configured</span>
-                        </div>
-                        <div class="info-row">
-                            <label>Status:</label>
-                            <div class="status-inline">
-                                <span class="status-indicator disconnected" id="connection-indicator-modal"></span>
-                                <span class="status-text" id="connection-status-text-modal">Disconnected</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="connection-messages" id="connection-messages">
-                        <h4>Messages</h4>
-                        <div class="message-list" id="connection-message-list">
-                            <p class="empty-state">No messages</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="open-settings-btn" class="btn btn-secondary">Configure Device</button>
-                    <button id="connect-btn" class="btn btn-primary" disabled>Connect</button>
-                    <button id="disconnect-btn" class="btn btn-secondary" style="display: none;">Disconnect</button>
-                </div>
-            </div>
-        </div>
 
         <!-- Weather Modal -->
         <div class="modal" id="weather-modal" style="display: none;">
@@ -860,6 +909,13 @@
                             <p class="form-help">Automatically connect to the default device when the application starts</p>
                         </div>
                         <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-reconnect-toggle" checked>
+                                Auto-reconnect if connection is lost
+                            </label>
+                            <p class="form-help">Automatically attempt to reconnect if the telescope disconnects unexpectedly</p>
+                        </div>
+                        <div class="form-group">
                             <button id="manage-devices-btn" class="btn btn-secondary">Manage Devices</button>
                         </div>
                     </div>
@@ -898,6 +954,19 @@
                             <p class="form-help">Choose between metric (°C, km/h) and imperial (°F, mph) units</p>
                         </div>
                     </div>
+
+                    <div class="settings-section">
+                        <h3>Audio Settings</h3>
+                        <div class="form-group">
+                            <label for="volume-select">Notification Volume</label>
+                            <select id="volume-select" class="form-control">
+                                <option value="silent">Silent</option>
+                                <option value="backyard" selected>Backyard (Medium)</option>
+                                <option value="outdoor">Outdoor (Loud)</option>
+                            </select>
+                            <p class="form-help">Volume level for telescope notification sounds</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -916,6 +985,7 @@
     <script src="js/telescope-capabilities.js"></script>
     <script src="js/execution-manager.js"></script>
     <script src="js/execution-tabs.js"></script>
+    <script src="js/telescope-messages.js"></script>
     <script src="js/telescope-controls.js"></script>
     <script src="js/catalog-layout.js"></script>
     <script src="js/catalog-search.js?v=13"></script>

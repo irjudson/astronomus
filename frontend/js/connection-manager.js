@@ -3,99 +3,24 @@
 // ==========================================
 
 const ConnectionManager = {
+    reconnectAttempts: 0,
+    maxReconnectAttempts: 5,
+    reconnectTimeout: null,
+
     init() {
         this.loadDevices();
         this.setupEventListeners();
-        this.setupModalListeners();
-    },
-
-    setupModalListeners() {
-        const statusCompact = document.getElementById('connection-status-compact');
-        const modal = document.getElementById('connection-modal');
-        const closeBtn = document.getElementById('connection-modal-close');
-        const openSettingsBtn = document.getElementById('open-settings-btn');
-
-        if (statusCompact) {
-            statusCompact.addEventListener('click', () => {
-                this.openModal();
-            });
-        }
-
-        if (closeBtn && modal) {
-            closeBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-
-        if (openSettingsBtn) {
-            openSettingsBtn.addEventListener('click', () => {
-                modal.style.display = 'none';
-                const settingsBtn = document.getElementById('settings-btn');
-                if (settingsBtn) {
-                    settingsBtn.click();
-                }
-            });
-        }
-    },
-
-    openModal() {
-        const modal = document.getElementById('connection-modal');
-        if (modal) {
-            this.updateModalDisplay();
-            modal.style.display = 'flex';
-        }
-    },
-
-    updateModalDisplay() {
-        const deviceNameEl = document.getElementById('connection-device-name');
-        const statusIndicatorEl = document.getElementById('connection-indicator-modal');
-        const statusTextEl = document.getElementById('connection-status-text-modal');
-
-        if (deviceNameEl) {
-            deviceNameEl.textContent = AppState.connection.deviceId ?
-                `Device ${AppState.connection.deviceId}` : 'None configured';
-        }
-
-        if (statusIndicatorEl) {
-            statusIndicatorEl.className = AppState.connection.isConnected ?
-                'status-indicator connected' : 'status-indicator disconnected';
-        }
-
-        if (statusTextEl) {
-            statusTextEl.textContent = AppState.connection.isConnected ?
-                'Connected' : 'Disconnected';
-        }
     },
 
     setupEventListeners() {
         const deviceSelect = document.getElementById('device-select');
-        const connectBtn = document.getElementById('connect-btn');
         const connectBtnCompact = document.getElementById('connect-btn-compact');
 
         if (deviceSelect) {
             deviceSelect.addEventListener('change', (e) => {
                 const deviceId = e.target.value;
-                if (connectBtn) connectBtn.disabled = !deviceId;
                 if (connectBtnCompact) connectBtnCompact.disabled = !deviceId;
                 AppState.connection.deviceId = deviceId;
-            });
-        }
-
-        if (connectBtn) {
-            connectBtn.addEventListener('click', () => {
-                if (AppState.connection.isConnected) {
-                    this.disconnect();
-                } else {
-                    this.connect();
-                }
             });
         }
 
@@ -147,9 +72,7 @@ const ConnectionManager = {
             // Restore or select default device
             if (AppState.connection.deviceId) {
                 select.value = AppState.connection.deviceId;
-                const connectBtn = document.getElementById('connect-btn');
                 const connectBtnCompact = document.getElementById('connect-btn-compact');
-                if (connectBtn) connectBtn.disabled = false;
                 if (connectBtnCompact) connectBtnCompact.disabled = false;
 
                 // Auto-connect if enabled and not already connected
@@ -174,6 +97,10 @@ const ConnectionManager = {
         this.updateStatus('connecting', 'Connecting...');
 
         try {
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logCommand('connect', { device_id: deviceId });
+            }
+
             const response = await fetch('/api/telescope/connect', {
                 method: 'POST',
                 headers: {
@@ -184,24 +111,23 @@ const ConnectionManager = {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logError(`Connection failed: ${errorData.detail}`);
+                }
                 throw new Error(errorData.detail || 'Connection failed');
             }
 
             const data = await response.json();
 
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logResponse('connect', 'Connected successfully', true);
+            }
+
             AppState.connection.isConnected = true;
             AppState.connection.status = 'connected';
             this.updateStatus('connected', 'Connected');
 
-            const connectBtn = document.getElementById('connect-btn');
             const connectBtnCompact = document.getElementById('connect-btn-compact');
-
-            if (connectBtn) {
-                connectBtn.textContent = 'Disconnect';
-                connectBtn.classList.remove('btn-primary');
-                connectBtn.classList.add('btn-danger');
-            }
-
             if (connectBtnCompact) {
                 connectBtnCompact.title = 'Disconnect';
                 connectBtnCompact.textContent = '⏏';
@@ -223,28 +149,34 @@ const ConnectionManager = {
     },
 
     async disconnect() {
+        // Cancel any pending auto-reconnect when manually disconnecting
+        this.cancelAutoReconnect();
+
         try {
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logCommand('disconnect');
+            }
+
             const response = await fetch('/api/telescope/disconnect', {
                 method: 'POST'
             });
 
             if (!response.ok) {
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logError('Disconnect failed');
+                }
                 throw new Error('Disconnect failed');
+            }
+
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logResponse('disconnect', 'Disconnected successfully', true);
             }
 
             AppState.connection.isConnected = false;
             AppState.connection.status = 'disconnected';
             this.updateStatus('disconnected', 'Disconnected');
 
-            const connectBtn = document.getElementById('connect-btn');
             const connectBtnCompact = document.getElementById('connect-btn-compact');
-
-            if (connectBtn) {
-                connectBtn.textContent = 'Connect';
-                connectBtn.classList.remove('btn-danger');
-                connectBtn.classList.add('btn-primary');
-            }
-
             if (connectBtnCompact) {
                 connectBtnCompact.title = 'Connect';
                 connectBtnCompact.textContent = '⚡';
@@ -256,6 +188,69 @@ const ConnectionManager = {
             console.error('Disconnect error:', error);
             this.showError(error.message || 'Failed to disconnect');
         }
+    },
+
+    autoReconnect() {
+        // Check if auto-reconnect is enabled
+        if (!AppState.preferences.autoReconnect) {
+            console.log('Auto-reconnect disabled, not attempting reconnection');
+            return;
+        }
+
+        // Check if we've exceeded max attempts
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.log(`Auto-reconnect: Max attempts (${this.maxReconnectAttempts}) reached`);
+            if (window.TelescopeControls) {
+                TelescopeControls.showStatus('Reconnection failed after ' + this.maxReconnectAttempts + ' attempts', 'error');
+            }
+            this.reconnectAttempts = 0;
+            return;
+        }
+
+        // Clear any pending reconnect timeout
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
+
+        this.reconnectAttempts++;
+
+        // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+        const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts - 1), 32000);
+
+        console.log(`Auto-reconnect: Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay/1000}s`);
+
+        if (window.TelescopeControls) {
+            TelescopeControls.showStatus(`Reconnecting in ${delay/1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`, 'info');
+        }
+
+        this.reconnectTimeout = setTimeout(async () => {
+            console.log(`Auto-reconnect: Attempting reconnection (attempt ${this.reconnectAttempts})`);
+
+            try {
+                await this.connect();
+
+                // If successful, reset attempt counter
+                if (AppState.connection.isConnected) {
+                    console.log('Auto-reconnect: Successfully reconnected');
+                    if (window.TelescopeControls) {
+                        TelescopeControls.showStatus('Reconnected successfully', 'success');
+                    }
+                    this.reconnectAttempts = 0;
+                }
+            } catch (error) {
+                console.error('Auto-reconnect: Connection attempt failed:', error);
+                // Try again with next delay
+                this.autoReconnect();
+            }
+        }, delay);
+    },
+
+    cancelAutoReconnect() {
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        this.reconnectAttempts = 0;
     },
 
     updateStatus(state, text) {
@@ -270,9 +265,6 @@ const ConnectionManager = {
         if (compactLabel) {
             compactLabel.textContent = text;
         }
-
-        // Update modal if open
-        this.updateModalDisplay();
     },
 
     showError(message) {

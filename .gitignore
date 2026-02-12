@@ -185,9 +185,9 @@ cython_debug/
 .abstra/
 
 # Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
+#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
+#  and can be added to the global gitignore or merged into this file. However, if you prefer,
 #  you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 
@@ -217,8 +217,11 @@ logs/
 # Seestar device data
 Seestar/
 
-# PostgreSQL data directory
+# PostgreSQL data directory and runtime files
 pg_data/
+postgresql/
+postmaster.pid
+*.pid.lock
 
 # Test databases and temporary files
 host_catalog.db
@@ -226,6 +229,10 @@ host_catalog.db
 
 # Development scripts
 dev-*.sh
+
+# Docker compose backups
+docker-compose.yml.*.backup
+*.multi-container-backup
 
 # Test images and processing outputs
 *.jpg
@@ -244,3 +251,4 @@ processed_images/
 node_modules/
 package-lock.json
 test-results/
+seestar/

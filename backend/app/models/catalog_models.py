@@ -13,18 +13,20 @@ class DSOCatalog(Base):
     __tablename__ = "dso_catalog"
 
     id = Column(Integer, primary_key=True, index=True)
-    catalog_name = Column(String(10), nullable=False)  # NGC, IC
-    catalog_number = Column(Integer, nullable=False)
-    common_name = Column(String(100), nullable=True)  # M31, Andromeda Galaxy, etc.
+    catalog_name = Column(String(10), nullable=False, index=True)  # NGC, IC - indexed for search
+    catalog_number = Column(Integer, nullable=False, index=True)  # Indexed for search
+    common_name = Column(String(100), nullable=True, index=True)  # M31, Andromeda Galaxy, etc. - indexed for search
     caldwell_number = Column(Integer, nullable=True)  # Caldwell catalog number (1-109)
     ra_hours = Column(Float, nullable=False)  # Right ascension in hours
-    dec_degrees = Column(Float, nullable=False)  # Declination in degrees
-    object_type = Column(String(50), nullable=False)  # galaxy, nebula, cluster, etc.
-    magnitude = Column(Float, nullable=True)
+    dec_degrees = Column(Float, nullable=False, index=True)  # Declination in degrees - indexed for visibility queries
+    object_type = Column(
+        String(50), nullable=False, index=True
+    )  # galaxy, nebula, cluster, etc. - indexed for filtering
+    magnitude = Column(Float, nullable=True, index=True)  # Indexed for brightness filtering
     surface_brightness = Column(Float, nullable=True)
     size_major_arcmin = Column(Float, nullable=True)  # Major axis in arcminutes
     size_minor_arcmin = Column(Float, nullable=True)  # Minor axis in arcminutes
-    constellation = Column(String(3), nullable=True)  # Constellation abbreviation
+    constellation = Column(String(3), nullable=True, index=True)  # Constellation abbreviation - indexed for filtering
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -95,6 +97,27 @@ class AsteroidCatalog(Base):
     data_source = Column(String(50), nullable=True)  # Source of orbital elements
     notes = Column(Text, nullable=True)
 
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StarCatalog(Base):
+    """Star catalog table."""
+
+    __tablename__ = "star_catalog"
+
+    id = Column(Integer, primary_key=True, index=True)
+    catalog_name = Column(String(10), nullable=False, index=True)  # HIP, HD, HR, Bayer, Flamsteed
+    catalog_number = Column(String(20), nullable=False, index=True)  # Catalog identifier
+    common_name = Column(String(100), nullable=True, index=True)  # Polaris, Betelgeuse, etc.
+    bayer_designation = Column(String(20), nullable=True)  # α Umi, α Ori, etc.
+    flamsteed_number = Column(Integer, nullable=True)  # Flamsteed number
+    ra_hours = Column(Float, nullable=False)  # Right ascension in hours
+    dec_degrees = Column(Float, nullable=False, index=True)  # Declination in degrees
+    magnitude = Column(Float, nullable=True, index=True)  # Visual magnitude
+    spectral_type = Column(String(20), nullable=True)  # O5V, G2V, M1III, etc.
+    distance_ly = Column(Float, nullable=True)  # Distance in light years
+    constellation = Column(String(3), nullable=True, index=True)  # Constellation abbreviation
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -13,13 +13,14 @@ Environment variables:
     TELESCOPE_PORT: Port number (default: 4700)
 """
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, AsyncMock
-from app.main import app
-from app.clients.seestar_client import SeestarClient
-from app.api import routes
 
+from app.api import routes
+from app.clients.seestar_client import SeestarClient
+from app.main import app
 
 # ============================================================================
 # Fixtures
@@ -64,6 +65,7 @@ def mock_seestar_client(real_hardware, telescope_host, telescope_port):
     if real_hardware:
         # REAL HARDWARE MODE - Connect to actual telescope
         import asyncio
+
         print(f"\n🔴 REAL HARDWARE MODE: Connecting to telescope at {telescope_host}:{telescope_port}")
 
         client = SeestarClient()
@@ -95,33 +97,19 @@ def mock_seestar_client(real_hardware, telescope_host, telescope_port):
 
         # Mock all safe query methods with realistic data
         client.get_current_coordinates = AsyncMock(return_value={"ra": 10.684, "dec": 41.269})
-        client.get_app_state = AsyncMock(return_value={
-            "stage": "imaging",
-            "progress": 45.5,
-            "frame": 150,
-            "total_frames": 330,
-            "state": "stacking"
-        })
-        client.check_stacking_complete = AsyncMock(return_value={
-            "is_complete": False,
-            "total_frames": 330
-        })
-        client.get_view_plan_state = AsyncMock(return_value={
-            "current_target": "M31",
-            "progress": 35.5,
-            "state": "imaging"
-        })
-        client.get_plate_solve_result = AsyncMock(return_value={
-            "ra": 10.684,
-            "dec": 41.269,
-            "field_rotation": 45.2,
-            "pixel_scale": 1.6
-        })
-        client.get_field_annotations = AsyncMock(return_value={
-            "objects": [
-                {"name": "M31", "ra": 10.684, "dec": 41.269}
-            ]
-        })
+        client.get_app_state = AsyncMock(
+            return_value={"stage": "imaging", "progress": 45.5, "frame": 150, "total_frames": 330, "state": "stacking"}
+        )
+        client.check_stacking_complete = AsyncMock(return_value={"is_complete": False, "total_frames": 330})
+        client.get_view_plan_state = AsyncMock(
+            return_value={"current_target": "M31", "progress": 35.5, "state": "imaging"}
+        )
+        client.get_plate_solve_result = AsyncMock(
+            return_value={"ra": 10.684, "dec": 41.269, "field_rotation": 45.2, "pixel_scale": 1.6}
+        )
+        client.get_field_annotations = AsyncMock(
+            return_value={"objects": [{"name": "M31", "ra": 10.684, "dec": 41.269}]}
+        )
 
         yield client
 
@@ -200,8 +188,8 @@ class TestPlateSolvingEndpoints:
         # May return 200 with data or 500 if no solve available
         assert response.status_code in [200, 500]
         if response.status_code == 200:
-                data = response.json()
-                assert isinstance(data, dict)
+            data = response.json()
+            assert isinstance(data, dict)
 
     def test_get_field_annotations_when_connected(self, test_client):
         """Test GET /api/telescope/field-annotations returns identified objects."""
@@ -210,8 +198,8 @@ class TestPlateSolvingEndpoints:
         # May return 200 with data or 500 if no annotations available
         assert response.status_code in [200, 500]
         if response.status_code == 200:
-                data = response.json()
-                assert isinstance(data, dict)
+            data = response.json()
+            assert isinstance(data, dict)
 
 
 class TestEndpointAvailability:
@@ -231,8 +219,9 @@ class TestEndpointAvailability:
         # Routes.seestar_client is None by default when disconnected
         for endpoint in safe_endpoints:
             response = test_client_disconnected.get(endpoint)
-            assert response.status_code == 400, \
-                f"{endpoint} should return 400 when disconnected, got {response.status_code}"
+            assert (
+                response.status_code == 400
+            ), f"{endpoint} should return 400 when disconnected, got {response.status_code}"
             assert "not connected" in response.json()["detail"].lower()
 
 
@@ -247,10 +236,8 @@ class TestSafetyDocumentation:
     def test_safety_documentation_exists(self):
         """Verify SEESTAR-SAFETY-TESTING.md exists."""
         import os
-        safety_doc_path = os.path.join(
-            os.path.dirname(__file__),
-            "../../docs/SEESTAR-SAFETY-TESTING.md"
-        )
+
+        safety_doc_path = os.path.join(os.path.dirname(__file__), "../../docs/SEESTAR-SAFETY-TESTING.md")
         # Note: File will exist after this PR is committed
         # For now, we just document the requirement
         assert True, "SEESTAR-SAFETY-TESTING.md should exist"
@@ -258,9 +245,8 @@ class TestSafetyDocumentation:
     def test_view_plan_documentation_exists(self):
         """Verify VIEW-PLAN-CONFIGURATION.md exists."""
         import os
-        plan_doc_path = os.path.join(
-            os.path.dirname(__file__),
-            "../../../docs/seestar/VIEW-PLAN-CONFIGURATION.md"
-        )
-        assert os.path.exists(plan_doc_path), \
-            "VIEW-PLAN-CONFIGURATION.md must exist with complete plan_config documentation"
+
+        plan_doc_path = os.path.join(os.path.dirname(__file__), "../../../docs/seestar/VIEW-PLAN-CONFIGURATION.md")
+        assert os.path.exists(
+            plan_doc_path
+        ), "VIEW-PLAN-CONFIGURATION.md must exist with complete plan_config documentation"

@@ -30,15 +30,11 @@ const ExecutionManager = {
         }
 
         // Telescope control buttons
+        // Note: Park button is handled by telescope-controls.js
         const gotoBtn = document.getElementById('goto-target-btn');
-        const parkBtn = document.getElementById('park-telescope-btn');
 
         if (gotoBtn) {
             gotoBtn.addEventListener('click', () => this.gotoTarget());
-        }
-
-        if (parkBtn) {
-            parkBtn.addEventListener('click', () => this.parkTelescope());
         }
 
         // Imaging parameter changes
