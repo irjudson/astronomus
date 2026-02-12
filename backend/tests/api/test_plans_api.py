@@ -1808,6 +1808,7 @@ class TestEndToEndPlanWorkflow:
         list_response = client.get("/api/plans/")
         assert list_response.status_code == 200, f"GET /api/plans/ failed: {list_response.text}"
 
+    @pytest.mark.integration
     def test_generate_then_save_workflow(self, client: TestClient, override_get_db: Session):
         """
         Test the workflow: generate a plan, then save it.

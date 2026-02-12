@@ -169,6 +169,7 @@ class TestPlanEndpoint:
     """Test plan generation endpoint."""
 
     @pytest.mark.slow
+    @pytest.mark.integration
     def test_generate_plan_success(self, client, sample_plan_request):
         """Test successful plan generation."""
 
