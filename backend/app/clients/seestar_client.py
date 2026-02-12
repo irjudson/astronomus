@@ -530,7 +530,7 @@ class SeestarClient:
 
                 try:
                     # Send test_connection command (no params needed)
-                    response = await self._send_command("test_connection", timeout=5.0)
+                    await self._send_command("test_connection", timeout=5.0)
                     self.logger.debug("Heartbeat sent successfully")
                 except Exception as e:
                     self.logger.warning(f"Heartbeat failed: {e}")

@@ -46,6 +46,10 @@ def mock_seestar_client():
     client.status = SeestarStatus(connected=False, state=SeestarState.DISCONNECTED, firmware_version=None)
     client.connect = AsyncMock(return_value=True)
     client.disconnect = AsyncMock()
+    # Add async methods that are called by status endpoint
+    client.get_app_state = AsyncMock(return_value={"stage": "Idle"})
+    client.get_device_state = AsyncMock(return_value={"mount": {"close": False}})
+    client.get_current_coordinates = AsyncMock(return_value={"ra": 0.0, "dec": 0.0})
     return client
 
 

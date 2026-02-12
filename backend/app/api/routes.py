@@ -33,7 +33,6 @@ from app.models.settings_models import SeestarDevice
 from app.services.catalog_service import CatalogService
 from app.services.light_pollution_service import LightPollutionService
 from app.services.planner_service import PlannerService
-from app.services.rtmp_preview_service import get_preview_service
 
 router = APIRouter()
 
@@ -524,7 +523,7 @@ async def unified_search(
 
         # Parse object types filter
         if object_types:
-            enabled_types = set(t.strip().lower() for t in object_types.split(","))
+            enabled_types = {t.strip().lower() for t in object_types.split(",")}
         else:
             enabled_types = {"dso", "star", "planet"}
 
@@ -1190,7 +1189,7 @@ async def get_telescope_status():
 
         # Get current RA/Dec coordinates
         try:
-            coords = await seestar_client.get_current_coordinates()
+            await seestar_client.get_current_coordinates()
             # get_current_coordinates() updates internal status with current coordinates
         except Exception as e:
             print(f"[STATUS ENDPOINT] Failed to get coordinates: {e}")
@@ -2243,89 +2242,6 @@ async def get_sky_quality(lat: float, lon: float, location_name: str = Query("Un
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching sky quality: {str(e)}")
-
-
-@router.post("/telescope/preview/start")
-async def start_preview():
-    """
-    Start RTMP preview stream capture.
-
-    Returns:
-        Status message
-    """
-    try:
-        if seestar_client is None or not seestar_client.connected:
-            raise HTTPException(status_code=400, detail="Telescope not connected")
-
-        # Get telescope connection info
-        host = seestar_client.host
-        port = 4554  # Telephoto RTMP port
-
-        preview_service = get_preview_service(host=host, port=port)
-        preview_service.start()
-
-        return {"status": "started", "message": "Preview capture started", "stream_url": f"rtmp://{host}:{port}/live"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start preview: {str(e)}")
-
-
-@router.post("/telescope/preview/stop")
-async def stop_preview():
-    """
-    Stop RTMP preview stream capture.
-
-    Returns:
-        Status message
-    """
-    try:
-        preview_service = get_preview_service()
-        preview_service.stop()
-
-        return {"status": "stopped", "message": "Preview capture stopped"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to stop preview: {str(e)}")
-
-
-@router.get("/telescope/preview/latest")
-async def get_latest_preview():
-    """
-    Get the latest preview frame as JPEG.
-
-    Returns:
-        JPEG image
-    """
-    try:
-        preview_service = get_preview_service()
-        frame_jpeg = preview_service.get_latest_frame_jpeg(quality=85)
-
-        if frame_jpeg is None:
-            raise HTTPException(status_code=404, detail="No preview frame available")
-
-        from fastapi.responses import Response
-
-        return Response(content=frame_jpeg, media_type="image/jpeg")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get preview: {str(e)}")
-
-
-@router.get("/telescope/preview/info")
-async def get_preview_info():
-    """
-    Get information about the preview service and latest frame.
-
-    Returns:
-        Preview info
-    """
-    try:
-        preview_service = get_preview_service()
-        return preview_service.get_frame_info()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get preview info: {str(e)}")
 
 
 @router.post("/telescope/session/join")

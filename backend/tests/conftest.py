@@ -13,6 +13,65 @@ import pytest
 app_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(app_dir))
 
+
+# ==========================================
+# Astronomy Data Pre-loading Fixtures
+# ==========================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_astronomy_data():
+    """Pre-download ephemeris data and configure astropy for offline testing.
+
+    This fixture runs once per test session to:
+    1. Download de421.bsp ephemeris file (17MB) to avoid timeout issues
+    2. Disable automatic IERS data downloads from datacenter.iers.org
+    3. Cache data for all tests in the session
+    """
+    from pathlib import Path
+
+    # Configure Astropy to not download IERS data during tests
+    try:
+        from astropy.utils import iers
+
+        iers.conf.auto_download = False
+        iers.conf.auto_max_age = None
+        print("✓ Astropy IERS auto-download disabled")
+    except ImportError:
+        print("⚠ Astropy not available - IERS configuration skipped")
+
+    # Pre-download Skyfield ephemeris data
+    try:
+        from skyfield.api import load
+
+        # Create a persistent cache directory
+        cache_dir = Path.home() / ".skyfield-data"
+        cache_dir.mkdir(exist_ok=True)
+
+        # Configure loader to use cache
+        loader = load.Loader(str(cache_dir))
+
+        # Pre-download de421.bsp if not already cached
+        ephemeris_path = cache_dir / "de421.bsp"
+        if not ephemeris_path.exists():
+            print("Downloading ephemeris data (de421.bsp, ~17MB)...")
+            loader("de421.bsp")
+            print(f"✓ Ephemeris data cached at {ephemeris_path}")
+        else:
+            print(f"✓ Using cached ephemeris data from {ephemeris_path}")
+
+        # Also download timescale data
+        loader.timescale()
+
+    except Exception as e:
+        print(f"⚠ Warning: Could not pre-download ephemeris data: {e}")
+        print("  Tests requiring ephemeris may timeout")
+
+    yield
+
+    # No cleanup needed - keep cache for future test runs
+
+
 # Lazy-loaded database components (only initialized when needed)
 _test_engine = None
 _TestSessionLocal = None
