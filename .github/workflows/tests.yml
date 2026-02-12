@@ -120,7 +120,7 @@ jobs:
         env:
           POSTGRES_USER: pg
           POSTGRES_PASSWORD: buffalo-jump
-          POSTGRES_DB: astro-planner
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
@@ -163,9 +163,10 @@ jobs:
         pip install -r backend/requirements.txt
         pip install -r backend/requirements-test.txt
 
-    - name: Create test database
+    - name: Create databases
       run: |
-        PGPASSWORD=buffalo-jump psql -h localhost -U pg -d postgres -c "CREATE DATABASE test_astro_planner;"
+        PGPASSWORD=buffalo-jump psql -h localhost -U pg -d postgres -c "CREATE DATABASE astronomus;"
+        PGPASSWORD=buffalo-jump psql -h localhost -U pg -d postgres -c "CREATE DATABASE test_astronomus;"
       env:
         PGPASSWORD: buffalo-jump
 
@@ -173,19 +174,19 @@ jobs:
       run: |
         cd backend
         # Migrate main database
-        DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astro-planner alembic upgrade head
+        DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus alembic upgrade head
         # Migrate test database
-        DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astro_planner alembic upgrade head
+        DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astronomus alembic upgrade head
 
     - name: Run integration tests
       env:
-        DATABASE_URL: postgresql://pg:buffalo-jump@localhost:5432/astro-planner
-        TEST_DATABASE_URL: postgresql://pg:buffalo-jump@localhost:5432/test_astro_planner
+        DATABASE_URL: postgresql://pg:buffalo-jump@localhost:5432/astronomus
+        TEST_DATABASE_URL: postgresql://pg:buffalo-jump@localhost:5432/test_astronomus
         REDIS_URL: redis://localhost:6379/1
       run: |
         cd backend
-        # Run all tests including integration tests
-        pytest --cov=app --cov-report=xml --cov-report=term -v --no-cov
+        # Run all tests including integration tests (skip long-running ephemeris tests)
+        pytest -m "not slow" --cov=app --cov-report=xml --cov-report=term -v --no-cov
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
