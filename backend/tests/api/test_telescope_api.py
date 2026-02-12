@@ -41,15 +41,15 @@ def mock_telescope_service():
 @pytest.fixture
 def mock_seestar_client():
     """Create mock Seestar client."""
-    client = Mock(spec=SeestarClient)
+    client = AsyncMock(spec=SeestarClient)
     client.connected = False
     client.status = SeestarStatus(connected=False, state=SeestarState.DISCONNECTED, firmware_version=None)
-    client.connect = AsyncMock(return_value=True)
-    client.disconnect = AsyncMock()
+    client.connect.return_value = True
+    client.disconnect.return_value = None
     # Add async methods that are called by status endpoint
-    client.get_app_state = AsyncMock(return_value={"stage": "Idle"})
-    client.get_device_state = AsyncMock(return_value={"mount": {"close": False}})
-    client.get_current_coordinates = AsyncMock(return_value={"ra": 0.0, "dec": 0.0})
+    client.get_app_state.return_value = {"stage": "Idle"}
+    client.get_device_state.return_value = {"mount": {"close": False}}
+    client.get_current_coordinates.return_value = {"ra": 0.0, "dec": 0.0}
     return client
 
 
