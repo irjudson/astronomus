@@ -1,4 +1,4 @@
-# Multi-stage build for Astro Planner with CUDA support
+# Multi-stage build for Astro Planner with CUDA support - Single Container Edition
 # Using CUDA 13.0 for enhanced compute support
 FROM nvidia/cuda:13.0.0-devel-ubuntu22.04 AS base
 
@@ -9,7 +9,7 @@ ENV TZ=UTC
 # Set working directory
 WORKDIR /app
 
-# Install Python 3.11 and system dependencies
+# Install Python 3.11, PostgreSQL, Redis, and system dependencies
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
@@ -18,6 +18,10 @@ RUN apt-get update && apt-get install -y \
     python3.11-dev \
     python3.11-distutils \
     python3-pip \
+    postgresql-14 \
+    postgresql-client-14 \
+    redis-server \
+    sudo \
     gcc \
     g++ \
     curl \
@@ -26,6 +30,12 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libglib2.0-0 \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
@@ -55,27 +65,27 @@ COPY backend/alembic.ini ./alembic.ini
 COPY backend/alembic ./alembic
 COPY frontend ./frontend
 
-# Copy entrypoint script
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Copy startup script
+COPY docker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-# Create data directory (database will be initialized at runtime)
-RUN mkdir -p /app/data
+# Create directories for data and PostgreSQL
+RUN mkdir -p /app/data /var/log/postgresql
 
-# Expose port
-EXPOSE 9247
+# Allow passwordless sudo for postgres user (needed for startup script)
+RUN echo "postgres ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Expose ports (web API and PostgreSQL)
+EXPOSE 9247 5432
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV HOST=0.0.0.0
 ENV PORT=9247
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:9247/api/health || exit 1
+# Healthcheck - verify both PostgreSQL and web API
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD pg_isready -U pg -d astronomus && curl -f http://localhost:9247/api/health || exit 1
 
-# Set entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
-
-# Run the application
-CMD ["python3.11", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9247"]
+# Start PostgreSQL, Redis, Celery, and web application
+CMD ["/app/start.sh"]

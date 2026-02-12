@@ -780,9 +780,7 @@ async def stop_demo_mode(telescope: SeestarClient = Depends(get_current_telescop
 
 
 @router.get("/verification-status")
-async def check_verification_status(
-    telescope: SeestarClient = Depends(get_current_telescope)
-) -> Dict[str, Any]:
+async def check_verification_status(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
     """Check if client is verified with telescope."""
     try:
         is_verified = await telescope.check_client_verified()

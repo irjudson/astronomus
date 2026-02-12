@@ -87,7 +87,9 @@ const AppState = {
         longitude: null,
         elevation: null,
         defaultDeviceId: null,
-        autoConnect: true  // Auto-connect to default device on load
+        autoConnect: true,  // Auto-connect to default device on load
+        autoReconnect: true,  // Auto-reconnect if connection is lost
+        volume: 'backyard'  // Notification volume (silent/backyard/outdoor)
     },
 
     // Persist state to localStorage

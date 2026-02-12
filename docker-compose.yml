@@ -1,124 +1,84 @@
 services:
-  # Main API service
+  # Single container with PostgreSQL, Redis, Celery, and Web API
   astronomus:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    image: astronomus:latest
     container_name: astronomus
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       - "9247:9247"
     environment:
-      - DATABASE_URL=postgresql://pg:buffalo-jump@postgres:5432/astronomus
-      - TEST_DATABASE_URL=postgresql://pg:buffalo-jump@postgres:5432/test_astronomus
+      # PostgreSQL configuration for local database
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=pg
+      - POSTGRES_PASSWORD=buffalo-jump
+      - POSTGRES_DB=astronomus
+      # Database URLs for application
+      - DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus
+      - TEST_DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astronomus
+      # Redis and Celery configuration
+      - REDIS_URL=redis://:buffalo-jump@localhost:6379/1
+      - CELERY_BROKER_URL=redis://:buffalo-jump@localhost:6379/1
+      # Application configuration
       - HOST=0.0.0.0
       - PORT=9247
-      - RELOAD=False
+      - RELOAD=True
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY:-}
       - DEFAULT_LAT=${DEFAULT_LAT:-45.9183}
       - DEFAULT_LON=${DEFAULT_LON:--111.5433}
       - DEFAULT_ELEVATION=${DEFAULT_ELEVATION:-1234}
-      - REDIS_URL=redis://:buffalo-jump@redis:6379/1
+      - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-America/Denver}
+      - CELERY_TIMEZONE=${CELERY_TIMEZONE:-America/Denver}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
       - FITS_DIR=/fits
-    volumes:
-      - /mnt/seestar-s50:/fits:ro
-      - ./data:/app/data
-      - ./backend/secrets:/app/secrets:ro
-      - ./frontend:/app/frontend
-    networks:
-      - shared-infra
-
-
-
-  # Celery worker for background processing
-  celery-worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: astronomus-worker
-    runtime: nvidia
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
-    environment:
-      - REDIS_URL=redis://:buffalo-jump@redis:6379/1
-      - DATABASE_URL=postgresql://pg:buffalo-jump@postgres:5432/astronomus
-      - FITS_DIR=${FITS_DIR:-/fits}
+      # NVIDIA GPU configuration
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
-      - CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-mps
-      - DEFAULT_LAT=${DEFAULT_LAT:-45.9183}
-      - DEFAULT_LON=${DEFAULT_LON:--111.5433}
-      - DEFAULT_ELEVATION=${DEFAULT_ELEVATION:-1234}
-      - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-America/Denver}
-      - CELERY_TIMEZONE=${CELERY_TIMEZONE:-America/Denver}
-      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
     volumes:
-      - ./data:/app/data
+      # Mount PostgreSQL data for persistence
+      - astronomus-pgdata:/var/lib/postgresql/14/main
+      # Mount FITS files
       - /mnt/seestar-s50:/fits:rw
-      - /tmp/nvidia-mps:/tmp/nvidia-mps
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A app.tasks.celery_app inspect ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      - shared-infra
-
-  # Celery Beat scheduler for periodic tasks
-  celery-beat:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: astronomus-beat
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: celery -A app.tasks.celery_app beat --loglevel=info
-    environment:
-      - REDIS_URL=redis://:buffalo-jump@redis:6379/1
-      - DATABASE_URL=postgresql://pg:buffalo-jump@postgres:5432/astronomus
-      - DEFAULT_LAT=${DEFAULT_LAT:-45.9183}
-      - DEFAULT_LON=${DEFAULT_LON:--111.5433}
-      - DEFAULT_ELEVATION=${DEFAULT_ELEVATION:-1234}
-      - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-America/Denver}
-      - CELERY_TIMEZONE=${CELERY_TIMEZONE:-America/Denver}
-      - WEBHOOK_URL=${WEBHOOK_URL:-}
-    volumes:
+      # Mount application data
       - ./data:/app/data
+      - ./backend/secrets:/app/secrets:ro
+      # Development: mount source code for live reload
+      - ./backend/app:/app/app
+      - ./frontend:/app/frontend
+      # Mount MPS directories for GPU sharing
+      - /tmp/nvidia-mps:/tmp/nvidia-mps
+      - /tmp/nvidia-log:/tmp/nvidia-log
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks:
-      - shared-infra
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, compute, utility]
 
-  # Celery Flower for monitoring (optional)
+
+
+  # Flower for monitoring Celery (optional)
   flower:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    image: astronomus:latest
     container_name: astronomus-flower
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: celery -A app.tasks.celery_app flower --port=5555
+    command: celery -A app.tasks.celery_app flower --port=5555 --broker=redis://:buffalo-jump@localhost:6379/1
     ports:
       - "5555:5555"
     environment:
-      - REDIS_URL=redis://:buffalo-jump@redis:6379/1
+      - REDIS_URL=redis://:buffalo-jump@localhost:6379/1
+      - DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus
     restart: unless-stopped
-    networks:
-      - shared-infra
     profiles:
       - monitoring
+    network_mode: "service:astronomus"
 
-networks:
-  shared-infra:
-    external: true
-    name: shared-infra
-
-
+volumes:
+  astronomus-pgdata:

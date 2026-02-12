@@ -29,6 +29,7 @@ class SeestarState(Enum):
 
     DISCONNECTED = "disconnected"
     CONNECTED = "connected"
+    RECONNECTING = "reconnecting"  # Auto-reconnect in progress
     SLEWING = "slewing"
     TRACKING = "tracking"
     FOCUSING = "focusing"
@@ -36,6 +37,14 @@ class SeestarState(Enum):
     PARKING = "parking"
     PARKED = "parked"
     ERROR = "error"
+
+
+class MountMode(Enum):
+    """Mount coordinate system mode."""
+
+    ALTAZ = "altaz"  # Alt/Az mode (default, no equatorial init needed)
+    EQUATORIAL = "equatorial"  # Equatorial mode (requires initialization)
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -49,6 +58,8 @@ class SeestarStatus:
     current_target: Optional[str] = None
     firmware_version: Optional[str] = None
     is_tracking: bool = False
+    mount_mode: MountMode = MountMode.ALTAZ  # Default to alt/az
+    equatorial_initialized: bool = False  # Whether equatorial system is aligned/homed
     last_error: Optional[str] = None
     last_update: Optional[datetime] = None
 
@@ -152,10 +163,18 @@ class SeestarClient:
         self._command_id = 10000  # Start at 10000 like seestar_alp
         self._pending_responses: Dict[int, asyncio.Future] = {}
         self._receive_task: Optional[asyncio.Task] = None
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
         # State tracking
         self._status = SeestarStatus(connected=False, state=SeestarState.DISCONNECTED)
         self._operation_states: Dict[str, str] = {}
+
+        # Reconnection tracking (Android app style)
+        self._miss_time = 0  # Number of consecutive disconnects
+        self._last_miss_time = 0.0  # Timestamp of last disconnect
+        self._reconnect_delay = 0.3  # 300ms like Android app
+        self._max_retries = 3  # Up to 3 retries
+        self._reconnect_timeout = 60.0  # Reset counter after 60 seconds
 
         # Callbacks
         self._status_callback: Optional[Callable[[SeestarStatus], None]] = None
@@ -433,6 +452,9 @@ class SeestarClient:
             # Start receive task
             self._receive_task = asyncio.create_task(self._receive_loop())
 
+            # Start heartbeat task (keeps connection alive)
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
             self.logger.info("Connected to Seestar S50")
 
             # Load private key and authenticate for firmware 6.45+
@@ -463,6 +485,14 @@ class SeestarClient:
 
         self.logger.info("Disconnecting from Seestar")
 
+        # Cancel heartbeat task
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+
         # Cancel receive task
         if self._receive_task:
             self._receive_task.cancel()
@@ -484,6 +514,32 @@ class SeestarClient:
         self._update_status(connected=False, state=SeestarState.DISCONNECTED)
 
         self.logger.info("Disconnected from Seestar")
+
+    async def _heartbeat_loop(self) -> None:
+        """Background task to send heartbeat (test_connection) every 2 seconds.
+
+        Implements Android app's keepalive mechanism to prevent telescope from
+        timing out and closing the connection.
+        """
+        try:
+            while self._connected:
+                await asyncio.sleep(2.0)  # Every 2 seconds like Android app
+
+                if not self._connected:
+                    break
+
+                try:
+                    # Send test_connection command (no params needed)
+                    response = await self._send_command("test_connection", timeout=5.0)
+                    self.logger.debug("Heartbeat sent successfully")
+                except Exception as e:
+                    self.logger.warning(f"Heartbeat failed: {e}")
+                    # Don't break - let receive loop handle disconnect
+
+        except asyncio.CancelledError:
+            self.logger.debug("Heartbeat loop cancelled")
+        except Exception as e:
+            self.logger.error(f"Heartbeat loop error: {e}")
 
     async def _receive_loop(self) -> None:
         """Background task to receive and process messages from telescope."""
@@ -511,7 +567,56 @@ class SeestarClient:
             self._update_status(state=SeestarState.ERROR, last_error=str(e))
         finally:
             if self._connected:
-                await self.disconnect()
+                # Connection dropped - attempt auto-reconnect (Android app style)
+                await self._handle_disconnect_and_reconnect()
+
+    async def _handle_disconnect_and_reconnect(self) -> None:
+        """Handle disconnection and attempt auto-reconnect.
+
+        Implements Android app's reconnection logic:
+        - Up to 3 retries if within 60 seconds of last disconnect
+        - 300ms delay between retries
+        - Reset counter if > 60 seconds since last disconnect
+        """
+        import time
+
+        current_time = time.time()
+
+        # Check if > 60 seconds since last disconnect (reset counter)
+        if current_time - self._last_miss_time > self._reconnect_timeout:
+            self._miss_time = 0
+
+        self._last_miss_time = current_time
+
+        # Check if we should attempt reconnect
+        if self._miss_time >= self._max_retries:
+            self.logger.error(f"Max reconnection attempts ({self._max_retries}) reached")
+            await self.disconnect()
+            self._update_status(state=SeestarState.ERROR, last_error="Connection lost - max retries exceeded")
+            return
+
+        # Increment retry counter
+        self._miss_time += 1
+
+        self.logger.info(f"Attempting auto-reconnect ({self._miss_time}/{self._max_retries})...")
+        self._update_status(state=SeestarState.RECONNECTING)
+
+        # Disconnect cleanly first
+        await self.disconnect()
+
+        # Wait before reconnecting (300ms like Android app)
+        await asyncio.sleep(self._reconnect_delay)
+
+        # Attempt to reconnect
+        try:
+            if self._host:
+                await self.connect(self._host, self._port)
+                self.logger.info("Auto-reconnect successful!")
+                # Reset counter on successful reconnect
+                self._miss_time = 0
+        except Exception as e:
+            self.logger.error(f"Auto-reconnect failed: {e}")
+            # Don't reset miss_time - will retry on next disconnect if < max
 
     async def _handle_message(self, message: Dict[str, Any]) -> None:
         """Process received message from telescope.
@@ -849,10 +954,118 @@ class SeestarClient:
     # Telescope Control Commands
     # ========================================================================
 
+    async def scope_goto(self, ra_hours: float, dec_degrees: float) -> bool:
+        """Low-level mount goto command without starting viewing mode.
+
+        This uses the scope_goto command which moves the mount without
+        activating imaging or viewing mode. Useful for simple slewing.
+
+        Args:
+            ra_hours: Right ascension in decimal hours (0-24)
+            dec_degrees: Declination in decimal degrees (-90 to 90)
+
+        Returns:
+            True if goto initiated successfully
+
+        Raises:
+            CommandError: If goto command fails
+        """
+        self.logger.info(f"Scope goto: RA={ra_hours}h, Dec={dec_degrees}°")
+        print(f"[CLIENT PRINT] scope_goto called with RA={ra_hours}h, Dec={dec_degrees}°", flush=True)
+
+        params = [ra_hours, dec_degrees]
+        print(f"[CLIENT PRINT] Sending scope_goto with params: {params}", flush=True)
+        self._update_status(state=SeestarState.SLEWING)
+        response = await self._send_command("scope_goto", params)
+
+        print(f"[CLIENT PRINT] Raw telescope response: {response}", flush=True)
+
+        result = response.get("result", -1)
+        code = response.get("code", -1)
+
+        print(f"[CLIENT PRINT] Response result={result}, code={code}", flush=True)
+
+        if result == 0 and code == 0:
+            print("[CLIENT PRINT] scope_goto command ACCEPTED - telescope should be moving", flush=True)
+            return True
+        else:
+            error_msg = f"Goto failed with result={result}, code={code}"
+            self.logger.error(error_msg)
+            return False
+
+    async def initialize_equatorial_mode(self) -> bool:
+        """Initialize equatorial coordinate system.
+
+        Performs mount homing sequence to establish reference point for
+        equatorial tracking. Required before using iscope_start_view with
+        RA/Dec coordinates.
+
+        Returns:
+            True if initialization successful
+
+        Raises:
+            CommandError: If initialization fails
+        """
+        self.logger.info("Initializing equatorial mode...")
+        print("[CLIENT PRINT] Starting mount initialization (go home sequence)", flush=True)
+
+        try:
+            # Execute mount_go_home
+            response = await self._send_command("mount_go_home", {})
+
+            if response.get("code") == 0:
+                self.logger.info("Go home command accepted, waiting for completion...")
+                print("[CLIENT PRINT] Go home in progress (may take 30-60 seconds)...", flush=True)
+
+                # Wait for homing to complete (typically 30-60 seconds)
+                await asyncio.sleep(45)
+
+                # Mark as initialized
+                self._update_status(mount_mode=MountMode.EQUATORIAL, equatorial_initialized=True)
+                self.logger.info("Equatorial mode initialized successfully")
+                print("[CLIENT PRINT] Equatorial mode initialized!", flush=True)
+                return True
+            else:
+                error_msg = f"Go home failed: code={response.get('code')}"
+                self.logger.error(error_msg)
+                raise CommandError(error_msg)
+
+        except Exception as e:
+            self.logger.error(f"Equatorial initialization failed: {e}")
+            raise
+
+    async def set_mount_mode(self, mode: MountMode) -> bool:
+        """Set mount coordinate mode.
+
+        Args:
+            mode: Target mount mode (ALTAZ or EQUATORIAL)
+
+        Returns:
+            True if mode set successfully
+
+        Raises:
+            CommandError: If mode change fails or equatorial mode not initialized
+        """
+        self.logger.info(f"Setting mount mode to {mode.value}")
+
+        if mode == MountMode.EQUATORIAL:
+            if not self.status.equatorial_initialized:
+                self.logger.warning("Equatorial mode requested but not initialized")
+                raise CommandError(
+                    "Equatorial mode requires initialization. " "Call initialize_equatorial_mode() first."
+                )
+
+        self._update_status(mount_mode=mode)
+        return True
+
     async def goto_target(
         self, ra_hours: float, dec_degrees: float, target_name: str = "Target", use_lp_filter: bool = False
     ) -> bool:
         """Slew telescope to target and start viewing.
+
+        Automatically uses the appropriate slewing method based on current mount mode:
+        - ALTAZ mode: Converts RA/Dec to Alt/Az and uses move_to_horizon
+        - EQUATORIAL mode: Uses iscope_start_view with RA/Dec directly
 
         Args:
             ra_hours: Right ascension in decimal hours (0-24)
@@ -868,18 +1081,224 @@ class SeestarClient:
         """
         self.logger.info(f"Goto target: {target_name} at RA={ra_hours}h, Dec={dec_degrees}°")
 
-        params = {
-            "mode": "star",
-            "target_ra_dec": [ra_hours, dec_degrees],
-            "target_name": target_name,
-            "lp_filter": use_lp_filter,
-        }
+        print(
+            f"[CLIENT PRINT] goto_target called with RA={ra_hours}h, Dec={dec_degrees}°, target={target_name}",
+            flush=True,
+        )
+        print(f"[CLIENT PRINT] Current mount mode: {self.status.mount_mode.value}", flush=True)
 
-        self._update_status(state=SeestarState.SLEWING, current_target=target_name)
+        # CRITICAL: Cancel any active operations before movement
+        # Check if telescope is currently imaging/viewing
+        try:
+            view_state_response = await self._send_command("get_view_state", {})
+            view = view_state_response.get("result", {}).get("View", {})
+            view_status = view.get("state")
+            view_stage = view.get("stage")
+
+            print(f"[CLIENT PRINT] Current view state: {view_status}, stage: {view_stage}", flush=True)
+
+            # If actively imaging or viewing, cancel it
+            if view_status == "working" or view_stage in ["ContinuousExposure", "Stacking"]:
+                self.logger.warning(f"Canceling active {view_stage} before goto")
+                print(f"[CLIENT PRINT] Canceling active operation ({view_stage})...", flush=True)
+                try:
+                    await self._send_command("iscope_cancel_view", {})
+                    await asyncio.sleep(1)  # Give it time to cancel
+                    print("[CLIENT PRINT] ✓ Active operation canceled", flush=True)
+                except Exception as cancel_error:
+                    self.logger.warning(f"Cancel view failed (may be OK): {cancel_error}")
+        except Exception as e:
+            self.logger.warning(f"Could not check view state: {e}")
+
+        # CRITICAL: Ensure mount is in correct mode before movement
+        # Check actual device state, not just our internal state
+        device_state = await self.get_device_state()
+        mount = device_state.get("mount", {})
+        actual_equ_mode = mount.get("equ_mode", False)
+
+        print(f"[CLIENT PRINT] Device mount state: equ_mode={actual_equ_mode}", flush=True)
+
+        # If we want alt/az mode but device is in equatorial mode, fix it
+        if self.status.mount_mode == MountMode.ALTAZ and actual_equ_mode is True:
+            self.logger.warning("Device in equatorial mode but client wants alt/az - clearing polar alignment")
+            print("[CLIENT PRINT] Clearing polar alignment to enable alt/az movement...", flush=True)
+            try:
+                await self.clear_polar_alignment()
+                self.logger.info("Successfully switched to alt/az mode")
+                print("[CLIENT PRINT] ✓ Mount switched to alt/az mode", flush=True)
+            except Exception as e:
+                self.logger.error(f"Failed to clear polar alignment: {e}")
+                raise CommandError(f"Failed to switch mount to alt/az mode: {e}")
+
+        # If we want equatorial mode but mount not initialized, warn
+        elif self.status.mount_mode == MountMode.EQUATORIAL and not self.status.equatorial_initialized:
+            self.logger.warning("Equatorial mode requested but not initialized")
+            raise CommandError(
+                "Equatorial mode requires initialization. " "Call initialize_equatorial_mode() first or use ALTAZ mode."
+            )
+
+        # Use appropriate method based on mount mode
+        if self.status.mount_mode == MountMode.ALTAZ:
+            print("[CLIENT PRINT] Converting RA/Dec to Alt/Az for alt/az mount...", flush=True)
+
+            try:
+                # Get telescope location from device state
+                # TODO: Cache this or get from settings
+                from datetime import datetime
+
+                import astropy.units as u
+                from astropy.coordinates import AltAz, EarthLocation, SkyCoord
+                from astropy.time import Time
+
+                # Montana location (should get from telescope settings)
+                lat = 45.729
+                lon = -111.4857
+                elevation = 1300  # meters
+
+                # Convert RA/Dec to Alt/Az
+                coord = SkyCoord(ra=ra_hours * u.hourangle, dec=dec_degrees * u.deg, frame="icrs")
+                location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg, height=elevation * u.m)
+                obs_time = Time(datetime.utcnow())
+                altaz_frame = AltAz(obstime=obs_time, location=location)
+                altaz_coord = coord.transform_to(altaz_frame)
+
+                azimuth = altaz_coord.az.deg
+                altitude = altaz_coord.alt.deg
+
+                print(f"[CLIENT PRINT] Converted to Az={azimuth:.2f}°, Alt={altitude:.2f}°", flush=True)
+
+                # Check if target is above horizon
+                if altitude < 10:
+                    self.logger.warning(f"Target {target_name} is low (alt={altitude:.1f}°) - may not be visible")
+
+                # Use move_to_horizon which we know works in alt/az mode
+                print(f"[CLIENT PRINT] Calling move_to_horizon(az={azimuth:.2f}, alt={altitude:.2f})", flush=True)
+                self._update_status(state=SeestarState.SLEWING, current_target=target_name)
+                success = await self.move_to_horizon(azimuth=azimuth, altitude=altitude)
+
+                if success:
+                    print(f"[CLIENT PRINT] move_to_horizon succeeded - telescope moving to {target_name}", flush=True)
+                    return True
+                else:
+                    print("[CLIENT PRINT] move_to_horizon failed", flush=True)
+                    return False
+
+            except Exception as e:
+                self.logger.error(f"Coordinate conversion failed: {e}")
+                raise CommandError(f"Failed to convert coordinates: {e}")
+
+        else:
+            # Use iscope_start_view directly (for initialized equatorial mode)
+            # Same as official Seestar app - see StartGoToCmd.java line 99
+            print("[CLIENT PRINT] Using iscope_start_view for equatorial mode", flush=True)
+            params = {
+                "mode": "star",
+                "target_ra_dec": [ra_hours, dec_degrees],
+                "target_name": target_name,
+                "lp_filter": use_lp_filter,
+            }
+            print(f"[CLIENT PRINT] Sending iscope_start_view with params: {params}", flush=True)
+            self._update_status(state=SeestarState.SLEWING, current_target=target_name)
+            response = await self._send_command("iscope_start_view", params)
+
+            print(f"[CLIENT PRINT] Raw telescope response: {response}", flush=True)
+
+            # Check for error codes
+            result = response.get("result", -1)
+            code = response.get("code", -1)
+
+            print(f"[CLIENT PRINT] Response result={result}, code={code}", flush=True)
+
+            if result == 0 and code == 0:
+                print("[CLIENT PRINT] Goto command ACCEPTED - telescope should be moving", flush=True)
+                return True
+            else:
+                error_msg = f"Goto failed with result={result}, code={code}"
+                self.logger.error(f"[SLEW DIAGNOSTIC] {error_msg}")
+                # Common error codes from Seestar:
+                # 203 = telescope is moving
+                # 207 = fail to operate (mount not ready - needs homing/init)
+                # 259 = stack is already running
+                if code == 203:
+                    raise CommandError("Telescope is already moving - stop current operation first")
+                elif code == 207:
+                    raise CommandError(
+                        "Mount not ready - needs initialization (try use_altaz=True or run mount_go_home)"
+                    )
+                elif code == 259:
+                    raise CommandError("Imaging is active - stop imaging before slewing")
+                else:
+                    raise CommandError(error_msg)
+                return False
+
+    async def start_preview(self, mode: str = "scenery", brightness: float = 50.0) -> bool:
+        """Start preview/viewing mode without coordinates.
+
+        This enables RTMP streaming for various viewing modes without requiring
+        celestial coordinates. Useful for daytime viewing, testing, landscape,
+        moon, planet, or solar observation.
+
+        Args:
+            mode: Viewing mode - "scenery" (landscape), "moon", "planet", "sun", or "star"
+            brightness: Auto-exposure brightness target (0-100), default 50.0
+
+        Returns:
+            True if preview started successfully
+
+        Raises:
+            CommandError: If command fails
+
+        Note:
+            Based on decompiled Java code:
+            - StartVideoAction.java uses mode="scenery" for landscape
+            - StartMoonAction.java uses mode="moon"
+            - StartPlanetAction.java uses mode="planet"
+            - StartSunAction.java uses mode="sun"
+            RTMP stream will be available on ports 4554 (telephoto) and 4555 (wide angle)
+        """
+        self.logger.info(f"Starting preview mode={mode}, brightness={brightness}")
+
+        # Start view with specified mode (no target required for these modes)
+        params = {"mode": mode}
+
+        mode_labels = {
+            "scenery": "Landscape View",
+            "moon": "Moon",
+            "planet": "Planet",
+            "sun": "Sun",
+            "star": "Star Preview",
+        }
+        target_label = mode_labels.get(mode, f"{mode.title()} View")
+
+        self._update_status(state=SeestarState.TRACKING, current_target=target_label)
 
         response = await self._send_command("iscope_start_view", params)
 
-        self.logger.info(f"Goto response: {response}")
+        if response.get("result") == 0:
+            # Start RTMP stream for live video
+            # Based on StartAviRtmpCmd.java
+            try:
+                rtmp_params = {"name": f"{mode}_preview"}
+                rtmp_response = await self._send_command("start_avi_rtmp", rtmp_params)
+                if rtmp_response.get("code") == 0:
+                    self.logger.info("RTMP stream started successfully")
+                else:
+                    self.logger.warning(f"RTMP stream start returned code {rtmp_response.get('code')}")
+            except Exception as e:
+                self.logger.warning(f"Failed to start RTMP stream: {e}")
+                # Don't fail the whole operation if RTMP fails
+
+            # Optionally set auto-exposure brightness
+            # Based on SetSettingAEBrightCmd from Java code (though it returns error 109)
+            try:
+                await self._send_command(
+                    "set_setting", {"exp_ms": None, "target_brightness": brightness, "is_auto": True}
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to set AE brightness: {e}")
+                # Don't fail the whole operation if brightness setting fails
+
+        self.logger.info(f"Start preview response: {response}")
         return response.get("result") == 0
 
     async def start_imaging(self, restart: bool = True) -> bool:
@@ -961,11 +1380,15 @@ class SeestarClient:
         self.logger.info(f"Auto focus response: {response}")
         return response.get("result") == 0
 
-    async def park(self) -> bool:
-        """Park telescope at home position in equatorial mode.
+    async def park(self, equ_mode: bool = True) -> bool:
+        """Park telescope at home position.
 
         Uses the scope_park command which sets the telescope to its parked
-        position and switches to equatorial tracking mode.
+        position and switches tracking mode.
+
+        Args:
+            equ_mode: If True, park in equatorial mode. If False, park in alt/az mode.
+                     When False, automatically calls stop_polar_align first.
 
         Returns:
             True if park initiated successfully
@@ -973,14 +1396,113 @@ class SeestarClient:
         Raises:
             CommandError: If park command fails
         """
-        self.logger.info("Parking telescope")
+        mode_str = "equatorial" if equ_mode else "alt/az"
+        self.logger.info(f"Parking telescope in {mode_str} mode")
 
         self._update_status(state=SeestarState.PARKING)
 
-        # Park telescope in equatorial mode
-        response = await self._send_command("scope_park", {"equ_mode": True})
+        # Park telescope with specified mode
+        response = await self._send_command("scope_park", {"equ_mode": equ_mode})
 
         self.logger.info(f"Park response: {response}")
+        return response.get("result") == 0
+
+    async def is_equatorial_mode(self) -> bool:
+        """Check if telescope is in equatorial tracking mode.
+
+        Returns:
+            True if in equatorial mode, False if in alt/az mode
+
+        Raises:
+            CommandError: If unable to determine mode
+        """
+        try:
+            device_state = await self.get_device_state()
+            mount = device_state.get("mount", {})
+
+            # Check if mount has tracking mode indicator
+            # The exact field name may vary - checking common possibilities
+            is_equ = mount.get("is_equ", mount.get("equ_mode", mount.get("tracking_mode") == "equatorial"))
+
+            self.logger.debug(f"Mount mode check: is_equatorial={is_equ}, mount state={mount}")
+            return bool(is_equ)
+        except Exception as e:
+            self.logger.warning(f"Could not determine mount mode, assuming alt/az: {e}")
+            # Default to alt/az mode if we can't determine
+            return False
+
+    async def move_scope(
+        self, action: str, ra: Optional[float] = None, dec: Optional[float] = None, speed: Optional[float] = None
+    ) -> bool:
+        """Direct mount movement control.
+
+        Automatically detects mount mode (alt/az vs equatorial) and uses
+        appropriate coordinate system for directional movements.
+
+        Args:
+            action: Movement action - "slew", "stop", "abort", "up", "down", "left", "right"
+            ra: RA in hours (for slew action in equatorial mode)
+            dec: Dec in degrees (for slew action in equatorial mode)
+            speed: Movement speed multiplier for directional moves (default: 1.0)
+                   Examples: 0.5 = half speed (0.25°), 2.0 = double speed (1.0°)
+
+        Returns:
+            True if command successful
+
+        Raises:
+            CommandError: If move command fails
+            ValueError: If invalid action or missing coordinates for slew
+        """
+        valid_actions = ["slew", "stop", "abort", "up", "down", "left", "right"]
+        if action not in valid_actions:
+            raise ValueError(f"Invalid action '{action}'. Must be one of: {valid_actions}")
+
+        # Handle stop/abort actions directly
+        if action in ["stop", "abort"]:
+            self.logger.info(f"Scope move: {action}")
+            response = await self._send_command("scope_move", {"action": action})
+            self.logger.info(f"Scope move response: {response}")
+            return response.get("result") == 0
+
+        # Handle directional movement using scope_speed_move command
+        if action in ["up", "down", "left", "right"]:
+            # Map direction to angle (degrees)
+            # Based on empirical testing:
+            # 0° = increase azimuth (turn right/clockwise)
+            # 90° = increase altitude (tilt up)
+            # 180° = decrease azimuth (turn left/counter-clockwise)
+            # 270° = decrease altitude (tilt down)
+            direction_angles = {
+                "up": 90,  # Increase altitude
+                "down": 270,  # Decrease altitude
+                "right": 0,  # Increase azimuth
+                "left": 180,  # Decrease azimuth
+            }
+            angle = direction_angles[action]
+
+            # Speed multiplier maps to percent (0-100)
+            speed_multiplier = speed if speed is not None else 1.0
+            percent = int(min(100, max(1, speed_multiplier * 10)))  # 10% per speed unit, capped at 100
+            level = int(speed_multiplier)  # Use speed as level
+
+            self.logger.info(
+                f"Directional move {action}: angle={angle}°, percent={percent}%, level={level}, speed={speed_multiplier:.1f}x"
+            )
+
+            params = {"angle": angle, "percent": percent, "level": level, "dur_sec": 3}  # Duration in seconds
+
+            response = await self._send_command("scope_speed_move", params)
+            return response.get("result") == 0
+
+        # Handle explicit slew action with coordinates
+        else:
+            if ra is None or dec is None:
+                raise ValueError("RA and Dec required for slew action")
+            params = {"action": action, "ra": ra, "dec": dec}
+            self.logger.info(f"Scope move: {action} with params {params}")
+            response = await self._send_command("scope_move", params)
+
+        self.logger.info(f"Scope move response: {response}")
         return response.get("result") == 0
 
     async def get_device_state(self, keys: Optional[list] = None) -> Dict[str, Any]:
@@ -1006,6 +1528,13 @@ class SeestarClient:
             device = result["device"]
             if "firmware_ver_string" in device:
                 self._update_status(firmware_version=device["firmware_ver_string"])
+
+        # Check mount state to detect parked (arm closed)
+        if "mount" in result:
+            mount = result["mount"]
+            # mount.close=True means arm is closed/parked
+            if mount.get("close") is True:
+                self._update_status(state=SeestarState.PARKED)
 
         return result
 
@@ -1105,7 +1634,11 @@ class SeestarClient:
             self._update_status(state=SeestarState.FOCUSING)
         elif stage == "Stack":
             self._update_status(state=SeestarState.IMAGING)
-        elif stage == "Idle":
+        elif stage == "ScopeHome":
+            self._update_status(state=SeestarState.PARKING)
+        elif stage == "Idle" or stage is None:
+            # stage=None or "Idle" means telescope is idle/ready
+            # Will be overridden to PARKED by get_device_state if mount.close=True
             self._update_status(state=SeestarState.TRACKING)
 
         return result
@@ -1562,7 +2095,8 @@ class SeestarClient:
         Raises:
             CommandError: If query fails
         """
-        params = {"path": file_path} if file_path else {}
+        # Fixed: Parameter name is "name" not "path" (see GetImgFileInfoCmd.java line 47)
+        params = {"name": file_path} if file_path else {}
 
         response = await self._send_command("get_img_file_info", params)
 
@@ -1622,6 +2156,7 @@ class SeestarClient:
             CommandError: If move fails
         """
         self.logger.info(f"Moving to horizon: az={azimuth}°, alt={altitude}°")
+        print(f"[MOVE_TO_HORIZON] Called with az={azimuth}, alt={altitude}")
 
         params = {"azimuth": azimuth, "altitude": altitude}
 
@@ -1629,8 +2164,14 @@ class SeestarClient:
 
         response = await self._send_command("scope_move_to_horizon", params)
 
+        print(f"[MOVE_TO_HORIZON] Response: {response}")
+        print(f"[MOVE_TO_HORIZON] response.get('result'): {response.get('result')}")
+        print(f"[MOVE_TO_HORIZON] response.get('code'): {response.get('code')}")
+
         self.logger.info(f"Move to horizon response: {response}")
-        return response.get("result") == 0
+        success = response.get("result") == 0
+        print(f"[MOVE_TO_HORIZON] Returning: {success}")
+        return success
 
     async def reset_focuser_to_factory(self) -> bool:
         """Reset focuser to factory default position.
@@ -2294,18 +2835,33 @@ class SeestarClient:
         """Capture current preview frame (RTMP stream frame grab).
 
         Note: This method requires RTMP stream access on ports 4554/4555.
-        Currently returns empty bytes as RTMP handling requires additional dependencies.
 
         Returns:
-            Preview frame bytes (currently empty - RTMP support pending)
+            Preview frame bytes as JPEG
 
         Raises:
-            NotImplementedError: RTMP stream handling not yet implemented
+            ConnectionError: If RTMP stream not available
         """
-        self.logger.warning("Live preview via RTMP stream not yet implemented")
-        raise NotImplementedError(
-            "Live preview requires RTMP stream handling. " "Use get_stacked_image() for completed images instead."
-        )
+        from app.services.rtmp_preview_service import get_preview_service
+
+        # Get or create preview service (port 4554 is Seestar S50 RTMP port)
+        preview_service = get_preview_service(host=self._host or "192.168.2.47", port=4554)
+
+        # Start the service if not already running
+        if not preview_service.is_running:
+            preview_service.start()
+            # Give it a moment to connect and capture first frame
+            import asyncio
+
+            await asyncio.sleep(2.0)
+
+        # Get latest frame
+        frame_bytes = preview_service.get_latest_frame_jpeg(quality=85)
+
+        if frame_bytes is None:
+            raise ConnectionError("No preview frame available. RTMP stream may not be active.")
+
+        return frame_bytes
 
     async def _download_file(self, remote_path: str) -> bytes:
         """Download file from telescope via port 4801.

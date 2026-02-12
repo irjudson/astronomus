@@ -1,10 +1,13 @@
 """API routes for the Astro Planner."""
 
+import logging
 import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -30,6 +33,7 @@ from app.models.settings_models import SeestarDevice
 from app.services.catalog_service import CatalogService
 from app.services.light_pollution_service import LightPollutionService
 from app.services.planner_service import PlannerService
+from app.services.rtmp_preview_service import get_preview_service
 
 router = APIRouter()
 
@@ -487,6 +491,135 @@ async def list_caldwell_targets(
         raise HTTPException(status_code=500, detail=f"Error fetching Caldwell targets: {str(e)}")
 
 
+@router.get("/search/unified")
+async def unified_search(
+    db: Session = Depends(get_db),
+    query: str = Query(..., description="Search query (object name, catalog ID, or planet name)"),
+    object_types: Optional[str] = Query(
+        None, description="Comma-separated list of object types: dso, star, planet (default: all)"
+    ),
+    max_results: int = Query(20, description="Maximum results per type", ge=1, le=100),
+):
+    """
+    Unified search across all catalogs: DSOs, stars, and planets.
+
+    Search for celestial objects by name or catalog identifier across all available catalogs.
+    Returns results grouped by object type (DSOs, stars, planets).
+
+    Args:
+        query: Search query string
+        object_types: Filter by type (comma-separated: dso,star,planet)
+        max_results: Maximum results per object type
+
+    Returns:
+        Dict with keys: dsos, stars, planets (lists of matching objects)
+    """
+    try:
+        from sqlalchemy import func, or_
+
+        from app.models.catalog_models import DSOCatalog, StarCatalog
+        from app.services.planet_service import PlanetService
+
+        results = {"dsos": [], "stars": [], "planets": []}
+
+        # Parse object types filter
+        if object_types:
+            enabled_types = set(t.strip().lower() for t in object_types.split(","))
+        else:
+            enabled_types = {"dso", "star", "planet"}
+
+        search_pattern = f"%{query}%"
+
+        # Search DSOs
+        if "dso" in enabled_types:
+            dso_query = db.query(DSOCatalog).filter(
+                or_(
+                    DSOCatalog.common_name.ilike(search_pattern),
+                    func.concat(DSOCatalog.catalog_name, DSOCatalog.catalog_number).ilike(search_pattern),
+                )
+            )
+            dso_query = dso_query.order_by(DSOCatalog.magnitude.asc().nullslast())
+            dsos = dso_query.limit(max_results).all()
+
+            results["dsos"] = [
+                {
+                    "type": "dso",
+                    "name": dso.common_name or f"{dso.catalog_name}{dso.catalog_number}",
+                    "catalog_id": f"{dso.catalog_name}{dso.catalog_number}",
+                    "object_type": dso.object_type,
+                    "ra_hours": dso.ra_hours,
+                    "dec_degrees": dso.dec_degrees,
+                    "magnitude": dso.magnitude,
+                    "size_arcmin": dso.size_arcmin,
+                    "constellation": dso.constellation,
+                }
+                for dso in dsos
+            ]
+
+        # Search stars
+        if "star" in enabled_types:
+            star_query = db.query(StarCatalog).filter(
+                or_(
+                    StarCatalog.common_name.ilike(search_pattern),
+                    StarCatalog.bayer_designation.ilike(search_pattern),
+                    func.concat(StarCatalog.catalog_name, StarCatalog.catalog_number).ilike(search_pattern),
+                )
+            )
+            star_query = star_query.order_by(StarCatalog.magnitude.asc().nullslast())
+            stars = star_query.limit(max_results).all()
+
+            results["stars"] = [
+                {
+                    "type": "star",
+                    "name": star.common_name or star.bayer_designation or f"{star.catalog_name}{star.catalog_number}",
+                    "catalog_id": f"{star.catalog_name}{star.catalog_number}",
+                    "bayer_designation": star.bayer_designation,
+                    "ra_hours": star.ra_hours,
+                    "dec_degrees": star.dec_degrees,
+                    "magnitude": star.magnitude,
+                    "spectral_type": star.spectral_type,
+                    "constellation": star.constellation,
+                    "distance_ly": star.distance_ly,
+                }
+                for star in stars
+            ]
+
+        # Search planets
+        if "planet" in enabled_types:
+            planet_service = PlanetService()
+            all_planets = planet_service.get_all_planets()
+
+            # Filter planets by name match
+            matching_planets = [p for p in all_planets if query.lower() in p.name.lower()]
+
+            results["planets"] = [
+                {
+                    "type": "planet",
+                    "name": planet.name,
+                    "planet_type": planet.planet_type,
+                    "diameter_km": planet.diameter_km,
+                    "orbital_period_days": planet.orbital_period_days,
+                    "has_rings": planet.has_rings,
+                    "num_moons": planet.num_moons,
+                    "notes": planet.notes,
+                }
+                for planet in matching_planets[:max_results]
+            ]
+
+        # Count total results
+        total = len(results["dsos"]) + len(results["stars"]) + len(results["planets"])
+
+        return {
+            "query": query,
+            "total_results": total,
+            "results": results,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in unified search: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error searching catalogs: {str(e)}")
+
+
 @router.get("/catalog/search")
 async def search_catalog(
     db: Session = Depends(get_db),
@@ -494,6 +627,7 @@ async def search_catalog(
     type: Optional[str] = Query(None, description="Filter by object type"),
     constellation: Optional[str] = Query(None, description="Filter by constellation"),
     max_magnitude: Optional[float] = Query(None, description="Maximum magnitude (fainter limit)"),
+    visible_now: bool = Query(False, description="Only show targets visible now (altitude > 30°)"),
     sort_by: str = Query("name", description="Sort by: name, magnitude, or type"),
     page: int = Query(1, description="Page number (1-indexed)", ge=1),
     page_size: int = Query(20, description="Items per page", ge=1, le=100),
@@ -509,6 +643,7 @@ async def search_catalog(
         type: Object type filter (galaxy, nebula, cluster, etc.)
         constellation: Constellation filter (3-letter abbreviation)
         max_magnitude: Maximum magnitude filter
+        visible_now: Only show targets visible now (altitude > 30°)
         sort_by: Sort field (name, magnitude, type)
         page: Page number (1-indexed)
         page_size: Number of items per page
@@ -518,16 +653,23 @@ async def search_catalog(
     """
     try:
         import time
+        from datetime import datetime, timedelta
 
+        import pytz
         from sqlalchemy import func, or_
 
         from app.models.catalog_models import DSOCatalog
+        from app.models.models import DSOTarget, Location
+        from app.models.settings_models import ObservingLocation
+        from app.services.ephemeris_service import EphemerisService
 
         # Create cache key from query parameters
-        cache_key = f"catalog:{search}:{type}:{constellation}:{max_magnitude}:{sort_by}:{page}:{page_size}"
+        cache_key = (
+            f"catalog:{search}:{type}:{constellation}:{max_magnitude}:{visible_now}:{sort_by}:{page}:{page_size}"
+        )
 
-        # Check cache
-        if cache_key in catalog_cache:
+        # Check cache (skip cache for visible_now since it changes with time)
+        if not visible_now and cache_key in catalog_cache:
             cached_result, expiry = catalog_cache[cache_key]
             if time.time() < expiry:
                 return cached_result
@@ -551,7 +693,19 @@ async def search_catalog(
             query = query.filter(DSOCatalog.magnitude <= max_magnitude)
 
         # Apply search filter using SQL ILIKE for case-insensitive search
+        # If searching for specific object, check for exact match first
+        exact_match_objects = []
         if search:
+            # Check for exact matches (case-insensitive) - these bypass all filters
+            exact_query = db.query(DSOCatalog).filter(
+                or_(
+                    DSOCatalog.common_name.ilike(search),
+                    func.concat(DSOCatalog.catalog_name, DSOCatalog.catalog_number).ilike(search),
+                )
+            )
+            exact_match_objects = exact_query.all()
+
+            # Apply partial search filter for remaining results
             search_pattern = f"%{search}%"
             query = query.filter(
                 or_(
@@ -559,9 +713,6 @@ async def search_catalog(
                     func.concat(DSOCatalog.catalog_name, DSOCatalog.catalog_number).ilike(search_pattern),
                 )
             )
-
-        # Get total count BEFORE pagination (efficient - just counts, doesn't fetch rows)
-        total = query.count()
 
         # Apply sorting using SQL ORDER BY
         if sort_by == "magnitude":
@@ -571,9 +722,128 @@ async def search_catalog(
         else:  # name (default)
             query = query.order_by(DSOCatalog.catalog_name.asc(), DSOCatalog.catalog_number.asc())
 
-        # Apply pagination using SQL LIMIT/OFFSET
-        offset = (page - 1) * page_size
-        paginated_results = query.limit(page_size).offset(offset).all()
+        # Handle visibility filtering
+        if visible_now:
+            # Optimization: Sort by brightness and size first (using DB indexes),
+            # take top candidates, THEN calculate visibility for only those
+            # This is much faster than calculating visibility for all results
+
+            # Sort by magnitude (brightness) first to get best candidates
+            query = query.order_by(DSOCatalog.magnitude.asc().nullslast())
+
+            # Get top candidates for visibility checking
+            # Check top 100 brightest to have good chance of finding visible ones
+            # This is still fast (< 1 second) and much better than checking all results
+            candidate_limit = max(100, page_size * 10)
+            candidates = query.limit(candidate_limit).all()
+
+            # Get default location for visibility calculations
+            default_location_db = db.query(ObservingLocation).filter(ObservingLocation.is_default == True).first()
+            if not default_location_db:
+                raise HTTPException(status_code=400, detail="No default location configured for visibility filtering")
+
+            # Create Location object for ephemeris calculations
+            location = Location(
+                name=default_location_db.name,
+                latitude=default_location_db.latitude,
+                longitude=default_location_db.longitude,
+                elevation=default_location_db.elevation,
+                timezone=default_location_db.timezone,
+            )
+
+            # Initialize ephemeris service
+            ephemeris = EphemerisService()
+            current_time = datetime.now(pytz.timezone(location.timezone))
+
+            # Check if sun is up - if so, calculate for tonight instead of now
+            from skyfield.api import wgs84
+
+            observer = ephemeris.earth + wgs84.latlon(
+                location.latitude, location.longitude, elevation_m=location.elevation
+            )
+            t = ephemeris.ts.from_datetime(current_time.astimezone(pytz.UTC))
+            sun_apparent = observer.at(t).observe(ephemeris.sun).apparent()
+            sun_alt, _, _ = sun_apparent.altaz()
+
+            # If sun is above -18° (before astronomical twilight), use tonight's observing time
+            if sun_alt.degrees > -18.0:
+                # Calculate tonight's astronomical twilight
+                twilight_times = ephemeris.calculate_twilight_times(location, current_time)
+                # Use astronomical twilight end (when deep sky observing starts)
+                if "astronomical_twilight_end" in twilight_times:
+                    observing_time = twilight_times["astronomical_twilight_end"]
+                else:
+                    # Fallback to 2 hours after sunset
+                    observing_time = twilight_times.get("sunset", current_time) + timedelta(hours=2)
+            else:
+                # It's already dark, use current time
+                observing_time = current_time
+
+            # Filter candidates by visibility (altitude > 30°)
+            # Calculate visibility score for final sorting
+            visible_results = []  # List of tuples: (dso, visibility_score)
+            for dso in candidates:
+                # Create DSOTarget for ephemeris calculation
+                # Use defaults for None values (99.0 for magnitude = very faint, 1.0 for size)
+                target = DSOTarget(
+                    catalog_id=f"{dso.catalog_name}{dso.catalog_number}",
+                    name=dso.common_name or f"{dso.catalog_name} {dso.catalog_number}",
+                    ra_hours=dso.ra_hours,
+                    dec_degrees=dso.dec_degrees,
+                    object_type=dso.object_type,
+                    magnitude=dso.magnitude if dso.magnitude is not None else 99.0,
+                    size_arcmin=dso.size_major_arcmin if dso.size_major_arcmin is not None else 1.0,
+                )
+
+                # Calculate altitude at observing time (current time or tonight's twilight)
+                try:
+                    altitude, _ = ephemeris.calculate_position(target, location, observing_time)
+                    if altitude > 30.0:  # Minimum altitude threshold
+                        # Calculate visibility score (lower is better):
+                        # - Brighter objects (lower magnitude) are better
+                        # - Bigger objects are better (subtract size bonus)
+                        # - Higher altitude is better (subtract altitude bonus)
+                        magnitude = dso.magnitude if dso.magnitude is not None else 99.0
+                        size = dso.size_major_arcmin if dso.size_major_arcmin is not None else 0.0
+                        visibility_score = magnitude - (size / 10.0) - (altitude / 20.0)
+                        visible_results.append((dso, visibility_score))
+                except Exception:
+                    # Skip targets that fail calculation
+                    continue
+
+            # Sort by visibility score (lower = more visible)
+            visible_results.sort(key=lambda x: x[1])
+
+            # Extract just the DSO objects (drop the scores)
+            visible_dsos = [dso for dso, score in visible_results]
+
+            # Prepend exact matches even if not visible (user specifically searched for them)
+            if exact_match_objects:
+                exact_ids = {obj.id for obj in exact_match_objects}
+                visible_dsos = [obj for obj in visible_dsos if obj.id not in exact_ids]
+                visible_dsos = exact_match_objects + visible_dsos
+
+            # Use filtered results for pagination
+            total = len(visible_dsos)
+            offset = (page - 1) * page_size
+            paginated_results = visible_dsos[offset : offset + page_size]
+        else:
+            # Get total count BEFORE pagination (efficient - just counts, doesn't fetch rows)
+            total = query.count()
+
+            # Apply pagination using SQL LIMIT/OFFSET
+            offset = (page - 1) * page_size
+            paginated_results = query.limit(page_size).offset(offset).all()
+
+        # Prepend exact matches to results (they bypass all filters)
+        if exact_match_objects:
+            # Remove exact matches from paginated_results to avoid duplicates
+            exact_ids = {obj.id for obj in exact_match_objects}
+            paginated_results = [obj for obj in paginated_results if obj.id not in exact_ids]
+            # Add exact matches at the beginning
+            paginated_results = exact_match_objects + paginated_results
+            # Limit to page_size
+            paginated_results = paginated_results[:page_size]
 
         # Convert ONLY the paginated results to response format
         catalog_service = CatalogService(db)
@@ -905,11 +1175,28 @@ async def get_telescope_status():
         }
 
     try:
-        # Actively poll telescope to keep connection alive
-        # This sends get_device_state command which acts as a keepalive
-        await seestar_client.get_device_state()
+        # Actively poll telescope to keep connection alive and sync state
+        # This sends iscope_get_app_state command which updates internal state
+        # based on telescope's actual stage (AutoGoto, AutoFocus, Stack, Idle, ScopeHome, etc.)
+        app_state = await seestar_client.get_app_state()
+        print(f"[STATUS ENDPOINT] app_state stage: {app_state.get('stage')}")
+
+        # Also check device state to detect parked (mount.close=True)
+        # This is important for detecting state on connect or if parked via Seestar app
+        device_state = await seestar_client.get_device_state()
+        mount = device_state.get("mount", {})
+        print(f"[STATUS ENDPOINT] mount.close: {mount.get('close')}")
+        print(f"[STATUS ENDPOINT] mount state: {mount}")
+
+        # Get current RA/Dec coordinates
+        try:
+            coords = await seestar_client.get_current_coordinates()
+            # get_current_coordinates() updates internal status with current coordinates
+        except Exception as e:
+            print(f"[STATUS ENDPOINT] Failed to get coordinates: {e}")
 
         status = seestar_client.status
+        print(f"[STATUS ENDPOINT] internal state: {status.state.value if status.state else 'unknown'}")
 
         return {
             "connected": status.connected,
@@ -1106,21 +1393,27 @@ async def unpark_telescope():
     """
     Unpark/open telescope and make ready for observing.
 
+    For Seestar S50, unparking is done by moving to horizon position
+    at azimuth=180° (south), altitude=45° to open the arm and prepare
+    for observation.
+
     Returns:
         Unpark status
     """
+    print(f"[UNPARK ENDPOINT] Called. seestar_client is None: {seestar_client is None}")
+    if seestar_client:
+        print(f"[UNPARK ENDPOINT] seestar_client.connected: {seestar_client.connected}")
+
     try:
         if seestar_client is None or not seestar_client.connected:
+            print("[UNPARK ENDPOINT] ERROR: Telescope not connected")
             raise HTTPException(status_code=400, detail="Telescope not connected")
 
-        # Call unpark if available, otherwise try to wake up the telescope
-        if hasattr(seestar_client, "unpark"):
-            success = await seestar_client.unpark()
-        else:
-            # Fallback: Some telescopes might not have explicit unpark
-            # For Seestar, we can issue a status check which wakes it up
-            status = seestar_client.status
-            success = status.connected
+        print("[UNPARK ENDPOINT] Calling move_to_horizon(azimuth=180.0, altitude=45.0)")
+        # Unpark Seestar by moving to horizon position (south, 45° altitude)
+        # This opens the telescope arm and makes it ready for observing
+        success = await seestar_client.move_to_horizon(azimuth=180.0, altitude=45.0)
+        print(f"[UNPARK ENDPOINT] move_to_horizon returned: {success}")
 
         if success:
             return {"status": "active", "message": "Telescope unparked and ready"}
@@ -1129,6 +1422,10 @@ async def unpark_telescope():
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[UNPARK ENDPOINT] Exception: {e}")
+        import traceback
+
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Unpark failed: {str(e)}")
 
 
@@ -1156,6 +1453,83 @@ async def park_telescope():
         raise HTTPException(status_code=500, detail=f"Park failed: {str(e)}")
 
 
+@router.post("/telescope/switch-mode")
+async def switch_telescope_mode(request: dict):
+    """
+    Switch telescope between equatorial and alt/az tracking modes.
+
+    This parks the telescope and switches the tracking mode. When switching to
+    alt/az mode, it automatically calls stop_polar_align first.
+
+    Args:
+        request: JSON with mode parameter
+            - mode: "equatorial" or "altaz"
+
+    Returns:
+        Mode switch status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        mode = request.get("mode", "").lower()
+        if mode not in ["equatorial", "altaz"]:
+            raise HTTPException(status_code=400, detail="Invalid mode. Use 'equatorial' or 'altaz'")
+
+        equ_mode = mode == "equatorial"
+
+        # Park with the specified mode
+        success = await seestar_client.park(equ_mode=equ_mode)
+
+        if success:
+            return {"status": "success", "message": f"Switched to {mode} mode and parking", "mode": mode}
+        else:
+            return {"status": "error", "message": "Failed to switch mode"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Mode switch failed: {str(e)}")
+
+
+@router.post("/telescope/move")
+async def move_telescope(request: dict):
+    """
+    Direct mount movement control.
+
+    Args:
+        request: JSON with movement parameters
+            - action: Movement direction ("up", "down", "left", "right", "stop")
+            - speed: Optional movement speed
+
+    Returns:
+        Movement status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        action = request.get("action")
+        speed = request.get("speed")
+
+        if not action:
+            raise HTTPException(status_code=400, detail="Missing action parameter")
+
+        valid_actions = ["up", "down", "left", "right", "stop", "abort"]
+        if action not in valid_actions:
+            raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of: {valid_actions}")
+
+        success = await seestar_client.move_scope(action=action, speed=speed)
+
+        if success:
+            return {"status": "moving" if action not in ["stop", "abort"] else "stopped", "action": action}
+        else:
+            return {"status": "error", "message": f"Failed to execute movement action: {action}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Move failed: {str(e)}")
+
+
 @router.post("/telescope/goto")
 async def goto_coordinates(request: dict):
     """
@@ -1167,26 +1541,42 @@ async def goto_coordinates(request: dict):
     Returns:
         Goto status
     """
+    print("[SLEW PRINT] Function entry - goto_coordinates called", flush=True)
     try:
+        print(f"[SLEW PRINT] Request data: {request}", flush=True)
+
+        print(f"[SLEW PRINT] Checking client connection - client is None: {seestar_client is None}", flush=True)
+        if seestar_client is not None:
+            print(f"[SLEW PRINT] Client connected: {seestar_client.connected}", flush=True)
+
         if seestar_client is None or not seestar_client.connected:
+            print("[SLEW PRINT] ERROR: Telescope not connected", flush=True)
             raise HTTPException(status_code=400, detail="Telescope not connected")
 
         ra = request.get("ra")
         dec = request.get("dec")
         target_name = request.get("target_name", "Manual Target")
 
+        print(f"[SLEW PRINT] Extracted - RA: {ra}, Dec: {dec}, Target: {target_name}", flush=True)
+
         if ra is None or dec is None:
+            print("[SLEW PRINT] ERROR: Missing RA or Dec", flush=True)
             raise HTTPException(status_code=400, detail="Must provide ra and dec coordinates")
 
+        print("[SLEW PRINT] About to call goto_target", flush=True)
         success = await seestar_client.goto_target(ra, dec, target_name)
+        print(f"[SLEW PRINT] goto_target returned: {success}", flush=True)
 
         if success:
+            print("[SLEW PRINT] Returning success response", flush=True)
             return {"status": "slewing", "message": f"Slewing to RA={ra}, Dec={dec}"}
         else:
+            print("[SLEW PRINT] goto_target returned False, returning error", flush=True)
             return {"status": "error", "message": "Failed to start goto"}
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"[SLEW DIAGNOSTIC] Exception in goto_coordinates: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Goto failed: {str(e)}")
 
 
@@ -1265,6 +1655,120 @@ async def stop_imaging():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop imaging failed: {str(e)}")
+
+
+@router.post("/telescope/start-preview")
+async def start_preview(request: dict = None):
+    """
+    Start preview/viewing mode without coordinates.
+
+    Supports various viewing modes for terrestrial, solar system, and deep sky objects
+    without requiring specific coordinates. Enables RTMP streaming.
+
+    Args:
+        request: {
+            "mode": str (optional) - "scenery", "moon", "planet", "sun", or "star" (default: "scenery")
+            "brightness": float (optional, 0-100, default 50.0)
+        }
+
+    Returns:
+        Preview status with RTMP port information
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        mode = "scenery" if request is None else request.get("mode", "scenery")
+        brightness = 50.0 if request is None else request.get("brightness", 50.0)
+
+        # Validate mode
+        valid_modes = ["scenery", "moon", "planet", "sun", "star"]
+        if mode not in valid_modes:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid mode '{mode}'. Must be one of: {', '.join(valid_modes)}"
+            )
+
+        success = await seestar_client.start_preview(mode=mode, brightness=brightness)
+
+        if success:
+            mode_descriptions = {
+                "scenery": "Landscape view",
+                "moon": "Moon viewing",
+                "planet": "Planet viewing",
+                "sun": "Solar viewing",
+                "star": "Star preview",
+            }
+            return {
+                "status": "preview_started",
+                "mode": mode,
+                "message": f"{mode_descriptions.get(mode, 'Preview')} started - RTMP stream available",
+                "rtmp_url": "rtmp://192.168.2.47:4554",
+            }
+        else:
+            return {"status": "error", "message": f"Failed to start {mode} preview"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Start preview failed: {str(e)}")
+
+
+@router.get("/telescope/live-preview")
+async def get_live_preview():
+    """
+    Get live RTMP preview frame from telescope.
+
+    This endpoint captures a frame from the telescope's RTMP stream.
+    Requires that a preview mode is active (scenery, moon, planet, sun, or star).
+
+    Returns:
+        JPEG image bytes from RTMP stream
+    """
+    from fastapi.responses import Response
+
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        # Get live preview frame from RTMP stream
+        frame_bytes = await seestar_client.get_live_preview()
+
+        # Return as JPEG image
+        return Response(content=frame_bytes, media_type="image/jpeg")
+
+    except ConnectionError as e:
+        raise HTTPException(
+            status_code=503, detail=f"RTMP stream not available. Start a preview mode first. ({str(e)})"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Live preview failed: {str(e)}")
+
+
+@router.get("/telescope/preview-info")
+async def get_preview_info():
+    """
+    Get information about the current RTSP preview stream.
+
+    Returns frame dimensions, timestamp, and availability status.
+    Useful for debugging aspect ratio and video display issues.
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        from app.services.rtmp_preview_service import get_preview_service
+
+        preview_service = get_preview_service(host=seestar_client._host or "192.168.2.47", port=4554)
+
+        frame_info = preview_service.get_frame_info()
+        return frame_info
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Preview info error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get preview info: {str(e)}")
 
 
 @router.get("/telescope/preview")
@@ -1739,6 +2243,171 @@ async def get_sky_quality(lat: float, lon: float, location_name: str = Query("Un
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching sky quality: {str(e)}")
+
+
+@router.post("/telescope/preview/start")
+async def start_preview():
+    """
+    Start RTMP preview stream capture.
+
+    Returns:
+        Status message
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        # Get telescope connection info
+        host = seestar_client.host
+        port = 4554  # Telephoto RTMP port
+
+        preview_service = get_preview_service(host=host, port=port)
+        preview_service.start()
+
+        return {"status": "started", "message": "Preview capture started", "stream_url": f"rtmp://{host}:{port}/live"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start preview: {str(e)}")
+
+
+@router.post("/telescope/preview/stop")
+async def stop_preview():
+    """
+    Stop RTMP preview stream capture.
+
+    Returns:
+        Status message
+    """
+    try:
+        preview_service = get_preview_service()
+        preview_service.stop()
+
+        return {"status": "stopped", "message": "Preview capture stopped"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop preview: {str(e)}")
+
+
+@router.get("/telescope/preview/latest")
+async def get_latest_preview():
+    """
+    Get the latest preview frame as JPEG.
+
+    Returns:
+        JPEG image
+    """
+    try:
+        preview_service = get_preview_service()
+        frame_jpeg = preview_service.get_latest_frame_jpeg(quality=85)
+
+        if frame_jpeg is None:
+            raise HTTPException(status_code=404, detail="No preview frame available")
+
+        from fastapi.responses import Response
+
+        return Response(content=frame_jpeg, media_type="image/jpeg")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get preview: {str(e)}")
+
+
+@router.get("/telescope/preview/info")
+async def get_preview_info():
+    """
+    Get information about the preview service and latest frame.
+
+    Returns:
+        Preview info
+    """
+    try:
+        preview_service = get_preview_service()
+        return preview_service.get_frame_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get preview info: {str(e)}")
+
+
+@router.post("/telescope/session/join")
+async def join_remote_session(request: dict):
+    """
+    Join a remote observation session (multi-client control).
+
+    Args:
+        request: JSON with session parameters
+            - session_id: Optional session identifier
+
+    Returns:
+        Join status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        session_id = request.get("session_id", "")
+        success = await seestar_client.join_remote_session(session_id)
+
+        if success:
+            return {"status": "joined", "message": "Joined remote session", "session_id": session_id}
+        else:
+            return {"status": "error", "message": "Failed to join remote session"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Join session failed: {str(e)}")
+
+
+@router.post("/telescope/session/leave")
+async def leave_remote_session():
+    """
+    Leave the current remote observation session.
+
+    Returns:
+        Leave status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.leave_remote_session()
+
+        if success:
+            return {"status": "left", "message": "Left remote session"}
+        else:
+            return {"status": "error", "message": "Failed to leave remote session"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Leave session failed: {str(e)}")
+
+
+@router.post("/telescope/session/disconnect")
+async def disconnect_remote_client(request: dict = None):
+    """
+    Disconnect a remote client from the session.
+
+    Args:
+        request: JSON with client parameters
+            - client_id: Optional client identifier
+
+    Returns:
+        Disconnect status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        client_id = request.get("client_id", "") if request else ""
+        success = await seestar_client.disconnect_remote_client(client_id)
+
+        if success:
+            return {"status": "disconnected", "message": "Remote client disconnected"}
+        else:
+            return {"status": "error", "message": "Failed to disconnect remote client"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Disconnect client failed: {str(e)}")
 
 
 @router.get("/health")

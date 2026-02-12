@@ -75,6 +75,22 @@ const PreferencesManager = {
                 this.updateAutoConnect(e.target.checked);
             });
         }
+
+        // Auto-reconnect toggle
+        const autoReconnectToggle = document.getElementById('auto-reconnect-toggle');
+        if (autoReconnectToggle) {
+            autoReconnectToggle.addEventListener('change', (e) => {
+                this.updateAutoReconnect(e.target.checked);
+            });
+        }
+
+        // Volume select
+        const volumeSelect = document.getElementById('volume-select');
+        if (volumeSelect) {
+            volumeSelect.addEventListener('change', (e) => {
+                this.updateVolume(e.target.value);
+            });
+        }
     },
 
     openSettings() {
@@ -106,6 +122,8 @@ const PreferencesManager = {
                 AppState.preferences.units = prefs.units || 'metric';
                 AppState.preferences.defaultDeviceId = prefs.default_device_id;
                 AppState.preferences.autoConnect = prefs.auto_connect !== undefined ? prefs.auto_connect : true;
+                AppState.preferences.autoReconnect = prefs.auto_reconnect !== undefined ? prefs.auto_reconnect : true;
+                AppState.preferences.volume = prefs.volume || 'backyard';
 
                 // Update form fields
                 const unitsToggle = document.getElementById('units-toggle');
@@ -113,9 +131,19 @@ const PreferencesManager = {
                     unitsToggle.value = prefs.units || 'metric';
                 }
 
+                const volumeSelect = document.getElementById('volume-select');
+                if (volumeSelect) {
+                    volumeSelect.value = AppState.preferences.volume;
+                }
+
                 const autoConnectToggle = document.getElementById('auto-connect-toggle');
                 if (autoConnectToggle) {
                     autoConnectToggle.checked = AppState.preferences.autoConnect;
+                }
+
+                const autoReconnectToggle = document.getElementById('auto-reconnect-toggle');
+                if (autoReconnectToggle) {
+                    autoReconnectToggle.checked = AppState.preferences.autoReconnect;
                 }
 
                 const latInput = document.getElementById('settings-latitude');
@@ -269,7 +297,9 @@ const PreferencesManager = {
                     elevation,
                     units: AppState.preferences.units,
                     default_device_id: AppState.preferences.defaultDeviceId,
-                    auto_connect: AppState.preferences.autoConnect
+                    auto_connect: AppState.preferences.autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    volume: AppState.preferences.volume
                 })
             });
 
@@ -309,7 +339,9 @@ const PreferencesManager = {
                     elevation: AppState.preferences.elevation,
                     units: AppState.preferences.units,
                     default_device_id: deviceIdInt,
-                    auto_connect: AppState.preferences.autoConnect
+                    auto_connect: AppState.preferences.autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    volume: AppState.preferences.volume
                 })
             });
         } catch (error) {
@@ -331,7 +363,9 @@ const PreferencesManager = {
                     elevation: AppState.preferences.elevation,
                     units: units,
                     default_device_id: AppState.preferences.defaultDeviceId,
-                    auto_connect: AppState.preferences.autoConnect
+                    auto_connect: AppState.preferences.autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    volume: AppState.preferences.volume
                 })
             });
         } catch (error) {
@@ -363,13 +397,69 @@ const PreferencesManager = {
                     elevation: AppState.preferences.elevation,
                     units: AppState.preferences.units,
                     default_device_id: AppState.preferences.defaultDeviceId,
-                    auto_connect: autoConnect
+                    auto_connect: autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    volume: AppState.preferences.volume
                 })
             });
 
             console.log('Auto-connect preference saved:', autoConnect);
         } catch (error) {
             console.error('Failed to save auto-connect preference:', error);
+        }
+    },
+
+    async updateAutoReconnect(autoReconnect) {
+        AppState.preferences.autoReconnect = autoReconnect;
+        AppState.save();
+
+        try {
+            // Save to database
+            await fetch('/api/user/preferences', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: AppState.preferences.latitude,
+                    longitude: AppState.preferences.longitude,
+                    elevation: AppState.preferences.elevation,
+                    units: AppState.preferences.units,
+                    default_device_id: AppState.preferences.defaultDeviceId,
+                    auto_connect: AppState.preferences.autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    auto_reconnect: autoReconnect
+                })
+            });
+
+            console.log('Auto-reconnect preference saved:', autoReconnect);
+        } catch (error) {
+            console.error('Failed to save auto-reconnect preference:', error);
+        }
+    },
+
+    async updateVolume(volume) {
+        AppState.preferences.volume = volume;
+        AppState.save();
+
+        try {
+            // Save to database
+            await fetch('/api/user/preferences', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: AppState.preferences.latitude,
+                    longitude: AppState.preferences.longitude,
+                    elevation: AppState.preferences.elevation,
+                    units: AppState.preferences.units,
+                    default_device_id: AppState.preferences.defaultDeviceId,
+                    auto_connect: AppState.preferences.autoConnect,
+                    auto_reconnect: AppState.preferences.autoReconnect,
+                    volume: volume
+                })
+            });
+
+            console.log('Volume preference saved:', volume);
+        } catch (error) {
+            console.error('Failed to save volume preference:', error);
         }
     }
 };

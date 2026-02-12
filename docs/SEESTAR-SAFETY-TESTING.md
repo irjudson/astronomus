@@ -549,4 +549,3 @@ def test_goto_target(real_telescope):
 - See `tests/api/test_telescope_endpoints_safe.py` for test implementation
 - See `docs/seestar/VIEW-PLAN-CONFIGURATION.md` for plan_config structure
 - See `~/.claude/plans/dapper-booping-bumblebee.md` for recording/playback test infrastructure plan
-

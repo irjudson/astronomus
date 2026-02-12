@@ -207,11 +207,13 @@ html, body {
     overflow: hidden;
     position: relative;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 .main-content {
     padding: 24px;
-    height: 100%;
+    flex: 1;
     overflow: hidden;
     color: white;
     box-sizing: border-box;
@@ -3328,13 +3330,14 @@ html, body {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(0, 217, 255, 0.2);
     border-radius: 8px;
-    padding: 20px;
+    padding: clamp(12px, 2.5%, 20px);
+    font-size: clamp(12px, 1.2vw, 16px);
 }
 
 .control-panel h3 {
-    margin: 0 0 16px 0;
+    margin: 0 0 clamp(12px, 2.5%, 16px) 0;
     color: #00d9ff;
-    font-size: 18px;
+    font-size: clamp(16px, 1.5vw, 20px);
     font-weight: 600;
 }
 
@@ -3394,7 +3397,7 @@ html, body {
 
 /* Control Sections */
 .control-section {
-    margin-bottom: 24px;
+    margin-bottom: clamp(16px, 3%, 24px);
 }
 
 .control-section:last-child {
@@ -3403,9 +3406,10 @@ html, body {
 
 .control-label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: clamp(6px, 1.5%, 8px);
     color: rgba(255, 255, 255, 0.8);
     font-weight: 500;
+    font-size: clamp(13px, 1.2vw, 15px);
 }
 
 .coord-inputs {
@@ -3535,8 +3539,9 @@ html, body {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(0, 217, 255, 0.2);
     color: #ffffff;
-    padding: 8px 12px;
+    padding: clamp(6px, 1.5%, 8px) clamp(8px, 2%, 12px);
     border-radius: 4px;
+    font-size: clamp(12px, 1.1vw, 14px);
 }
 
 .control-panel .form-control:focus {
@@ -3551,11 +3556,12 @@ html, body {
 
 /* Button Styles */
 .control-panel .btn {
-    padding: 8px 16px;
+    padding: clamp(6px, 1.5%, 8px) clamp(12px, 2.5%, 16px);
     border-radius: 4px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    font-size: clamp(12px, 1.1vw, 14px);
 }
 
 .control-panel .btn:disabled {
@@ -3596,6 +3602,6 @@ html, body {
 }
 
 .control-panel .btn-sm {
-    padding: 6px 12px;
-    font-size: 14px;
+    padding: clamp(4px, 1%, 6px) clamp(8px, 2%, 12px);
+    font-size: clamp(11px, 1vw, 14px);
 }

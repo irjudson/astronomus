@@ -6,14 +6,176 @@
 const TelescopeControls = {
     isConnected: false,
     currentTarget: null,
+    selectedTarget: null,
     telemetryInterval: null,
+    previewRefreshInterval: null,
 
     init() {
         console.log('TelescopeControls: Initializing...');
         this.setupEventListeners();
         this.setupControlHandlers();
+        this.setupStatusConsole();
+        this.setupTargetAutocomplete();
         this.disableAllControls();
         console.log('TelescopeControls: Initialized');
+    },
+
+    setupStatusConsole() {
+        const clearBtn = document.getElementById('clear-status-console-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                const consoleMessages = document.getElementById('status-console-messages');
+                if (consoleMessages) {
+                    consoleMessages.innerHTML = '<div style="color: #888;">Ready</div>';
+                }
+            });
+        }
+    },
+
+    setupTargetAutocomplete() {
+        const targetNameInput = document.getElementById('target-name');
+        const autocompleteDiv = document.getElementById('target-autocomplete');
+        let searchTimeout = null;
+
+        if (!targetNameInput || !autocompleteDiv) return;
+
+        // Search as user types
+        targetNameInput.addEventListener('input', async (e) => {
+            const query = e.target.value.trim();
+
+            // Clear selected target when user starts typing again
+            if (this.selectedTarget && query !== this.selectedTarget.name) {
+                this.selectedTarget = null;
+                const targetRaInput = document.getElementById('target-ra');
+                const targetDecInput = document.getElementById('target-dec');
+                if (targetRaInput) targetRaInput.value = '';
+                if (targetDecInput) targetDecInput.value = '';
+            }
+
+            if (query.length < 2) {
+                autocompleteDiv.style.display = 'none';
+                return;
+            }
+
+            // Debounce search
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                try {
+                    // Show loading indicator
+                    autocompleteDiv.innerHTML = `
+                        <div style="padding: 12px; text-align: center; color: #888;">
+                            <div class="spinner-border spinner-border-sm" role="status" style="margin-right: 8px;"></div>
+                            Searching...
+                        </div>
+                    `;
+                    autocompleteDiv.style.display = 'block';
+
+                    // Add visible_now=true to only show targets visible right now
+                    const response = await fetch(`/api/catalog/search?search=${encodeURIComponent(query)}&visible_now=true&page_size=10`);
+                    if (!response.ok) {
+                        autocompleteDiv.innerHTML = `
+                            <div style="padding: 12px; text-align: center; color: #dc3545;">
+                                Search failed. Please try again.
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const results = data.items || [];
+
+                    if (results.length === 0) {
+                        autocompleteDiv.innerHTML = `
+                            <div style="padding: 12px; text-align: center; color: #888;">
+                                No results found for "${query}"
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // Build autocomplete list
+                    // Note: API returns ra in degrees, need to convert to hours for storage
+                    autocompleteDiv.innerHTML = results.map(target => `
+                        <div class="autocomplete-item" data-id="${target.id}" data-name="${target.name}"
+                             data-ra="${target.ra / 15}" data-dec="${target.dec}"
+                             style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #333;">
+                            <div style="font-weight: bold; color: #4a9eff;">${target.name}</div>
+                            <div style="font-size: 0.85em; color: #888;">
+                                ${target.type || 'Unknown'} • RA: ${this.formatRA(target.ra / 15)} • Dec: ${this.formatDec(target.dec)}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    autocompleteDiv.style.display = 'block';
+
+                    // Add click handlers
+                    autocompleteDiv.querySelectorAll('.autocomplete-item').forEach(item => {
+                        item.addEventListener('mouseenter', () => {
+                            item.style.background = '#3a3a3a';
+                        });
+                        item.addEventListener('mouseleave', () => {
+                            item.style.background = 'transparent';
+                        });
+                        item.addEventListener('click', () => {
+                            this.selectTarget({
+                                id: item.dataset.id,
+                                name: item.dataset.name,
+                                ra: parseFloat(item.dataset.ra),
+                                dec: parseFloat(item.dataset.dec)
+                            });
+                        });
+                    });
+                } catch (error) {
+                    console.error('Autocomplete search failed:', error);
+                }
+            }, 300);
+        });
+
+        // Handle Enter key
+        targetNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Select first item if autocomplete is showing
+                const firstItem = autocompleteDiv.querySelector('.autocomplete-item');
+                if (firstItem && autocompleteDiv.style.display === 'block') {
+                    this.selectTarget({
+                        id: firstItem.dataset.id,
+                        name: firstItem.dataset.name,
+                        ra: parseFloat(firstItem.dataset.ra),
+                        dec: parseFloat(firstItem.dataset.dec)
+                    });
+                }
+            } else if (e.key === 'Escape') {
+                autocompleteDiv.style.display = 'none';
+            }
+        });
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!targetNameInput.contains(e.target) && !autocompleteDiv.contains(e.target)) {
+                autocompleteDiv.style.display = 'none';
+            }
+        });
+    },
+
+    selectTarget(target) {
+        const targetNameInput = document.getElementById('target-name');
+        const targetRaInput = document.getElementById('target-ra');
+        const targetDecInput = document.getElementById('target-dec');
+        const autocompleteDiv = document.getElementById('target-autocomplete');
+
+        if (targetNameInput) targetNameInput.value = target.name;
+        if (targetRaInput) targetRaInput.value = this.formatRA(target.ra);
+        if (targetDecInput) targetDecInput.value = this.formatDec(target.dec);
+
+        // Store the selected target data
+        this.selectedTarget = target;
+
+        // Close autocomplete
+        if (autocompleteDiv) autocompleteDiv.style.display = 'none';
+
+        // Log to console
+        this.showStatus(`Selected target: ${target.name}`, 'success');
     },
 
     setupEventListeners() {
@@ -40,10 +202,12 @@ const TelescopeControls = {
         // Telescope control - main panel
         this.on('slew-to-target-btn', () => this.handleSlewToTarget());
         this.on('stop-motion-btn', () => this.handleStopMotion());
+        this.on('unpark-telescope-btn', () => this.handleUnpark());
         this.on('park-telescope-btn', () => this.handlePark());
 
         // Telescope control - sidebar
         this.on('sidebar-goto-target-btn', () => this.handleSlewToTarget());
+        this.on('sidebar-unpark-telescope-btn', () => this.handleUnpark());
         this.on('sidebar-park-telescope-btn', () => this.handlePark());
 
         // Imaging
@@ -55,6 +219,15 @@ const TelescopeControls = {
         this.on('dew-heater-toggle', () => this.handleDewHeater());
         this.on('toggle-dew-heater-btn', () => this.handleDewHeater());
         this.on('refresh-images-btn', () => this.handleRefreshImages());
+
+        // Navigation controls
+        this.on('nav-up-btn', () => this.handleNavigation('up'));
+        this.on('nav-down-btn', () => this.handleNavigation('down'));
+        this.on('nav-left-btn', () => this.handleNavigation('left'));
+        this.on('nav-right-btn', () => this.handleNavigation('right'));
+        this.on('nav-stop-btn', () => this.handleStopMotion()); // Use same endpoint as STOP MOTION button
+        this.on('start-preview-btn', () => this.handleStartPreview());
+        this.on('stop-preview-btn', () => this.handleStopPreview());
     },
 
     // Helper to add event listener
@@ -92,8 +265,6 @@ const TelescopeControls = {
     },
 
     async handleDisconnect() {
-        if (!confirm('Disconnect from telescope?')) return;
-
         try {
             await fetch('/api/telescope/disconnect', { method: 'POST' });
             this.showStatus('Disconnected', 'info');
@@ -104,8 +275,11 @@ const TelescopeControls = {
 
     onConnected() {
         this.isConnected = true;
-        this.enableControls();
+        // Keep all controls disabled until first status arrives
+        // First telemetry update will enable correct controls based on actual state
+        this.disableAllControls();
         this.startTelemetryPolling();
+        // Preview is now manually started with Start Preview button
         this.showStatus('Telescope connected', 'success');
 
         // Update status bar
@@ -132,6 +306,7 @@ const TelescopeControls = {
         this.isConnected = false;
         this.disableAllControls();
         this.stopTelemetryPolling();
+        // Preview cleanup handled by handleStopPreview() if active
 
         // Update UI with disconnected state
         this.setText('telescope-ip-display', '--');
@@ -166,33 +341,71 @@ const TelescopeControls = {
     // ==========================================
 
     async handleSlewToTarget() {
-        const raInput = document.getElementById('target-ra');
-        const decInput = document.getElementById('target-dec');
         const nameInput = document.getElementById('target-name');
-
-        const ra = raInput?.value;
-        const dec = decInput?.value;
         const name = nameInput?.value || 'Target';
 
-        if (!ra || !dec) {
-            this.showStatus('Enter RA and Dec coordinates', 'warning');
-            return;
-        }
+        console.log('[SLEW DIAGNOSTIC] handleSlewToTarget called');
+        console.log('[SLEW DIAGNOSTIC] selectedTarget:', this.selectedTarget);
 
-        try {
-            const response = await fetch('/api/telescope/goto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ra, dec, target_name: name })
-            });
+        // Use selectedTarget data if available (from autocomplete)
+        if (this.selectedTarget) {
+            try {
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logCommand('goto', {
+                        target: this.selectedTarget.name,
+                        ra: this.selectedTarget.ra,
+                        dec: this.selectedTarget.dec
+                    });
+                }
 
-            if (!response.ok) throw new Error('Slew command failed');
+                // IMPORTANT: Stop any active viewing session first
+                // iscope_start_view won't interrupt an active view, so we must stop it first
+                console.log('[SLEW DIAGNOSTIC] Stopping current view...');
+                this.showStatus('Stopping current view...', 'info');
+                const stopResponse = await fetch('/api/telescope/stop-imaging', { method: 'POST' });
+                console.log('[SLEW DIAGNOSTIC] Stop response status:', stopResponse.status);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s for view to stop
 
-            this.showStatus(`Slewing to ${name}...`, 'info');
-            this.currentTarget = name;
-        } catch (error) {
-            console.error('Slew error:', error);
-            this.showStatus(`Slew failed: ${error.message}`, 'error');
+                const gotoPayload = {
+                    ra: this.selectedTarget.ra,
+                    dec: this.selectedTarget.dec,
+                    target_name: this.selectedTarget.name
+                };
+                console.log('[SLEW DIAGNOSTIC] Sending goto request with payload:', gotoPayload);
+
+                const response = await fetch('/api/telescope/goto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(gotoPayload)
+                });
+
+                console.log('[SLEW DIAGNOSTIC] Goto response status:', response.status);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('[SLEW DIAGNOSTIC] Goto failed with error:', errorData);
+                    if (window.TelescopeMessages) {
+                        TelescopeMessages.logError(`Slew failed: ${errorData.detail}`);
+                    }
+                    throw new Error(errorData.detail || 'Slew command failed');
+                }
+
+                const responseData = await response.json();
+                console.log('[SLEW DIAGNOSTIC] Goto response data:', responseData);
+
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logResponse('goto', `Slewing to ${this.selectedTarget.name}`, true);
+                }
+
+                this.showStatus(`Slewing to ${this.selectedTarget.name}...`, 'info');
+                this.currentTarget = this.selectedTarget.name;
+            } catch (error) {
+                console.error('[SLEW DIAGNOSTIC] Exception in handleSlewToTarget:', error);
+                this.showStatus(`Slew failed: ${error.message}`, 'error');
+            }
+        } else {
+            console.warn('[SLEW DIAGNOSTIC] No selectedTarget available');
+            this.showStatus('Please select a target from the search', 'warning');
         }
     },
 
@@ -205,11 +418,61 @@ const TelescopeControls = {
         }
     },
 
-    async handlePark() {
-        if (!confirm('Park telescope?')) return;
-
+    async handleUnpark() {
         try {
-            await fetch('/api/telescope/park', { method: 'POST' });
+            console.log('[UNPARK] Starting unpark command...');
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logCommand('unpark', { azimuth: 180, altitude: 45 });
+            }
+
+            const response = await fetch('/api/telescope/unpark', { method: 'POST' });
+            console.log('[UNPARK] Response status:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[UNPARK] Error response:', errorText);
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logError(`Unpark failed: ${errorText}`);
+                }
+                throw new Error(`Unpark command failed: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('[UNPARK] Success response:', data);
+
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logResponse('unpark', 'Unparking...', true);
+            }
+
+            this.showStatus('Unparking telescope...', 'info');
+        } catch (error) {
+            console.error('[UNPARK ERROR]', error);
+            this.showStatus(`Unpark failed: ${error.message}`, 'error');
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logError(`Unpark exception: ${error.message}`);
+            }
+        }
+    },
+
+    async handlePark() {
+        try {
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logCommand('park');
+            }
+
+            const response = await fetch('/api/telescope/park', { method: 'POST' });
+
+            if (!response.ok) {
+                if (window.TelescopeMessages) {
+                    TelescopeMessages.logError('Park command failed');
+                }
+                throw new Error('Park command failed');
+            }
+
+            if (window.TelescopeMessages) {
+                TelescopeMessages.logResponse('park', 'Parking...', true);
+            }
+
             this.showStatus('Parking telescope...', 'info');
         } catch (error) {
             console.error('Park error:', error);
@@ -226,17 +489,16 @@ const TelescopeControls = {
         const gain = document.getElementById('gain-value')?.value || 80;
 
         try {
-            const response = await fetch('/api/telescope/imaging/start', {
+            const response = await fetch('/api/telescope/start-imaging', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ exposure_ms: exposure * 1000, gain })
+                body: JSON.stringify({ exposure_ms: exposure * 1000, gain, restart: true })
             });
 
             if (!response.ok) throw new Error('Failed to start imaging');
 
             this.showStatus('Imaging started', 'success');
-            document.getElementById('start-imaging-btn').disabled = true;
-            document.getElementById('stop-imaging-btn').disabled = false;
+            // Button state will be managed by updateControlStates() based on telescope state
         } catch (error) {
             console.error('Imaging error:', error);
             this.showStatus(`Imaging failed: ${error.message}`, 'error');
@@ -245,10 +507,9 @@ const TelescopeControls = {
 
     async handleStopImaging() {
         try {
-            await fetch('/api/telescope/imaging/stop', { method: 'POST' });
+            await fetch('/api/telescope/stop-imaging', { method: 'POST' });
             this.showStatus('Imaging stopped', 'info');
-            document.getElementById('start-imaging-btn').disabled = false;
-            document.getElementById('stop-imaging-btn').disabled = true;
+            // Button state will be managed by updateControlStates() based on telescope state
         } catch (error) {
             console.error('Stop imaging error:', error);
         }
@@ -256,7 +517,8 @@ const TelescopeControls = {
 
     async handleAutoFocus() {
         try {
-            await fetch('/api/telescope/focus/auto', { method: 'POST' });
+            const response = await fetch('/api/telescope/features/imaging/autofocus', { method: 'POST' });
+            if (!response.ok) throw new Error('Failed to start autofocus');
             this.showStatus('Auto focus started...', 'info');
         } catch (error) {
             console.error('Auto focus error:', error);
@@ -298,6 +560,192 @@ const TelescopeControls = {
     },
 
     // ==========================================
+    // NAVIGATION & PREVIEW
+    // ==========================================
+
+    async handleNavigation(direction) {
+        try {
+            const speed = 5.0; // Increased speed (50% power for visible movement)
+            const response = await fetch('/api/telescope/move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: direction, speed: speed })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'error') {
+                this.showStatus(`Navigation failed: ${result.message}`, 'error');
+            } else if (direction === 'stop') {
+                this.showStatus('Movement stopped', 'info');
+            } else {
+                this.showStatus(`Moving ${direction}...`, 'info');
+            }
+        } catch (error) {
+            console.error('Navigation error:', error);
+            this.showStatus('Navigation command failed', 'error');
+        }
+    },
+
+    async handleStartPreview() {
+        try {
+            const mode = document.getElementById('preview-mode')?.value || 'scenery';
+            this.showStatus(`Starting ${mode} preview...`, 'info');
+
+            const response = await fetch('/api/telescope/start-preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, brightness: 50.0 })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to start preview');
+            }
+
+            const result = await response.json();
+            this.showStatus(`Preview started - ${result.message}`, 'success');
+
+            // Start RTMP preview refresh if in scenery mode
+            if (mode === 'scenery') {
+                this.startRTMPPreviewRefresh();
+            }
+        } catch (error) {
+            console.error('Start preview error:', error);
+            this.showStatus(`Failed to start preview: ${error.message}`, 'error');
+        }
+    },
+
+    async handleStopPreview() {
+        try {
+            this.showStatus('Stopping preview...', 'info');
+
+            const response = await fetch('/api/telescope/stop-imaging', { method: 'POST' });
+
+            if (!response.ok) {
+                throw new Error('Failed to stop preview');
+            }
+
+            // Stop RTMP refresh if running
+            this.stopRTMPPreviewRefresh();
+
+            this.showStatus('Preview stopped', 'success');
+        } catch (error) {
+            console.error('Stop preview error:', error);
+            this.showStatus(`Failed to stop preview: ${error.message}`, 'error');
+        }
+    },
+
+    async startRTMPPreviewRefresh() {
+        // Stop any existing interval
+        this.stopRTMPPreviewRefresh();
+
+        // First, fetch preview info to get frame dimensions
+        try {
+            const infoResponse = await fetch('/api/telescope/preview-info');
+            if (infoResponse.ok) {
+                const info = await infoResponse.json();
+                if (info.available) {
+                    console.log(`RTSP stream dimensions: ${info.width}x${info.height}`);
+
+                    // Calculate aspect ratio
+                    const aspectRatio = info.width / info.height;
+                    console.log(`Aspect ratio: ${aspectRatio.toFixed(2)} (${info.width}:${info.height})`);
+
+                    // Adjust container aspect ratio if needed
+                    const container = document.querySelector('.preview-image-container');
+                    if (container) {
+                        // If aspect ratio is portrait (height > width), adjust the container
+                        if (aspectRatio < 1) {
+                            console.log('Portrait video detected, adjusting container');
+                            container.style.aspectRatio = `${info.width}/${info.height}`;
+                        } else if (aspectRatio > 1.5) {
+                            // Wide aspect ratio (16:9 ish)
+                            console.log('Wide aspect ratio detected');
+                            container.style.aspectRatio = `${info.width}/${info.height}`;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Could not fetch preview info:', error);
+        }
+
+        // Start fetching RTSP frames
+        this.rtmpPreviewInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/api/telescope/live-preview');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const previewImg = document.getElementById('preview-image');
+                    const placeholder = document.getElementById('preview-placeholder');
+
+                    if (previewImg && placeholder) {
+                        const imageUrl = URL.createObjectURL(blob);
+                        if (previewImg.src && previewImg.src.startsWith('blob:')) {
+                            URL.revokeObjectURL(previewImg.src);
+                        }
+                        previewImg.src = imageUrl;
+                        previewImg.style.display = 'block';
+                        placeholder.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('RTSP preview refresh error:', error);
+            }
+        }, 1000); // Refresh every second for live preview
+    },
+
+    stopRTMPPreviewRefresh() {
+        if (this.rtmpPreviewInterval) {
+            clearInterval(this.rtmpPreviewInterval);
+            this.rtmpPreviewInterval = null;
+        }
+    },
+
+    async startPreviewStream() {
+        // Start auto-refresh of preview images every 5 seconds
+        // (stacked images don't update as frequently as video)
+        console.log('Starting preview auto-refresh');
+        this.startPreviewRefresh();
+    },
+
+    async stopPreviewStream() {
+        // Stop auto-refresh
+        console.log('Stopping preview auto-refresh');
+        this.stopPreviewRefresh();
+
+        // Clear the preview image
+        const previewImg = document.getElementById('preview-image');
+        const placeholder = document.getElementById('preview-placeholder');
+        if (previewImg && placeholder) {
+            if (previewImg.src && previewImg.src.startsWith('blob:')) {
+                URL.revokeObjectURL(previewImg.src);
+            }
+            previewImg.src = '';
+            previewImg.style.display = 'none';
+            placeholder.style.display = 'flex';
+        }
+    },
+
+    startPreviewRefresh() {
+        if (this.previewRefreshInterval) {
+            return; // Already running
+        }
+        // Refresh every 5 seconds (stacked images update slower than video)
+        this.previewRefreshInterval = setInterval(() => this.handleRefreshPreview(), 5000);
+        // Do an immediate refresh
+        this.handleRefreshPreview();
+    },
+
+    stopPreviewRefresh() {
+        if (this.previewRefreshInterval) {
+            clearInterval(this.previewRefreshInterval);
+            this.previewRefreshInterval = null;
+        }
+    },
+
+    // ==========================================
     // TELEMETRY & STATUS
     // ==========================================
 
@@ -325,6 +773,10 @@ const TelescopeControls = {
                 if (this.telemetryErrorCount >= 3) {
                     console.error('[TELEMETRY ERROR] 3 consecutive failures, triggering disconnect');
                     this.onDisconnected();
+                    // Trigger auto-reconnect if enabled
+                    if (window.ConnectionManager) {
+                        ConnectionManager.autoReconnect();
+                    }
                 }
                 return;
             }
@@ -340,6 +792,10 @@ const TelescopeControls = {
             if (this.telemetryErrorCount >= 3) {
                 console.error('[TELEMETRY ERROR] 3 consecutive failures, triggering disconnect');
                 this.onDisconnected();
+                // Trigger auto-reconnect if enabled
+                if (window.ConnectionManager) {
+                    ConnectionManager.autoReconnect();
+                }
             }
         }
     },
@@ -358,13 +814,23 @@ const TelescopeControls = {
         this.setText('tracking-status', status.is_tracking ? 'Tracking' : 'Not tracking');
 
         // Coordinates
-        if (status.current_ra_hours !== null) {
+        if (status.current_ra_hours != null && status.current_dec_degrees != null) {
             this.setText('current-ra', this.formatRA(status.current_ra_hours));
             this.setText('current-dec', this.formatDec(status.current_dec_degrees));
+        } else {
+            console.log('[TELESCOPE STATUS] Coordinates not available:', status.current_ra_hours, status.current_dec_degrees);
         }
 
         // Target - update status bar
         this.setText('telescope-target-display', status.current_target || 'No Target');
+
+        // Update status bar with telescope state (not just "Connected")
+        const statusLabel = document.querySelector('#connection-status-compact .status-label');
+        if (statusLabel && status.state) {
+            // Format state nicely (capitalize first letter)
+            const formattedState = status.state.charAt(0).toUpperCase() + status.state.slice(1);
+            statusLabel.textContent = formattedState;
+        }
 
         // Update control states based on telescope state
         this.updateControlStates(status.state);
@@ -372,44 +838,76 @@ const TelescopeControls = {
 
     updateControlStates(state) {
         // Define which states allow which operations
-        const idleStates = ['connected', 'tracking', 'parked'];
+        const isParked = state === 'parked';
+        const isUnparkedIdle = ['connected', 'tracking'].includes(state);
         const busyStates = ['slewing', 'focusing', 'imaging', 'parking'];
-        const isIdle = idleStates.includes(state);
         const isBusy = busyStates.includes(state);
         const isImaging = state === 'imaging';
         const isSlewing = state === 'slewing';
 
         console.log('[CONTROL STATES]', {
             state,
-            isIdle,
+            isParked,
+            isUnparkedIdle,
             isBusy,
             isImaging,
-            isSlewing,
-            controls: {
-                'slew-to-target-btn': !isIdle ? 'disabled' : 'enabled',
-                'park-telescope-btn': !isIdle ? 'disabled' : 'enabled',
-                'stop-motion-btn': !isSlewing ? 'disabled' : 'enabled',
-                'start-imaging-btn': (!isIdle || isImaging) ? 'disabled' : 'enabled',
-                'stop-imaging-btn': !isImaging ? 'disabled' : 'enabled',
-                'auto-focus-btn': !isIdle ? 'disabled' : 'enabled'
-            }
+            isSlewing
         });
 
-        // Movement controls (enabled when idle)
-        this.setDisabled('slew-to-target-btn', !isIdle);
-        this.setDisabled('park-telescope-btn', !isIdle);
+        // When parked: ONLY unpark button enabled, everything else disabled
+        if (isParked) {
+            console.log('[PARKED STATE] Disabling all controls except unpark');
+            this.setDisabled('slew-to-target-btn', true);
+            this.setDisabled('unpark-telescope-btn', false);
+            this.setDisabled('park-telescope-btn', true);
+            this.setDisabled('stop-motion-btn', true);
+            this.setDisabled('start-imaging-btn', true);
+            this.setDisabled('stop-imaging-btn', true);
+            this.setDisabled('auto-focus-btn', true);
+
+            // Preview controls
+            this.setDisabled('start-preview-btn', true);
+            this.setDisabled('stop-preview-btn', true);
+
+            // Sidebar controls
+            this.setDisabled('sidebar-goto-target-btn', true);
+            this.setDisabled('sidebar-unpark-telescope-btn', false);
+            this.setDisabled('sidebar-park-telescope-btn', true);
+
+            // Log button states
+            const unparkBtn = document.getElementById('unpark-telescope-btn');
+            const parkBtn = document.getElementById('park-telescope-btn');
+            console.log('[PARKED STATE] unpark-telescope-btn exists:', !!unparkBtn, 'disabled:', unparkBtn?.disabled);
+            console.log('[PARKED STATE] park-telescope-btn exists:', !!parkBtn, 'disabled:', parkBtn?.disabled);
+            return;
+        }
+
+        // Normal operation (not parked)
+        // Movement controls (enabled when unparked and idle)
+        this.setDisabled('slew-to-target-btn', !isUnparkedIdle);
+
+        // Unpark button: only enabled when parked
+        this.setDisabled('unpark-telescope-btn', true);
+
+        // Park button: only enabled when unparked and idle
+        this.setDisabled('park-telescope-btn', !isUnparkedIdle);
 
         // Stop motion (enabled when slewing)
         this.setDisabled('stop-motion-btn', !isSlewing);
 
-        // Imaging controls
-        this.setDisabled('start-imaging-btn', !isIdle || isImaging);
+        // Imaging controls (only when unparked and idle)
+        this.setDisabled('start-imaging-btn', !isUnparkedIdle || isImaging);
         this.setDisabled('stop-imaging-btn', !isImaging);
-        this.setDisabled('auto-focus-btn', !isIdle);
+        this.setDisabled('auto-focus-btn', !isUnparkedIdle);
+
+        // Preview controls (always enabled when connected)
+        this.setDisabled('start-preview-btn', false);
+        this.setDisabled('stop-preview-btn', false);
 
         // Sidebar controls (if they exist)
-        this.setDisabled('sidebar-goto-target-btn', !isIdle);
-        this.setDisabled('sidebar-park-telescope-btn', !isIdle);
+        this.setDisabled('sidebar-goto-target-btn', !isUnparkedIdle);
+        this.setDisabled('sidebar-unpark-telescope-btn', true);
+        this.setDisabled('sidebar-park-telescope-btn', !isUnparkedIdle);
     },
 
     formatRA(hours) {
@@ -435,6 +933,7 @@ const TelescopeControls = {
     enableControls() {
         this.setDisabled('slew-to-target-btn', false);
         this.setDisabled('stop-motion-btn', false);
+        this.setDisabled('unpark-telescope-btn', false);
         this.setDisabled('park-telescope-btn', false);
         this.setDisabled('start-imaging-btn', false);
         this.setDisabled('auto-focus-btn', false);
@@ -443,10 +942,16 @@ const TelescopeControls = {
     disableAllControls() {
         this.setDisabled('slew-to-target-btn', true);
         this.setDisabled('stop-motion-btn', true);
+        this.setDisabled('unpark-telescope-btn', true);
         this.setDisabled('park-telescope-btn', true);
         this.setDisabled('start-imaging-btn', true);
         this.setDisabled('stop-imaging-btn', true);
         this.setDisabled('auto-focus-btn', true);
+        this.setDisabled('start-preview-btn', true);
+        this.setDisabled('stop-preview-btn', true);
+
+        // Stop RTMP preview refresh if running
+        this.stopRTMPPreviewRefresh();
     },
 
     setText(id, text) {
@@ -456,20 +961,51 @@ const TelescopeControls = {
 
     setDisabled(id, disabled) {
         const el = document.getElementById(id);
-        if (el) el.disabled = disabled;
+        if (el) {
+            el.disabled = disabled;
+        } else {
+            // Log if button doesn't exist (only for park/unpark buttons)
+            if (id.includes('park')) {
+                console.warn(`[setDisabled] Button not found: ${id}`);
+            }
+        }
     },
 
     showStatus(message, type = 'info') {
-        const statusEl = document.getElementById('control-status');
-        if (!statusEl) return;
+        // Log to main status console (persistent, always visible)
+        const consoleMessages = document.getElementById('status-console-messages');
+        if (!consoleMessages) return;
 
-        statusEl.textContent = message;
-        statusEl.className = `status-message status-${type}`;
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const line = document.createElement('div');
+        line.style.padding = '2px 0';
 
-        setTimeout(() => {
-            statusEl.textContent = '';
-            statusEl.className = 'status-message';
-        }, 5000);
+        let color = '#ccc';
+        let icon = '';
+        if (type === 'error') {
+            color = '#d9534f';
+            icon = '✗ ';
+        } else if (type === 'success') {
+            color = '#5cb85c';
+            icon = '✓ ';
+        } else if (type === 'info') {
+            color = '#4a9eff';
+            icon = '⚡ ';
+        }
+
+        line.style.color = color;
+        line.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${icon}${message}`;
+
+        consoleMessages.appendChild(line);
+
+        // Keep max 50 messages (shows ~5-7 visible lines with scrollbar for older messages)
+        const messages = consoleMessages.children;
+        if (messages.length > 50) {
+            consoleMessages.removeChild(messages[0]);
+        }
+
+        // Auto-scroll to bottom of messages div
+        consoleMessages.scrollTop = consoleMessages.scrollHeight;
     },
 
     updateImageList(images) {

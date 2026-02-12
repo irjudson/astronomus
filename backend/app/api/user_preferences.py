@@ -22,6 +22,13 @@ class UserPreferences(BaseModel):
     units: str = "metric"
     default_device_id: Optional[int] = None
 
+    # Connection preferences
+    auto_connect: bool = True
+    auto_reconnect: bool = True
+
+    # Audio preferences
+    volume: str = "backyard"
+
     # Observing preferences
     min_altitude: float = 30.0
     max_moon_phase: int = 50
@@ -54,6 +61,20 @@ def get_user_preferences(db: Session = Depends(get_db)):
     device_setting = db.query(AppSetting).filter(AppSetting.key == "user.default_device_id").first()
     if device_setting:
         prefs.default_device_id = int(device_setting.value)
+
+    # Load connection preferences
+    auto_connect_setting = db.query(AppSetting).filter(AppSetting.key == "user.auto_connect").first()
+    if auto_connect_setting:
+        prefs.auto_connect = auto_connect_setting.value.lower() == "true"
+
+    auto_reconnect_setting = db.query(AppSetting).filter(AppSetting.key == "user.auto_reconnect").first()
+    if auto_reconnect_setting:
+        prefs.auto_reconnect = auto_reconnect_setting.value.lower() == "true"
+
+    # Load audio preferences
+    volume_setting = db.query(AppSetting).filter(AppSetting.key == "user.volume").first()
+    if volume_setting:
+        prefs.volume = volume_setting.value
 
     # Load observing preferences
     min_alt_setting = db.query(AppSetting).filter(AppSetting.key == "user.min_altitude").first()
@@ -152,6 +173,47 @@ def update_user_preferences(preferences: UserPreferences, db: Session = Depends(
                 description="User's default device ID",
             )
             db.add(device_setting)
+
+    # Update connection preferences
+    auto_connect_setting = db.query(AppSetting).filter(AppSetting.key == "user.auto_connect").first()
+    if auto_connect_setting:
+        auto_connect_setting.value = str(preferences.auto_connect)
+    else:
+        auto_connect_setting = AppSetting(
+            key="user.auto_connect",
+            value=str(preferences.auto_connect),
+            value_type="bool",
+            category="connection",
+            description="Auto-connect to default device on load",
+        )
+        db.add(auto_connect_setting)
+
+    auto_reconnect_setting = db.query(AppSetting).filter(AppSetting.key == "user.auto_reconnect").first()
+    if auto_reconnect_setting:
+        auto_reconnect_setting.value = str(preferences.auto_reconnect)
+    else:
+        auto_reconnect_setting = AppSetting(
+            key="user.auto_reconnect",
+            value=str(preferences.auto_reconnect),
+            value_type="bool",
+            category="connection",
+            description="Auto-reconnect if connection is lost",
+        )
+        db.add(auto_reconnect_setting)
+
+    # Update audio preferences
+    volume_setting = db.query(AppSetting).filter(AppSetting.key == "user.volume").first()
+    if volume_setting:
+        volume_setting.value = preferences.volume
+    else:
+        volume_setting = AppSetting(
+            key="user.volume",
+            value=preferences.volume,
+            value_type="string",
+            category="audio",
+            description="Notification volume level (silent/backyard/outdoor)",
+        )
+        db.add(volume_setting)
 
     # Update observing preferences
     min_alt_setting = db.query(AppSetting).filter(AppSetting.key == "user.min_altitude").first()

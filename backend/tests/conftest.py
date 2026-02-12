@@ -548,20 +548,20 @@ def pytest_addoption(parser):
         "--real-hardware",
         action="store_true",
         default=False,
-        help="Run tests against real telescope hardware (CAUTION: requires actual telescope)"
+        help="Run tests against real telescope hardware (CAUTION: requires actual telescope)",
     )
     parser.addoption(
         "--telescope-host",
         action="store",
         default=os.environ.get("TELESCOPE_HOST", "192.168.2.47"),
-        help="Telescope IP address for real hardware tests"
+        help="Telescope IP address for real hardware tests",
     )
     parser.addoption(
         "--telescope-port",
         action="store",
         type=int,
         default=int(os.environ.get("TELESCOPE_PORT", "4700")),
-        help="Telescope port for real hardware tests"
+        help="Telescope port for real hardware tests",
     )
 
 
