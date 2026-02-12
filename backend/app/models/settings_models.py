@@ -221,6 +221,6 @@ DEFAULT_SETTINGS = [
         "value_type": "string",
         "description": "Optional webhook URL for plan creation notifications",
         "category": "planning",
-        "is_secret": False,
+        "is_secret": False,  # nosec B105 - This is a boolean flag, not a password
     },
 ]
