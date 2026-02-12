@@ -63,6 +63,7 @@ COPY backend/scripts ./scripts
 COPY backend/pytest.ini ./pytest.ini
 COPY backend/alembic.ini ./alembic.ini
 COPY backend/alembic ./alembic
+COPY docs ./docs
 COPY frontend ./frontend
 
 # Copy startup script
