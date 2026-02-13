@@ -38,25 +38,57 @@ app.add_middleware(
 # Include API routes
 app.include_router(router, prefix="/api")
 
-# Route for shared plan viewer
-frontend_path = Path(__file__).parent.parent / "frontend"
+# Paths
+frontend_path = Path(__file__).parent.parent.parent / "frontend"
+vue_app_path = frontend_path / "vue-app" / "dist"
 
 
+# Route for shared plan viewer (legacy)
 @app.get("/plan/{plan_id}")
 async def serve_plan_viewer(plan_id: str):
     """Serve the plan viewer page for shared plans."""
     plan_html = frontend_path / "plan.html"
     if plan_html.exists():
         return FileResponse(plan_html)
-    else:
-        return {"error": "Plan viewer not found"}
+    return {"error": "Plan viewer not found"}
 
 
-# Serve static frontend files
-if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+# Mount legacy frontend static files at root
+app.mount("/legacy", StaticFiles(directory=str(frontend_path), html=True), name="legacy-static")
+
+
+# Serve Vue.js app
+if vue_app_path.exists():
+    # Mount Vue app static assets
+    app.mount("/app/assets", StaticFiles(directory=str(vue_app_path / "assets")), name="vue-assets")
+
+    # Catch-all route for Vue SPA - must be last
+    @app.get("/app{full_path:path}")
+    async def serve_vue_app(full_path: str):
+        """Serve Vue.js SPA for all /app routes."""
+        index_html = vue_app_path / "index.html"
+        if index_html.exists():
+            return FileResponse(index_html)
+        return {"error": "Vue app not found"}
+
 else:
-    logger.warning("Frontend not found at %s", frontend_path)
+    logger.warning("Vue app dist folder not found at %s", vue_app_path)
+
+
+# Root route - serve legacy frontend for now
+@app.get("/")
+async def root():
+    """Serve legacy frontend index."""
+    index_html = frontend_path / "index.html"
+    if index_html.exists():
+        return FileResponse(index_html)
+    return {"message": "Astronomus API", "docs": "/api/docs"}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 
 @app.on_event("startup")
