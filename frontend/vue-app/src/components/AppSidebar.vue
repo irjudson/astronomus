@@ -11,7 +11,7 @@
           active-class="bg-gray-800 text-white shadow-sm"
           inactive-class="text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
         >
-          <span class="text-lg">{{ item.icon }}</span>
+          <component :is="item.icon" class="w-5 h-5" />
           <span>{{ item.label }}</span>
         </RouterLink>
       </div>
@@ -40,11 +40,13 @@
 </template>
 
 <script setup>
+import { HomeIcon, BookOpenIcon, ClipboardListIcon, PlayIcon, SlidersIcon } from 'lucide-vue-next'
+
 const navItems = [
-  { path: '/', label: 'Home', icon: '🏠' },
-  { path: '/catalog', label: 'Catalog', icon: '📚' },
-  { path: '/plan', label: 'Plan', icon: '📋' },
-  { path: '/execute', label: 'Execute', icon: '▶️' },
-  { path: '/process', label: 'Process', icon: '⚙️' }
+  { path: '/', label: 'Home', icon: HomeIcon },
+  { path: '/catalog', label: 'Catalog', icon: BookOpenIcon },
+  { path: '/plan', label: 'Plan', icon: ClipboardListIcon },
+  { path: '/execute', label: 'Execute', icon: PlayIcon },
+  { path: '/process', label: 'Process', icon: SlidersIcon }
 ]
 </script>

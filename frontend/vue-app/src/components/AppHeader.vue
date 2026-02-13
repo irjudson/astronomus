@@ -3,6 +3,7 @@
     <!-- Left: Logo and Info -->
     <div class="flex items-center space-x-4">
       <div class="font-bold text-xl tracking-tight text-blue-500 flex items-center gap-2">
+        <TelescopeIcon class="w-5 h-5" />
         <span>Astronomus</span>
       </div>
       <div class="text-xs text-gray-500 italic">
@@ -13,7 +14,7 @@
     <!-- Center: Search -->
     <div class="flex-1 max-w-md mx-4">
       <div class="relative">
-        <span class="absolute left-2.5 top-2 text-gray-500">🔍</span>
+        <SearchIcon class="w-4 h-4 absolute left-2.5 top-2 text-gray-500" />
         <input
           type="text"
           placeholder="Search targets..."
@@ -25,17 +26,19 @@
     <!-- Right: Status and Actions -->
     <div class="flex items-center space-x-3">
       <!-- Weather Status -->
-      <div class="flex items-center gap-2 text-sm text-gray-400">
-        <span>🌤️</span>
-        <span>Clear</span>
-      </div>
+      <button
+        class="p-2 text-gray-400 hover:text-white relative rounded-full hover:bg-gray-800 transition-colors"
+        title="Weather: Clear"
+      >
+        <CloudIcon class="w-5 h-5" />
+      </button>
 
       <!-- Telescope Connection -->
       <button
         class="p-2 text-gray-400 hover:text-white relative rounded-full hover:bg-gray-800 transition-colors"
         title="Telescope Connection"
       >
-        <span class="text-lg">🔭</span>
+        <TelescopeIcon class="w-5 h-5" />
         <span v-if="telescopeStore.connected" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-green-500 border-2 border-gray-900 rounded-full"></span>
         <span v-else class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-gray-900 rounded-full"></span>
       </button>
@@ -45,7 +48,7 @@
         class="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors"
         title="Settings"
       >
-        <span class="text-lg">⚙️</span>
+        <SettingsIcon class="w-5 h-5" />
       </button>
 
       <!-- User Avatar -->
@@ -58,6 +61,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { SearchIcon, TelescopeIcon, CloudIcon, SettingsIcon } from 'lucide-vue-next'
 import { useTelescopeStore } from '@/stores/telescope'
 
 const telescopeStore = useTelescopeStore()
