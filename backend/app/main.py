@@ -38,8 +38,13 @@ app.add_middleware(
 # Include API routes
 app.include_router(router, prefix="/api")
 
-# Paths
-frontend_path = Path(__file__).parent.parent.parent / "frontend"
+# Paths - handle both local (backend/app/main.py) and container (/app/app/main.py) environments
+# Try container path first (2 parents from /app/app/main.py -> /app/)
+frontend_path = Path(__file__).parent.parent / "frontend"
+if not frontend_path.exists():
+    # Fall back to host path (3 parents from backend/app/main.py -> project root)
+    frontend_path = Path(__file__).parent.parent.parent / "frontend"
+
 vue_app_path = frontend_path / "vue-app" / "dist"
 
 
