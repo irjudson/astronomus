@@ -1,6 +1,6 @@
 <template>
   <aside
-    :class="['bg-tron-panel border-r border-tron-border transition-all duration-300',
+    :class="['relative bg-tron-panel border-r border-tron-border transition-all duration-300',
              sidebarWidth]"
   >
     <!-- Collapse Toggle -->
