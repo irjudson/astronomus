@@ -1,33 +1,30 @@
 <template>
-  <div
-    :class="['bg-tron-panel border-t border-tron-border transition-all duration-300',
-             consoleHeight]"
-  >
+  <div class="flex flex-col h-full">
     <!-- Console Header -->
-    <div class="flex items-center justify-between px-4 py-2 border-b border-tron-border">
-      <h3 class="text-sm font-semibold">Telescope Messages</h3>
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
+      <div class="flex items-center gap-2">
+        <h3 class="text-sm font-semibold text-gray-200">Telescope Messages</h3>
+        <span class="text-xs text-gray-500">(0)</span>
+      </div>
       <button
         @click="appStore.toggleConsole"
-        class="text-xs hover:text-tron-accent"
+        class="text-xs text-gray-400 hover:text-gray-200 transition-colors"
       >
         {{ appStore.consoleCollapsed ? '▲ Show' : '▼ Hide' }}
       </button>
     </div>
 
     <!-- Console Content -->
-    <div v-if="!appStore.consoleCollapsed" class="p-4 h-48 overflow-auto font-mono text-xs">
-      <div class="text-tron-text/60">No messages</div>
+    <div class="flex-1 overflow-auto p-4 font-mono text-xs bg-gray-950">
+      <div class="text-gray-600">
+        <p>System ready. Awaiting telescope connection...</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
-
-const consoleHeight = computed(() =>
-  appStore.consoleCollapsed ? 'h-auto' : 'h-56'
-)
 </script>
