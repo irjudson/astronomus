@@ -74,16 +74,20 @@ export const useExecutionStore = defineStore('execution', {
       this.error = null
 
       try {
-        const response = await axios.post('/api/telescope/connect', { ip })
+        // Backend expects 'host' parameter, not 'ip'
+        const response = await axios.post('/api/telescope/connect', { host: ip })
 
-        if (response.data.status === 'connected') {
+        if (response.data.status === 'connected' || response.data.connected) {
           this.connected = true
           this.telescopeIp = ip
           this.startPositionPolling()
           this.addMessage('Telescope connected successfully')
+        } else {
+          this.error = response.data.message || 'Connection failed'
+          this.connected = false
         }
       } catch (err) {
-        this.error = 'Failed to connect: ' + err.message
+        this.error = 'Failed to connect: ' + (err.response?.data?.detail || err.message)
         this.connected = false
         console.error('Connection error:', err)
       } finally {
