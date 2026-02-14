@@ -8,26 +8,42 @@ export const usePlanningStore = defineStore('planning', {
     savedPlans: [],
     loading: false,
     error: null,
-
-    // Planning parameters
-    location: {
-      latitude: 45.9183,
-      longitude: -111.5433,
-      elevation: 1234,
-      timezone: 'America/Denver'
-    },
     observationDate: null,
     constraints: {
-      min_altitude: 30,
-      max_altitude: 70,
+      min_altitude_degrees: 30,
+      max_altitude_degrees: 70,
       avoid_moon: true,
-      setup_time_minutes: 30
+      setup_time_minutes: 30,
+      object_types: ['galaxy', 'nebula', 'cluster', 'planetary_nebula'],
+      daytime_planning: false
     }
   }),
 
   getters: {
     hasTargets: (state) => state.selectedTargets.length > 0,
-    targetCount: (state) => state.selectedTargets.length
+    targetCount: (state) => state.selectedTargets.length,
+
+    // Get location from user settings
+    location: () => {
+      const settings = localStorage.getItem('astronomus_settings')
+      if (settings) {
+        const parsed = JSON.parse(settings)
+        return {
+          name: parsed.locationName || 'My Observatory',
+          latitude: parsed.latitude || 40.7128,
+          longitude: parsed.longitude || -74.0060,
+          elevation: 0,
+          timezone: parsed.timezone || 'America/New_York'
+        }
+      }
+      return {
+        name: 'Default Location',
+        latitude: 40.7128,
+        longitude: -74.0060,
+        elevation: 0,
+        timezone: 'America/New_York'
+      }
+    }
   },
 
   actions: {
@@ -51,17 +67,40 @@ export const usePlanningStore = defineStore('planning', {
       this.error = null
 
       try {
-        const response = await axios.post('/api/plan', {
-          targets: this.selectedTargets.map(t => t.id),
-          location: this.location,
-          date: this.observationDate || new Date().toISOString().split('T')[0],
-          constraints: this.constraints
-        })
+        // Get location from settings
+        const location = this.location
 
+        // Build request matching backend PlanRequest model
+        const request = {
+          location: {
+            name: location.name,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            elevation: location.elevation || 0,
+            timezone: location.timezone
+          },
+          observing_date: this.observationDate || new Date().toISOString().split('T')[0],
+          constraints: {
+            min_altitude_degrees: this.constraints.min_altitude_degrees,
+            max_altitude_degrees: this.constraints.max_altitude_degrees,
+            avoid_moon: this.constraints.avoid_moon,
+            setup_time_minutes: this.constraints.setup_time_minutes,
+            object_types: this.constraints.object_types,
+            daytime_planning: this.constraints.daytime_planning
+          }
+        }
+
+        // If we have selected targets (wishlist), add them as custom_targets
+        if (this.selectedTargets.length > 0) {
+          request.custom_targets = this.selectedTargets.map(t => t.catalog_id || t.id)
+        }
+
+        const response = await axios.post('/api/plan', request)
         this.currentPlan = response.data
       } catch (err) {
-        this.error = 'Failed to generate plan: ' + err.message
+        this.error = 'Failed to generate plan: ' + (err.response?.data?.detail || err.message)
         console.error('Plan generation error:', err)
+        throw err
       } finally {
         this.loading = false
       }
