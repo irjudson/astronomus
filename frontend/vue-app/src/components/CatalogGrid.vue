@@ -213,15 +213,20 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  @apply px-4 py-3 bg-astro-elevated border-b border-astro-border mb-4;
+  padding: 0.75rem 1rem;
+  background: var(--astro-elevated);
+  border-bottom: 1px solid var(--astro-border);
+  margin-bottom: 1rem;
 }
 
 .stats-count {
-  @apply text-astro-text font-semibold;
+  color: var(--astro-text);
+  font-weight: 600;
 }
 
 .stats-filters {
-  @apply text-astro-text-muted text-sm;
+  color: var(--astro-text-muted);
+  font-size: 0.875rem;
 }
 
 /* Basic grid container for cards - can be replaced by Masonry setup */
@@ -235,7 +240,8 @@ onUnmounted(() => {
 
 /* Catalog Card styles (ported from unified-layout.css) */
 .catalog-card {
-  @apply bg-astro-surface border border-astro-border;
+  background: var(--astro-surface);
+  border: 1px solid var(--astro-border);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -259,7 +265,7 @@ onUnmounted(() => {
 
 .catalog-card:hover {
   transform: translateY(-2px);
-  @apply border-astro-border-focus;
+  border-color: var(--astro-border-focus);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); /* astro-accent with 10% opacity */
 }
 
@@ -272,7 +278,9 @@ onUnmounted(() => {
 }
 
 .catalog-card-title {
-  @apply text-astro-text font-semibold text-sm;
+  color: var(--astro-text);
+  font-weight: 600;
+  font-size: 0.875rem;
   margin: 0;
   line-height: 1.3;
   word-wrap: break-word;
@@ -282,7 +290,12 @@ onUnmounted(() => {
 
 .object-type-badge,
 .catalog-card-type {
-  @apply bg-astro-accent/20 text-astro-accent px-2 py-1 rounded text-xs uppercase;
+  background: color-mix(in srgb, var(--astro-accent) 20%, transparent);
+  color: var(--astro-accent);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
   display: inline-block;
 }
 
@@ -321,11 +334,11 @@ onUnmounted(() => {
 }
 
 .catalog-card-label {
-  @apply text-astro-text-muted;
+  color: var(--astro-text-muted);
 }
 
 .catalog-card-value {
-  @apply text-astro-text;
+  color: var(--astro-text);
 }
 
 .catalog-card-actions {
@@ -339,7 +352,7 @@ onUnmounted(() => {
   grid-column: 1 / -1; /* Span across all columns */
   text-align: center;
   padding: 48px 24px;
-  @apply text-astro-text-muted;
+  color: var(--astro-text-muted);
 }
 
 /* Pagination */
@@ -354,6 +367,7 @@ onUnmounted(() => {
 }
 
 .page-info {
-  @apply text-astro-text-muted text-sm;
+  color: var(--astro-text-muted);
+  font-size: 0.875rem;
 }
 </style>
