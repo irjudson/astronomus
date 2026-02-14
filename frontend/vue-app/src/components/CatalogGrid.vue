@@ -208,6 +208,22 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Catalog Stats Banner */
+.catalog-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  @apply px-4 py-3 bg-astro-elevated border-b border-astro-border mb-4;
+}
+
+.stats-count {
+  @apply text-astro-text font-semibold;
+}
+
+.stats-filters {
+  @apply text-astro-text-muted text-sm;
+}
+
 /* Basic grid container for cards - can be replaced by Masonry setup */
 .grid-container {
   display: grid;
@@ -244,7 +260,7 @@ onUnmounted(() => {
 .catalog-card:hover {
   transform: translateY(-2px);
   @apply border-astro-border-focus;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); /* astro-accent with 10% opacity */
 }
 
 .catalog-card-header {
@@ -305,11 +321,11 @@ onUnmounted(() => {
 }
 
 .catalog-card-label {
-  color: rgba(255, 255, 255, 0.6);
+  @apply text-astro-text-muted;
 }
 
 .catalog-card-value {
-  color: white;
+  @apply text-astro-text;
 }
 
 .catalog-card-actions {
@@ -323,7 +339,7 @@ onUnmounted(() => {
   grid-column: 1 / -1; /* Span across all columns */
   text-align: center;
   padding: 48px 24px;
-  color: rgba(255, 255, 255, 0.6);
+  @apply text-astro-text-muted;
 }
 
 /* Pagination */
@@ -338,7 +354,6 @@ onUnmounted(() => {
 }
 
 .page-info {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  @apply text-astro-text-muted text-sm;
 }
 </style>
