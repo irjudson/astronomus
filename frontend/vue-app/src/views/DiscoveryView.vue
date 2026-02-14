@@ -1,39 +1,47 @@
 <template>
-  <div class="discovery-view">
-    <CatalogSearchPanel />
-    <CatalogGrid />
-  </div>
+  <PanelContainer
+    :left-panel-visible="true"
+    :right-panel-visible="false"
+    :console-visible="false"
+  >
+    <!-- Left: Search Filters -->
+    <template #left>
+      <div class="p-4 border-b border-gray-800">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Filters</h3>
+      </div>
+      <SearchFilters />
+    </template>
+
+    <!-- Main: Catalog Grid -->
+    <template #main>
+      <div class="flex flex-col h-full">
+        <!-- View Header -->
+        <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
+          <h2 class="text-lg font-semibold text-gray-200">Discovery</h2>
+          <p class="text-sm text-gray-500">
+            {{ catalogStore.totalItems }} celestial objects
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-hidden">
+          <CatalogGrid />
+        </div>
+      </div>
+    </template>
+  </PanelContainer>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
-import CatalogSearchPanel from '@/components/CatalogSearchPanel.vue';
-import CatalogGrid from '@/components/CatalogGrid.vue';
-import { useCatalogStore } from '@/stores/catalog';
+import { onMounted } from 'vue'
+import { useCatalogStore } from '@/stores/catalog'
+import PanelContainer from '@/components/layout/PanelContainer.vue'
+import SearchFilters from '@/components/discovery/SearchFilters.vue'
+import CatalogGrid from '@/components/discovery/CatalogGrid.vue'
 
-const catalogStore = useCatalogStore();
+const catalogStore = useCatalogStore()
 
-onMounted(() => {
-  catalogStore.fetchCatalogData(); // Initial fetch when the view is mounted
-});
+onMounted(async () => {
+  await catalogStore.fetchCatalogData()
+})
 </script>
-
-<style scoped>
-.discovery-view {
-  display: flex;
-  height: 100%; /* Ensure it takes full height of its parent */
-}
-
-/* Original layout had sidebar and main content area as siblings
-   Here, CatalogSearchPanel will be on the left and CatalogGrid will take the rest */
-.discovery-view > :first-child { /* CatalogSearchPanel */
-  flex-shrink: 0;
-  width: 320px; /* Adjust as per original sidebar width */
-  margin-right: 24px; /* Gap between sidebar and main content */
-}
-
-.discovery-view > :last-child { /* CatalogGrid */
-  flex-grow: 1;
-  min-width: 0;
-}
-</style>
