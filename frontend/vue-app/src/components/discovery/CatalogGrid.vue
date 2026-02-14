@@ -40,7 +40,12 @@
               </div>
             </div>
             <div class="catalog-card-actions">
-              <BaseButton variant="primary" size="sm" @click="catalogStore.addSelectedTarget(item)">Add to Plan</BaseButton>
+              <button
+                @click="catalogStore.addSelectedTarget(item)"
+                class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+              >
+                Add to Plan
+              </button>
             </div>
           </div>
         </div>
@@ -49,9 +54,21 @@
 
     <!-- Pagination -->
     <div class="catalog-pagination" :style="{ display: showPagination ? 'flex' : 'none' }">
-      <BaseButton variant="secondary" :disabled="!catalogStore.hasPrevPage" @click="catalogStore.setPage(catalogStore.currentPage - 1)">Previous</BaseButton>
+      <button
+        @click="catalogStore.setPage(catalogStore.currentPage - 1)"
+        :disabled="!catalogStore.hasPrevPage"
+        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 text-gray-300 text-sm rounded transition-colors"
+      >
+        Previous
+      </button>
       <span class="page-info">Page {{ catalogStore.currentPage }} of {{ catalogStore.totalPages }}</span>
-      <BaseButton variant="secondary" :disabled="!catalogStore.hasNextPage" @click="catalogStore.setPage(catalogStore.currentPage + 1)">Next</BaseButton>
+      <button
+        @click="catalogStore.setPage(catalogStore.currentPage + 1)"
+        :disabled="!catalogStore.hasNextPage"
+        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 text-gray-300 text-sm rounded transition-colors"
+      >
+        Next
+      </button>
     </div>
   </div>
 </template>
@@ -59,7 +76,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useCatalogStore } from '@/stores/catalog';
-import BaseButton from '@/components/common/BaseButton.vue';
 // import Masonry from 'masonry-layout'; // Will integrate later if needed
 
 const catalogStore = useCatalogStore();
@@ -214,18 +230,18 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: var(--astro-elevated);
-  border-bottom: 1px solid var(--astro-border);
+  background: rgb(17, 24, 39);
+  border-bottom: 1px solid rgb(31, 41, 55);
   margin-bottom: 1rem;
 }
 
 .stats-count {
-  color: var(--astro-text);
+  color: rgb(229, 231, 235);
   font-weight: 600;
 }
 
 .stats-filters {
-  color: var(--astro-text-muted);
+  color: rgb(107, 114, 128);
   font-size: 0.875rem;
 }
 
@@ -240,8 +256,8 @@ onUnmounted(() => {
 
 /* Catalog Card styles (ported from unified-layout.css) */
 .catalog-card {
-  background: var(--astro-surface);
-  border: 1px solid var(--astro-border);
+  background: rgb(17, 24, 39);
+  border: 1px solid rgb(31, 41, 55);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -265,8 +281,8 @@ onUnmounted(() => {
 
 .catalog-card:hover {
   transform: translateY(-2px);
-  border-color: var(--astro-border-focus);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); /* astro-accent with 10% opacity */
+  border-color: rgb(75, 85, 99);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
 }
 
 .catalog-card-header {
@@ -278,7 +294,7 @@ onUnmounted(() => {
 }
 
 .catalog-card-title {
-  color: var(--astro-text);
+  color: rgb(229, 231, 235);
   font-weight: 600;
   font-size: 0.875rem;
   margin: 0;
@@ -290,8 +306,8 @@ onUnmounted(() => {
 
 .object-type-badge,
 .catalog-card-type {
-  background: color-mix(in srgb, var(--astro-accent) 20%, transparent);
-  color: var(--astro-accent);
+  background: rgba(59, 130, 246, 0.2);
+  color: rgb(59, 130, 246);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
@@ -334,11 +350,11 @@ onUnmounted(() => {
 }
 
 .catalog-card-label {
-  color: var(--astro-text-muted);
+  color: rgb(107, 114, 128);
 }
 
 .catalog-card-value {
-  color: var(--astro-text);
+  color: rgb(229, 231, 235);
 }
 
 .catalog-card-actions {
@@ -349,10 +365,10 @@ onUnmounted(() => {
 
 /* Empty State */
 .empty-state {
-  grid-column: 1 / -1; /* Span across all columns */
+  grid-column: 1 / -1;
   text-align: center;
   padding: 48px 24px;
-  color: var(--astro-text-muted);
+  color: rgb(107, 114, 128);
 }
 
 /* Pagination */
@@ -367,7 +383,7 @@ onUnmounted(() => {
 }
 
 .page-info {
-  color: var(--astro-text-muted);
+  color: rgb(107, 114, 128);
   font-size: 0.875rem;
 }
 </style>
