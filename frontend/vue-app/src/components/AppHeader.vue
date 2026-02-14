@@ -27,12 +27,7 @@
       <!-- Right: Status and Actions -->
       <div class="flex items-center space-x-3">
         <!-- Weather Status -->
-        <button
-          class="p-2 text-astro-text-muted hover:text-astro-text relative rounded-full hover:bg-astro-elevated transition-colors"
-          title="Weather: Clear"
-        >
-          <CloudIcon class="w-5 h-5" />
-        </button>
+        <WeatherWidget />
 
         <!-- Telescope Connection -->
         <button
@@ -74,6 +69,7 @@ import { ref } from 'vue'
 import { SearchIcon, TelescopeIcon, CloudIcon, SettingsIcon } from 'lucide-vue-next'
 import { useTelescopeStore } from '@/stores/telescope'
 import { RouterLink } from 'vue-router' // Import RouterLink
+import WeatherWidget from '@/components/WeatherWidget.vue'
 
 const telescopeStore = useTelescopeStore()
 const locationName = ref('Default Location')

@@ -1,0 +1,51 @@
+<template>
+  <div class="weather-widget flex items-center gap-2 text-sm">
+    <button
+      @click="toggleModal"
+      class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-astro-elevated transition-colors"
+    >
+      <span class="text-lg">{{ weatherIcon }}</span>
+      <div class="text-left">
+        <div class="text-astro-text font-medium">
+          {{ weatherStore.current?.temperature }}°C
+        </div>
+        <div class="text-xs text-astro-text-muted">
+          {{ weatherStore.weatherQuality }}
+        </div>
+      </div>
+    </button>
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted } from 'vue'
+import { useWeatherStore } from '@/stores/weather'
+
+const weatherStore = useWeatherStore()
+
+const weatherIcon = computed(() => {
+  if (!weatherStore.current) return '🌤️'
+
+  const cloudCover = weatherStore.current.cloud_cover || 0
+
+  if (cloudCover < 20) return '☀️'
+  if (cloudCover < 50) return '⛅'
+  if (cloudCover < 80) return '☁️'
+  return '🌧️'
+})
+
+const toggleModal = () => {
+  // Emit event to parent to show weather modal
+  // Or navigate to weather details page
+  console.log('Show weather details')
+}
+
+onMounted(() => {
+  weatherStore.fetchCurrentWeather()
+
+  // Refresh every 30 minutes
+  setInterval(() => {
+    weatherStore.fetchCurrentWeather()
+  }, 30 * 60 * 1000)
+})
+</script>
