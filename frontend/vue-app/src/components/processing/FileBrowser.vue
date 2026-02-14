@@ -1,15 +1,15 @@
 <template>
   <BaseCard padding="md">
-    <h3 class="text-sm font-semibold text-astro-text-muted mb-3">
+    <h3 class="text-sm font-semibold text-gray-500 mb-3">
       FILE BROWSER
     </h3>
 
     <div class="space-y-2">
-      <div class="text-xs text-astro-text-dim">
+      <div class="text-xs text-gray-400">
         {{ processingStore.currentDirectory }}
       </div>
 
-      <div v-if="processingStore.loading" class="text-sm text-astro-text-muted">
+      <div v-if="processingStore.loading" class="text-sm text-gray-500">
         Loading files...
       </div>
 
@@ -18,20 +18,20 @@
           v-for="file in processingStore.files"
           :key="file.path"
           @click="toggleFileSelection(file)"
-          class="flex items-center justify-between p-2 rounded hover:bg-astro-elevated cursor-pointer transition-colors"
-          :class="{ 'bg-astro-accent/20 border border-astro-accent': isSelected(file) }"
+          class="flex items-center justify-between p-2 rounded hover:bg-gray-800 cursor-pointer transition-colors"
+          :class="{ 'bg-blue-500/20 border border-blue-500': isSelected(file) }"
         >
-          <span class="text-sm text-astro-text truncate">{{ file.name }}</span>
-          <span class="text-xs text-astro-text-dim">{{ formatSize(file.size) }}</span>
+          <span class="text-sm text-gray-200 truncate">{{ file.name }}</span>
+          <span class="text-xs text-gray-400">{{ formatSize(file.size) }}</span>
         </div>
       </div>
 
-      <div v-else class="text-sm text-astro-text-dim">
+      <div v-else class="text-sm text-gray-400">
         No FITS files found
       </div>
 
-      <div v-if="processingStore.selectedFileCount > 0" class="pt-2 border-t border-astro-border">
-        <div class="text-xs text-astro-text-muted mb-2">
+      <div v-if="processingStore.selectedFileCount > 0" class="pt-2 border-t border-gray-800">
+        <div class="text-xs text-gray-500 mb-2">
           {{ processingStore.selectedFileCount }} files selected
         </div>
 
