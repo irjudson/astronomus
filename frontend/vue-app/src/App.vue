@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-screen bg-gray-900 text-gray-100">
+  <div class="flex flex-col h-screen bg-astro-bg text-astro-text">
     <!-- Global Header -->
     <AppHeader />
 
@@ -7,22 +7,22 @@
     <main class="flex-1 overflow-hidden">
       <div class="panel-container" :class="panelClasses">
         <!-- Left Panel -->
-        <aside class="left-panel overflow-y-auto border-r border-gray-800 bg-gray-900">
+        <aside class="left-panel overflow-y-auto border-r border-astro-border bg-astro-surface">
           <AppSidebar />
         </aside>
 
         <!-- Main Content -->
-        <div class="main-content overflow-hidden bg-gray-950">
+        <div class="main-content overflow-hidden bg-astro-bg">
           <RouterView />
         </div>
 
         <!-- Right Panel -->
-        <aside class="right-panel overflow-y-auto border-l border-gray-800 bg-gray-900">
+        <aside class="right-panel overflow-y-auto border-l border-astro-border bg-astro-surface">
           <AppRightPanel />
         </aside>
 
         <!-- Console/Filmstrip -->
-        <footer class="console border-t border-gray-800 bg-gray-900">
+        <footer class="console border-t border-astro-border bg-astro-surface">
           <AppConsole />
         </footer>
       </div>
