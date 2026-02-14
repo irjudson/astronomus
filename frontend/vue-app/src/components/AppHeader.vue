@@ -40,8 +40,8 @@
           title="Telescope Connection"
         >
           <TelescopeIcon class="w-5 h-5" />
-          <span v-if="telescopeStore.connected" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-accent-success border-2 border-astro-surface rounded-full"></span>
-          <span v-else class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-accent-danger border-2 border-astro-surface rounded-full"></span>
+          <span v-if="telescopeStore.connected" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-astro-success border-2 border-astro-surface rounded-full"></span>
+          <span v-else class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-astro-error border-2 border-astro-surface rounded-full"></span>
         </button>
 
         <!-- Settings -->
