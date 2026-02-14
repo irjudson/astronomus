@@ -11,7 +11,7 @@
       </div>
       <div class="space-y-4 p-4">
         <!-- Plan Execution Panel -->
-        <BaseCard v-if="executionStore.currentPlan" padding="md">
+        <div v-if="executionStore.currentPlan" class="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-gray-500 mb-3">
             PLAN EXECUTION
           </h3>
@@ -21,35 +21,32 @@
               Target {{ executionStore.currentTargetIndex + 1 }} of {{ executionStore.currentPlan.targets.length }}
             </div>
 
-            <BaseButton
+            <button
               v-if="!executionStore.planExecuting"
-              variant="primary"
               @click="executionStore.executePlan()"
               :disabled="!executionStore.connected"
-              class="w-full"
+              class="w-full px-4 py-2 rounded font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Execute Plan
-            </BaseButton>
+            </button>
 
             <div v-else class="space-y-2">
-              <BaseButton
-                variant="secondary"
+              <button
                 @click="executionStore.pausePlan()"
-                class="w-full"
+                class="w-full px-4 py-2 rounded font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
               >
                 Pause
-              </BaseButton>
+              </button>
 
-              <BaseButton
-                variant="danger"
+              <button
                 @click="executionStore.stopPlan()"
-                class="w-full"
+                class="w-full px-4 py-2 rounded font-medium transition-colors bg-red-900 hover:bg-red-800 text-white"
               >
                 Stop
-              </BaseButton>
+              </button>
             </div>
           </div>
-        </BaseCard>
+        </div>
 
         <TelescopePanel />
         <ImagingPanel />
@@ -81,7 +78,7 @@
               </p>
             </div>
 
-            <BaseCard padding="lg">
+            <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
               <div class="grid grid-cols-2 gap-4 text-center">
                 <div>
                   <div class="text-xs text-gray-500">RA</div>
@@ -108,7 +105,7 @@
                   </div>
                 </div>
               </div>
-            </BaseCard>
+            </div>
 
             <div v-if="executionStore.imaging.active">
               <div class="text-sm text-gray-500 mb-2">
@@ -143,8 +140,6 @@ import TelescopePanel from '@/components/execution/TelescopePanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import HardwarePanel from '@/components/execution/HardwarePanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const executionStore = useExecutionStore()
 

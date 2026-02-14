@@ -93,21 +93,19 @@
     </section>
 
     <section>
-      <BaseButton
-        variant="primary"
+      <button
         @click="generatePlan"
         :disabled="!planningStore.hasTargets || planningStore.loading"
-        class="w-full"
+        class="w-full px-4 py-2 rounded font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {{ planningStore.loading ? 'Generating...' : 'Generate Plan' }}
-      </BaseButton>
+      </button>
     </section>
   </div>
 </template>
 
 <script setup>
 import { usePlanningStore } from '@/stores/planning'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const planningStore = usePlanningStore()
 

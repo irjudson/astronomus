@@ -48,20 +48,19 @@
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Processing</h3>
       </div>
       <div class="space-y-4 p-4 overflow-y-auto">
-        <BaseCard padding="md">
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-gray-500 mb-3">
             STACK IMAGES
           </h3>
 
           <div class="space-y-3">
-            <BaseButton
-              variant="primary"
+            <button
               @click="processingStore.stackImages()"
               :disabled="!processingStore.hasSelection"
-              class="w-full"
+              class="w-full px-4 py-2 rounded font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Stack Images
-            </BaseButton>
+            </button>
 
             <div v-if="processingStore.activeJob" class="space-y-2">
               <div class="text-xs text-gray-500">
@@ -75,9 +74,9 @@
               </div>
             </div>
           </div>
-        </BaseCard>
+        </div>
 
-        <BaseCard v-if="processingStore.processingJobs.length > 0" padding="md">
+        <div v-if="processingStore.processingJobs.length > 0" class="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-gray-500 mb-3">
             JOB HISTORY
           </h3>
@@ -104,7 +103,7 @@
               </div>
             </div>
           </div>
-        </BaseCard>
+        </div>
       </div>
     </template>
   </PanelContainer>
@@ -114,8 +113,6 @@
 import { useProcessingStore } from '@/stores/processing'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import FileBrowser from '@/components/processing/FileBrowser.vue'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const processingStore = useProcessingStore()
 </script>

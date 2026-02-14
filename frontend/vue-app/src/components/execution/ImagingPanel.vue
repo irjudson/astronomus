@@ -1,5 +1,5 @@
 <template>
-  <BaseCard padding="md">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
     <h3 class="text-sm font-semibold text-gray-500 mb-3">
       IMAGING CONTROLS
     </h3>
@@ -9,12 +9,13 @@
         <label class="text-xs text-gray-500 mb-1 block">
           Exposure Time (s)
         </label>
-        <BaseInput
+        <input
           type="number"
-          :modelValue="executionStore.imaging.currentExposure"
-          @update:modelValue="updateExposure"
+          :value="executionStore.imaging.currentExposure"
+          @input="updateExposure"
           min="0.1"
           step="0.1"
+          class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -22,12 +23,13 @@
         <label class="text-xs text-gray-500 mb-1 block">
           Gain
         </label>
-        <BaseInput
+        <input
           type="number"
-          :modelValue="gainValue"
-          @update:modelValue="updateGain"
+          :value="gainValue"
+          @input="updateGain"
           min="0"
           max="200"
+          class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -35,11 +37,12 @@
         <label class="text-xs text-gray-500 mb-1 block">
           Frame Count
         </label>
-        <BaseInput
+        <input
           type="number"
-          :modelValue="frameCountValue"
-          @update:modelValue="updateFrameCount"
+          :value="frameCountValue"
+          @input="updateFrameCount"
           min="1"
+          class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -67,14 +70,12 @@
         </div>
       </div>
     </div>
-  </BaseCard>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { useExecutionStore } from '@/stores/execution'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseInput from '@/components/common/BaseInput.vue'
 
 const executionStore = useExecutionStore()
 

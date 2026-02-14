@@ -1,5 +1,5 @@
 <template>
-  <BaseCard padding="md">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
     <h3 class="text-sm font-semibold text-gray-500 mb-3">
       HARDWARE STATUS
     </h3>
@@ -27,43 +27,38 @@
       </div>
 
       <div class="pt-2 border-t border-gray-800 space-y-2">
-        <BaseButton
-          variant="secondary"
+        <button
           @click="executionStore.toggleDewHeater()"
           :disabled="!executionStore.connected"
-          class="w-full"
+          class="w-full px-4 py-2 rounded font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Toggle Dew Heater
-        </BaseButton>
+        </button>
 
         <div class="grid grid-cols-2 gap-2">
-          <BaseButton
-            variant="primary"
+          <button
             @click="executionStore.unparkTelescope()"
             :disabled="!executionStore.connected || executionStore.hardware.trackingStatus !== 'Parked'"
-            size="sm"
+            class="px-3 py-1.5 rounded font-medium transition-colors text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Unpark
-          </BaseButton>
+          </button>
 
-          <BaseButton
-            variant="secondary"
+          <button
             @click="executionStore.parkTelescope()"
             :disabled="!executionStore.connected || executionStore.hardware.trackingStatus === 'Parked'"
-            size="sm"
+            class="px-3 py-1.5 rounded font-medium transition-colors text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Park
-          </BaseButton>
+          </button>
         </div>
       </div>
     </div>
-  </BaseCard>
+  </div>
 </template>
 
 <script setup>
 import { useExecutionStore } from '@/stores/execution'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const executionStore = useExecutionStore()
 </script>

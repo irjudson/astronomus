@@ -28,7 +28,7 @@
           <div v-if="planningStore.currentPlan" class="flex-1 overflow-y-auto p-6">
             <div class="space-y-4">
               <div v-for="target in planningStore.currentPlan.targets" :key="target.name">
-                <BaseCard padding="md">
+                <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
                   <div class="flex justify-between items-center">
                     <div>
                       <span class="text-gray-200 font-medium block">{{ target.name }}</span>
@@ -40,7 +40,7 @@
                       </span>
                     </div>
                   </div>
-                </BaseCard>
+                </div>
               </div>
             </div>
           </div>
@@ -65,7 +65,6 @@
 import { usePlanningStore } from '@/stores/planning'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import PlanningControls from '@/components/planning/PlanningControls.vue'
-import BaseCard from '@/components/common/BaseCard.vue'
 
 const planningStore = usePlanningStore()
 </script>

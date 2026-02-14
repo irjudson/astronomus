@@ -1,5 +1,5 @@
 <template>
-  <BaseCard padding="md">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
     <div class="flex justify-between items-center mb-3">
       <h3 class="text-sm font-semibold text-gray-500">
         TELESCOPE MESSAGES
@@ -25,12 +25,11 @@
         [{{ formatTime(message.timestamp) }}] {{ message.text }}
       </div>
     </div>
-  </BaseCard>
+  </div>
 </template>
 
 <script setup>
 import { useExecutionStore } from '@/stores/execution'
-import BaseCard from '@/components/common/BaseCard.vue'
 
 const executionStore = useExecutionStore()
 

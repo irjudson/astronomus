@@ -1,5 +1,5 @@
 <template>
-  <BaseCard padding="md">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
     <h3 class="text-sm font-semibold text-gray-500 mb-3">
       FILE BROWSER
     </h3>
@@ -35,24 +35,20 @@
           {{ processingStore.selectedFileCount }} files selected
         </div>
 
-        <BaseButton
-          variant="secondary"
+        <button
           @click="processingStore.clearSelection()"
-          size="sm"
-          class="w-full"
+          class="w-full px-3 py-1.5 rounded font-medium transition-colors text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
         >
           Clear Selection
-        </BaseButton>
+        </button>
       </div>
     </div>
-  </BaseCard>
+  </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
 import { useProcessingStore } from '@/stores/processing'
-import BaseCard from '@/components/common/BaseCard.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const processingStore = useProcessingStore()
 
