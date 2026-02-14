@@ -40,8 +40,8 @@
         class="w-full px-3 py-2 bg-astro-elevated border border-astro-border rounded text-astro-text focus:outline-none focus:border-astro-accent"
       >
         <option value="">All Constellations</option>
-        <option v-for="const in constellations" :key="const" :value="const">
-          {{ const }}
+        <option v-for="constellation in constellations" :key="constellation" :value="constellation">
+          {{ constellation }}
         </option>
       </select>
     </div>
