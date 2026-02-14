@@ -61,6 +61,10 @@ export const useExecutionStore = defineStore('execution', {
       if (!state.currentPlan || !state.currentPlan.targets) return 0
       const total = state.currentPlan.targets.length
       return Math.round((state.currentTargetIndex / total) * 100)
+    },
+
+    planExecuting: (state) => {
+      return state.executionStatus === 'running'
     }
   },
 
@@ -273,6 +277,10 @@ export const useExecutionStore = defineStore('execution', {
       this.addMessage('Plan execution paused')
     },
 
+    pausePlan() {
+      this.pauseExecution()
+    },
+
     resumeExecution() {
       this.executionStatus = 'running'
       this.addMessage('Plan execution resumed')
@@ -285,6 +293,10 @@ export const useExecutionStore = defineStore('execution', {
       this.currentTargetIndex = 0
       this.stopImaging()
       this.addMessage('Plan execution cancelled')
+    },
+
+    stopPlan() {
+      this.cancelExecution()
     },
 
     addMessage(text) {
