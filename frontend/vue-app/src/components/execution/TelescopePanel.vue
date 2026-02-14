@@ -96,7 +96,7 @@
       <!-- Disconnect Button -->
       <button
         @click="executionStore.disconnectTelescope()"
-        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
       >
         Disconnect
       </button>

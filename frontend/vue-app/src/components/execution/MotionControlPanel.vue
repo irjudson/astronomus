@@ -57,14 +57,14 @@
           :disabled="!executionStore.connected"
           class="px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Stop Motion
+          Stop
         </button>
       </div>
 
       <button
         @click="parkTelescope"
         :disabled="!executionStore.connected"
-        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-yellow-600 hover:bg-yellow-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Park Telescope
       </button>

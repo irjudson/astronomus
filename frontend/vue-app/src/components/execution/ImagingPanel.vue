@@ -61,17 +61,18 @@
       <!-- Control Buttons -->
       <div class="space-y-2">
         <button
+          v-if="!executionStore.imaging.active"
           @click="startImaging"
-          :disabled="!executionStore.connected || executionStore.imaging.active"
-          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!executionStore.connected"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ executionStore.imaging.active ? 'Imaging...' : 'Start Imaging' }}
+          Start Imaging
         </button>
 
         <button
+          v-else
           @click="stopImaging"
-          :disabled="!executionStore.imaging.active"
-          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
         >
           Stop Imaging
         </button>
@@ -79,7 +80,7 @@
         <button
           @click="autoFocus"
           :disabled="!executionStore.connected || executionStore.imaging.active"
-          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Auto Focus
         </button>
