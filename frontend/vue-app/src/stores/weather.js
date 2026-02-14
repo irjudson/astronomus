@@ -15,27 +15,29 @@ export const useWeatherStore = defineStore('weather', {
     weatherScore: (state) => {
       if (!state.current) return null
 
-      // Calculate score based on cloud cover, seeing, wind
+      const { cloud_cover = 0, wind_speed = 0, humidity = 0 } = state.current
+
+      // Validate inputs
+      const clouds = Math.max(0, Math.min(100, cloud_cover))
+      const wind = Math.max(0, wind_speed)
+      const humid = Math.max(0, Math.min(100, humidity))
+
       let score = 100
+      score -= clouds
 
-      // Cloud cover penalty (0-100%)
-      score -= state.current.cloud_cover
-
-      // Wind penalty (> 20 km/h is bad)
-      if (state.current.wind_speed > 20) {
-        score -= (state.current.wind_speed - 20) * 2
+      if (wind > 20) {
+        score -= (wind - 20) * 2
       }
 
-      // Humidity penalty (> 80% is bad)
-      if (state.current.humidity > 80) {
-        score -= (state.current.humidity - 80)
+      if (humid > 80) {
+        score -= (humid - 80)
       }
 
       return Math.max(0, Math.min(100, score))
     },
 
-    weatherQuality: (state) => {
-      const score = state.weatherScore
+    weatherQuality() {
+      const score = this.weatherScore
       if (score === null) return 'Unknown'
       if (score >= 80) return 'Excellent'
       if (score >= 60) return 'Good'
