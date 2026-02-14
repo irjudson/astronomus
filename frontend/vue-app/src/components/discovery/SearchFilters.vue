@@ -1,7 +1,7 @@
 <template>
-  <div class="p-4 space-y-4">
+  <div class="p-3 space-y-4">
     <div>
-      <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
         Search Targets
       </label>
       <input
@@ -9,18 +9,18 @@
         type="search"
         placeholder="M31, NGC 7000, Andromeda..."
         @input="onSearchChange"
-        class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        class="w-full px-3 py-2 bg-gray-800 border border-transparent focus:border-blue-500/50 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
       />
     </div>
 
     <div>
-      <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
         Object Type
       </label>
       <select
         v-model="selectedType"
         @change="applyFilters"
-        class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 focus:outline-none focus:border-blue-500"
+        class="w-full px-3 py-2 bg-gray-800 border border-transparent focus:border-blue-500/50 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
       >
         <option value="">All Types</option>
         <option value="galaxy">Galaxy</option>
@@ -32,13 +32,13 @@
     </div>
 
     <div>
-      <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
         Constellation
       </label>
       <select
         v-model="selectedConstellation"
         @change="applyFilters"
-        class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-200 focus:outline-none focus:border-blue-500"
+        class="w-full px-3 py-2 bg-gray-800 border border-transparent focus:border-blue-500/50 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
       >
         <option value="">All Constellations</option>
         <option v-for="constellation in constellations" :key="constellation" :value="constellation">
@@ -48,7 +48,7 @@
     </div>
 
     <div>
-      <label class="block text-xs font-semibold text-gray-400 uppercase mb-2">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
         Max Magnitude: {{ maxMagnitude || 'Any' }}
       </label>
       <input
@@ -64,12 +64,12 @@
 
     <button
       @click="clearFilters"
-      class="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 text-sm rounded transition-colors"
+      class="w-full px-3 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
     >
       Clear Filters
     </button>
 
-    <div class="text-xs text-gray-500 pt-2 border-t border-gray-800">
+    <div class="text-xs text-gray-500 pt-2 border-t border-gray-800 px-1">
       {{ catalogStore.totalItems }} objects found
     </div>
   </div>
