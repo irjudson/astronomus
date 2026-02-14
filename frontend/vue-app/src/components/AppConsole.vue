@@ -16,7 +16,7 @@
     </div>
 
     <!-- Console Content -->
-    <div class="flex-1 overflow-auto p-4 font-mono text-xs bg-astro-background">
+    <div class="flex-1 overflow-auto p-4 font-mono text-xs bg-astro-bg">
       <div class="text-astro-text-dim space-y-1">
         <p><span class="text-astro-text-muted">[00:00:00]</span> System ready. Awaiting telescope connection...</p>
       </div>
