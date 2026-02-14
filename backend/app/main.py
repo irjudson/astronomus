@@ -67,6 +67,15 @@ if vue_app_path.exists():
     # Mount Vue app static assets
     app.mount("/app/assets", StaticFiles(directory=str(vue_app_path / "assets")), name="vue-assets")
 
+    # Serve favicon before catch-all route
+    @app.get("/app/favicon.svg")
+    async def serve_favicon():
+        """Serve Vue app favicon."""
+        favicon_path = vue_app_path / "favicon.svg"
+        if favicon_path.exists():
+            return FileResponse(favicon_path, media_type="image/svg+xml")
+        return {"error": "Favicon not found"}
+
     # Catch-all route for Vue SPA - must be last
     @app.get("/app{full_path:path}")
     async def serve_vue_app(full_path: str):

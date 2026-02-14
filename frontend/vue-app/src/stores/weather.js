@@ -53,8 +53,37 @@ export const useWeatherStore = defineStore('weather', {
       this.error = null
 
       try {
-        const response = await axios.get('/api/weather/current')
-        this.current = response.data
+        // Get location from settings
+        const settings = localStorage.getItem('astronomus_settings')
+        let lat = 40.7128
+        let lon = -74.0060
+
+        if (settings) {
+          const parsed = JSON.parse(settings)
+          lat = parsed.latitude || lat
+          lon = parsed.longitude || lon
+        }
+
+        // Fetch astronomy weather with location
+        const response = await axios.get('/api/weather/astronomy', {
+          params: { lat, lon, hours: 24 }
+        })
+
+        // The astronomy endpoint returns an object with a forecast array
+        // Use the first forecast as "current" weather
+        if (response.data && response.data.forecast && response.data.forecast.length > 0) {
+          const forecast = response.data.forecast[0]
+          this.current = {
+            temperature: forecast.temperature_c || 15,
+            cloud_cover: forecast.cloud_cover || 0,
+            wind_speed: forecast.wind_speed_kmh || 0,
+            humidity: 50, // Not provided by astronomy endpoint
+            seeing: forecast.seeing || 3,
+            transparency: forecast.transparency || 3
+          }
+          this.forecast = response.data.forecast
+        }
+
         this.lastUpdated = new Date()
       } catch (err) {
         this.error = 'Failed to load weather data: ' + err.message
