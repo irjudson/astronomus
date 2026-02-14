@@ -20,7 +20,7 @@ const props = defineProps({
 })
 
 const cardClasses = computed(() => {
-  const base = 'bg-astro-surface border border-astro-border rounded-lg'
+  const base = 'bg-gray-900 border border-gray-800 rounded-lg'
 
   const paddings = {
     none: '',
@@ -29,7 +29,7 @@ const cardClasses = computed(() => {
     lg: 'p-6'
   }
 
-  const hover = props.hoverable ? 'hover:border-astro-border-focus transition-colors cursor-pointer' : ''
+  const hover = props.hoverable ? 'hover:border-gray-700 transition-colors cursor-pointer' : ''
 
   return `${base} ${paddings[props.padding]} ${hover}`
 })

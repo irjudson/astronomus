@@ -40,13 +40,12 @@
 </template>
 
 <script setup>
-import { HomeIcon, BookOpenIcon, ClipboardListIcon, PlayIcon, SlidersIcon } from 'lucide-vue-next'
+import { SearchIcon, ClipboardListIcon, PlayIcon, SlidersIcon } from 'lucide-vue-next'
 
 const navItems = [
-  { path: '/', label: 'Home', icon: HomeIcon },
-  { path: '/catalog', label: 'Catalog', icon: BookOpenIcon },
-  { path: '/plan', label: 'Plan', icon: ClipboardListIcon },
-  { path: '/execute', label: 'Execute', icon: PlayIcon },
-  { path: '/process', label: 'Process', icon: SlidersIcon }
+  { path: '/', label: 'Discovery', icon: SearchIcon },
+  { path: '/plan', label: 'Planning', icon: ClipboardListIcon },
+  { path: '/execute', label: 'Execution', icon: PlayIcon },
+  { path: '/process', label: 'Processing', icon: SlidersIcon }
 ]
 </script>
