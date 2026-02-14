@@ -2,14 +2,14 @@
   <div class="weather-widget flex items-center gap-2 text-sm">
     <button
       @click="toggleModal"
-      class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-astro-elevated transition-colors"
+      class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-800 transition-colors"
     >
       <span class="text-lg">{{ weatherIcon }}</span>
       <div class="text-left">
-        <div class="text-astro-text font-medium">
+        <div class="text-gray-200 font-medium">
           {{ weatherStore.current?.temperature }}°C
         </div>
-        <div class="text-xs text-astro-text-muted">
+        <div class="text-xs text-gray-500">
           {{ weatherStore.weatherQuality }}
         </div>
       </div>
