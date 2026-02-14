@@ -1,117 +1,144 @@
 <template>
-  <div class="execution-view flex h-full">
-    <div class="execution-sidebar w-80 border-r border-astro-border bg-astro-surface overflow-y-auto space-y-4 p-4">
-      <!-- Plan Execution Panel -->
-      <BaseCard v-if="executionStore.currentPlan" padding="md">
-        <h3 class="text-sm font-semibold text-astro-text-muted mb-3">
-          PLAN EXECUTION
-        </h3>
+  <PanelContainer
+    :left-panel-visible="true"
+    :right-panel-visible="false"
+    :console-visible="false"
+  >
+    <!-- Left: Execution Controls -->
+    <template #left>
+      <div class="p-4 border-b border-gray-800">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Execution</h3>
+      </div>
+      <div class="space-y-4 p-4">
+        <!-- Plan Execution Panel -->
+        <BaseCard v-if="executionStore.currentPlan" padding="md">
+          <h3 class="text-sm font-semibold text-gray-500 mb-3">
+            PLAN EXECUTION
+          </h3>
 
-        <div class="space-y-3">
-          <div class="text-sm text-astro-text">
-            Target {{ executionStore.currentTargetIndex + 1 }} of {{ executionStore.currentPlan.targets.length }}
-          </div>
-
-          <BaseButton
-            v-if="!executionStore.planExecuting"
-            variant="primary"
-            @click="executionStore.executePlan()"
-            :disabled="!executionStore.connected"
-            class="w-full"
-          >
-            Execute Plan
-          </BaseButton>
-
-          <div v-else class="space-y-2">
-            <BaseButton
-              variant="secondary"
-              @click="executionStore.pausePlan()"
-              class="w-full"
-            >
-              Pause
-            </BaseButton>
+          <div class="space-y-3">
+            <div class="text-sm text-gray-200">
+              Target {{ executionStore.currentTargetIndex + 1 }} of {{ executionStore.currentPlan.targets.length }}
+            </div>
 
             <BaseButton
-              variant="danger"
-              @click="executionStore.stopPlan()"
+              v-if="!executionStore.planExecuting"
+              variant="primary"
+              @click="executionStore.executePlan()"
+              :disabled="!executionStore.connected"
               class="w-full"
             >
-              Stop
+              Execute Plan
             </BaseButton>
-          </div>
-        </div>
-      </BaseCard>
 
-      <TelescopePanel />
-      <ImagingPanel />
-      <HardwarePanel />
-      <MessagesPanel />
-    </div>
+            <div v-else class="space-y-2">
+              <BaseButton
+                variant="secondary"
+                @click="executionStore.pausePlan()"
+                class="w-full"
+              >
+                Pause
+              </BaseButton>
 
-    <div class="execution-main flex-1 p-6">
-      <div v-if="executionStore.currentTarget" class="space-y-6">
-        <div class="text-center">
-          <h2 class="text-3xl font-semibold text-astro-text mb-2">
-            {{ executionStore.currentTarget.name }}
-          </h2>
-          <p class="text-sm text-astro-text-muted">
-            {{ executionStore.currentTarget.type }}
-          </p>
-        </div>
-
-        <BaseCard>
-          <div class="grid grid-cols-2 gap-4 text-center">
-            <div>
-              <div class="text-xs text-astro-text-muted">RA</div>
-              <div class="text-lg text-astro-text font-mono">
-                {{ formatRA(executionStore.position.ra) }}
-              </div>
-            </div>
-            <div>
-              <div class="text-xs text-astro-text-muted">Dec</div>
-              <div class="text-lg text-astro-text font-mono">
-                {{ formatDec(executionStore.position.dec) }}
-              </div>
-            </div>
-            <div>
-              <div class="text-xs text-astro-text-muted">Alt</div>
-              <div class="text-lg text-astro-text font-mono">
-                {{ executionStore.position.alt.toFixed(1) }}°
-              </div>
-            </div>
-            <div>
-              <div class="text-xs text-astro-text-muted">Az</div>
-              <div class="text-lg text-astro-text font-mono">
-                {{ executionStore.position.az.toFixed(1) }}°
-              </div>
+              <BaseButton
+                variant="danger"
+                @click="executionStore.stopPlan()"
+                class="w-full"
+              >
+                Stop
+              </BaseButton>
             </div>
           </div>
         </BaseCard>
 
-        <div v-if="executionStore.imaging.active">
-          <div class="text-sm text-astro-text-muted mb-2">
-            Progress: {{ executionStore.progressPercent }}%
+        <TelescopePanel />
+        <ImagingPanel />
+        <HardwarePanel />
+        <MessagesPanel />
+      </div>
+    </template>
+
+    <!-- Main: Execution Display -->
+    <template #main>
+      <div class="flex flex-col h-full">
+        <!-- View Header -->
+        <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
+          <h2 class="text-lg font-semibold text-gray-200">Live Execution</h2>
+          <p class="text-sm text-gray-500">
+            {{ executionStore.currentTarget?.name || 'Ready' }}
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-auto">
+          <div v-if="executionStore.currentTarget" class="p-6 space-y-6">
+            <div class="text-center">
+              <h2 class="text-3xl font-semibold text-gray-200 mb-2">
+                {{ executionStore.currentTarget.name }}
+              </h2>
+              <p class="text-sm text-gray-500">
+                {{ executionStore.currentTarget.type }}
+              </p>
+            </div>
+
+            <BaseCard padding="lg">
+              <div class="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div class="text-xs text-gray-500">RA</div>
+                  <div class="text-lg text-gray-200 font-mono">
+                    {{ formatRA(executionStore.position.ra) }}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500">Dec</div>
+                  <div class="text-lg text-gray-200 font-mono">
+                    {{ formatDec(executionStore.position.dec) }}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500">Alt</div>
+                  <div class="text-lg text-gray-200 font-mono">
+                    {{ executionStore.position.alt.toFixed(1) }}°
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500">Az</div>
+                  <div class="text-lg text-gray-200 font-mono">
+                    {{ executionStore.position.az.toFixed(1) }}°
+                  </div>
+                </div>
+              </div>
+            </BaseCard>
+
+            <div v-if="executionStore.imaging.active">
+              <div class="text-sm text-gray-500 mb-2">
+                Progress: {{ executionStore.progressPercent }}%
+              </div>
+              <div class="w-full bg-gray-800 rounded-full h-2">
+                <div
+                  class="bg-blue-500 h-2 rounded-full transition-all"
+                  :style="{ width: executionStore.progressPercent + '%' }"
+                ></div>
+              </div>
+            </div>
           </div>
-          <div class="w-full bg-astro-elevated rounded-full h-2">
-            <div
-              class="bg-astro-accent h-2 rounded-full transition-all"
-              :style="{ width: executionStore.progressPercent + '%' }"
-            ></div>
+
+          <div v-else class="flex items-center justify-center h-full">
+            <div class="text-center">
+              <p class="text-gray-500">
+                Load a plan or connect telescope to begin
+              </p>
+            </div>
           </div>
         </div>
       </div>
-
-      <div v-else class="flex items-center justify-center h-full">
-        <p class="text-astro-text-muted">
-          Load a plan or connect telescope to begin
-        </p>
-      </div>
-    </div>
-  </div>
+    </template>
+  </PanelContainer>
 </template>
 
 <script setup>
 import { useExecutionStore } from '@/stores/execution'
+import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import HardwarePanel from '@/components/execution/HardwarePanel.vue'

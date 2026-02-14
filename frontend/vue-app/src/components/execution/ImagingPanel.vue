@@ -1,12 +1,12 @@
 <template>
   <BaseCard padding="md">
-    <h3 class="text-sm font-semibold text-astro-text-muted mb-3">
+    <h3 class="text-sm font-semibold text-gray-500 mb-3">
       IMAGING CONTROLS
     </h3>
 
     <div class="space-y-3">
       <div>
-        <label class="text-xs text-astro-text-muted mb-1 block">
+        <label class="text-xs text-gray-500 mb-1 block">
           Exposure Time (s)
         </label>
         <BaseInput
@@ -19,7 +19,7 @@
       </div>
 
       <div>
-        <label class="text-xs text-astro-text-muted mb-1 block">
+        <label class="text-xs text-gray-500 mb-1 block">
           Gain
         </label>
         <BaseInput
@@ -32,7 +32,7 @@
       </div>
 
       <div>
-        <label class="text-xs text-astro-text-muted mb-1 block">
+        <label class="text-xs text-gray-500 mb-1 block">
           Frame Count
         </label>
         <BaseInput
@@ -48,20 +48,20 @@
           type="checkbox"
           id="enable-dithering"
           v-model="ditheringEnabled"
-          class="w-4 h-4 rounded border-astro-border bg-astro-elevated text-astro-accent focus:ring-astro-accent"
+          class="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
         />
-        <label for="enable-dithering" class="text-xs text-astro-text cursor-pointer">
+        <label for="enable-dithering" class="text-xs text-gray-200 cursor-pointer">
           Enable Dithering
         </label>
       </div>
 
-      <div v-if="executionStore.imaging.active" class="pt-2 border-t border-astro-border">
-        <div class="text-xs text-astro-text-muted mb-1">
+      <div v-if="executionStore.imaging.active" class="pt-2 border-t border-gray-800">
+        <div class="text-xs text-gray-500 mb-1">
           Frames: {{ executionStore.imaging.framesCaptured }} / {{ frameCountValue }}
         </div>
-        <div class="w-full bg-astro-elevated rounded-full h-2">
+        <div class="w-full bg-gray-800 rounded-full h-2">
           <div
-            class="bg-astro-accent h-2 rounded-full transition-all"
+            class="bg-blue-500 h-2 rounded-full transition-all"
             :style="{ width: imagingProgress + '%' }"
           ></div>
         </div>

@@ -1,6 +1,6 @@
 <template>
   <BaseCard padding="md">
-    <h3 class="text-sm font-semibold text-astro-text-muted mb-3">
+    <h3 class="text-sm font-semibold text-gray-500 mb-3">
       TELESCOPE CONNECTION
     </h3>
 
@@ -20,15 +20,15 @@
         Connect
       </BaseButton>
 
-      <div v-if="executionStore.error" class="text-xs text-astro-error">
+      <div v-if="executionStore.error" class="text-xs text-red-500">
         {{ executionStore.error }}
       </div>
     </div>
 
     <div v-else class="space-y-3">
       <div class="flex items-center gap-2">
-        <span class="w-2 h-2 bg-astro-success rounded-full"></span>
-        <span class="text-sm text-astro-text">Connected to {{ executionStore.telescopeIp }}</span>
+        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+        <span class="text-sm text-gray-200">Connected to {{ executionStore.telescopeIp }}</span>
       </div>
 
       <BaseButton
