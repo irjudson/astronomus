@@ -1,10 +1,10 @@
 <template>
   <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
-    <h3 class="text-sm font-semibold text-gray-500 mb-3">
-      IMAGING CONTROLS
+    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+      Imaging Controls
     </h3>
 
-    <div class="space-y-3">
+    <div class="space-y-4">
       <div>
         <label class="text-xs text-gray-500 mb-1 block">
           Exposure Time (s)
@@ -58,16 +58,57 @@
         </label>
       </div>
 
-      <div v-if="executionStore.imaging.active" class="pt-2 border-t border-gray-800">
-        <div class="text-xs text-gray-500 mb-1">
-          Frames: {{ executionStore.imaging.framesCaptured }} / {{ frameCountValue }}
+      <!-- Control Buttons -->
+      <div class="space-y-2">
+        <button
+          @click="startImaging"
+          :disabled="!executionStore.connected || executionStore.imaging.active"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ executionStore.imaging.active ? 'Imaging...' : 'Start Imaging' }}
+        </button>
+
+        <button
+          @click="stopImaging"
+          :disabled="!executionStore.imaging.active"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Stop Imaging
+        </button>
+
+        <button
+          @click="autoFocus"
+          :disabled="!executionStore.connected || executionStore.imaging.active"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Auto Focus
+        </button>
+      </div>
+
+      <!-- Imaging Progress -->
+      <div v-if="executionStore.imaging.active" class="p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-gray-400">Imaging in progress</span>
+          <span class="text-xs font-medium text-blue-400">
+            {{ executionStore.imaging.framesCaptured }} / {{ frameCountValue }}
+          </span>
         </div>
-        <div class="w-full bg-gray-800 rounded-full h-2">
+        <div class="w-full bg-gray-800 rounded-full h-1.5">
           <div
-            class="bg-blue-500 h-2 rounded-full transition-all"
+            class="bg-blue-500 h-1.5 rounded-full transition-all"
             :style="{ width: imagingProgress + '%' }"
           ></div>
         </div>
+      </div>
+
+      <!-- Status Message -->
+      <div v-if="statusMessage" :class="[
+        'p-3 rounded-lg text-sm',
+        statusType === 'error' ? 'bg-red-900/20 border border-red-800 text-red-400' :
+        statusType === 'success' ? 'bg-green-900/20 border border-green-800 text-green-400' :
+        'bg-blue-900/20 border border-blue-800 text-blue-400'
+      ]">
+        {{ statusMessage }}
       </div>
     </div>
   </div>
@@ -82,6 +123,8 @@ const executionStore = useExecutionStore()
 const gainValue = ref(80)
 const frameCountValue = ref(50)
 const ditheringEnabled = ref(false)
+const statusMessage = ref('')
+const statusType = ref('info')
 
 const imagingProgress = computed(() => {
   if (!executionStore.imaging.active || frameCountValue.value === 0) return 0
@@ -98,5 +141,45 @@ const updateGain = (value) => {
 
 const updateFrameCount = (value) => {
   frameCountValue.value = value
+}
+
+const startImaging = async () => {
+  try {
+    await executionStore.startImaging({
+      exposure: executionStore.imaging.currentExposure,
+      gain: gainValue.value,
+      frames: frameCountValue.value
+    })
+    showStatus(`Started imaging: ${frameCountValue.value} frames @ ${executionStore.imaging.currentExposure}s`, 'success')
+  } catch (err) {
+    showStatus(err.message || 'Failed to start imaging', 'error')
+  }
+}
+
+const stopImaging = async () => {
+  try {
+    await executionStore.stopImaging()
+    showStatus('Imaging stopped', 'info')
+  } catch (err) {
+    showStatus(err.message || 'Failed to stop imaging', 'error')
+  }
+}
+
+const autoFocus = async () => {
+  try {
+    await executionStore.autoFocus()
+    showStatus('Auto focus started...', 'info')
+  } catch (err) {
+    showStatus(err.message || 'Auto focus failed', 'error')
+  }
+}
+
+const showStatus = (message, type = 'info') => {
+  statusMessage.value = message
+  statusType.value = type
+
+  setTimeout(() => {
+    statusMessage.value = ''
+  }, 5000)
 }
 </script>

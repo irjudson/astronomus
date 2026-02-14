@@ -49,6 +49,7 @@
         </div>
 
         <TelescopePanel />
+        <MotionControlPanel />
         <ImagingPanel />
         <HardwarePanel />
         <MessagesPanel />
@@ -137,6 +138,7 @@
 import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
+import MotionControlPanel from '@/components/execution/MotionControlPanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import HardwarePanel from '@/components/execution/HardwarePanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'

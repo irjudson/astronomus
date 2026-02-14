@@ -194,6 +194,28 @@ export const useExecutionStore = defineStore('execution', {
       }
     },
 
+    async stopMotion() {
+      try {
+        await axios.post('/api/telescope/stop')
+        this.addMessage('Motion stopped')
+      } catch (err) {
+        this.error = 'Failed to stop motion: ' + err.message
+        console.error('Stop motion error:', err)
+        throw err
+      }
+    },
+
+    async autoFocus() {
+      try {
+        await axios.post('/api/telescope/focus/auto')
+        this.addMessage('Auto focus started')
+      } catch (err) {
+        this.error = 'Failed to start auto focus: ' + err.message
+        console.error('Auto focus error:', err)
+        throw err
+      }
+    },
+
     async startImaging(params) {
       this.imaging.active = true
       this.imaging.framesCaptured = 0

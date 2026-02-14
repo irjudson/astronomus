@@ -6,9 +6,14 @@ services:
       dockerfile: docker/Dockerfile
     image: astronomus:latest
     container_name: astronomus
-    network_mode: "host"  # Use host network to access telescope on local network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "9247:9247"
+    # For telescope connectivity on local network, you have two options:
+    # 1. Run this container on a machine that's on the same network as the telescope
+    # 2. Use network_mode: "host" (but you'll need to stop any PostgreSQL on port 5432)
+    # 3. Use docker with --network=host flag instead of docker-compose
     environment:
       # PostgreSQL configuration for local database
       - POSTGRES_HOST=localhost
