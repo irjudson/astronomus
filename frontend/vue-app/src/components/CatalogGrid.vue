@@ -143,7 +143,7 @@ const updatePageSize = () => {
 };
 
 onMounted(() => {
-  catalogStore.fetchCatalogData(); // Initial data fetch
+  // Note: Initial data fetch is handled by DiscoveryView
 
   // Setup ResizeObserver
   const mainContent = document.getElementById('main-content');
