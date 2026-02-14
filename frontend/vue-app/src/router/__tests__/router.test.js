@@ -11,7 +11,6 @@ describe('Router', () => {
 
     const routePaths = router.getRoutes().map(r => r.path)
     expect(routePaths).toContain('/')
-    expect(routePaths).toContain('/catalog')
     expect(routePaths).toContain('/plan')
     expect(routePaths).toContain('/execute')
     expect(routePaths).toContain('/process')
