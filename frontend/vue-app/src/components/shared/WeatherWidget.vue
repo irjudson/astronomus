@@ -7,7 +7,7 @@
       <span class="text-lg">{{ weatherIcon }}</span>
       <div class="text-left">
         <div class="text-gray-200 font-medium">
-          {{ weatherStore.current?.temperature }}°C
+          {{ displayTemperature }}
         </div>
         <div class="text-xs text-gray-500">
           {{ weatherStore.weatherQuality }}
@@ -22,6 +22,22 @@ import { computed, onMounted } from 'vue'
 import { useWeatherStore } from '@/stores/weather'
 
 const weatherStore = useWeatherStore()
+
+const temperatureUnit = computed(() => {
+  const settings = localStorage.getItem('astronomus_settings')
+  return settings ? JSON.parse(settings).temperatureUnit || 'F' : 'F'
+})
+
+const displayTemperature = computed(() => {
+  if (!weatherStore.current?.temperature) return '--'
+
+  const tempC = weatherStore.current.temperature
+  if (temperatureUnit.value === 'F') {
+    const tempF = (tempC * 9/5) + 32
+    return `${Math.round(tempF)}°F`
+  }
+  return `${Math.round(tempC)}°C`
+})
 
 const weatherIcon = computed(() => {
   if (!weatherStore.current) return '🌤️'
