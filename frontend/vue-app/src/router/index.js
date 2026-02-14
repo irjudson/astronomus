@@ -1,30 +1,26 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import DiscoveryView from '@/views/DiscoveryView.vue'
 
 export const routes = [
   {
     path: '/',
-    name: 'home',
-    component: () => import('@/views/HomeView.vue')
-  },
-  {
-    path: '/catalog',
-    name: 'catalog',
-    component: () => import('@/views/CatalogView.vue')
+    name: 'discovery', // Renamed from 'home' to 'discovery'
+    component: DiscoveryView // Use DiscoveryView for the main discovery page
   },
   {
     path: '/plan',
     name: 'plan',
-    component: () => import('@/views/PlanView.vue')
+    component: () => import('@/views/PlanningView.vue')
   },
   {
     path: '/execute',
     name: 'execute',
-    component: () => import('@/views/ExecuteView.vue')
+    component: () => import('@/views/ExecutionView.vue')
   },
   {
     path: '/process',
     name: 'process',
-    component: () => import('@/views/ProcessView.vue')
+    component: () => import('@/views/ProcessingView.vue')
   }
 ]
 
