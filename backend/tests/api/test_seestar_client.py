@@ -128,28 +128,63 @@ class TestSeestarClient:
 
 
 @pytest.mark.asyncio
-async def test_get_latest_preview_frame():
-    """Test file-based preview frame fetching.
-
-    This test is skipped by default as it requires telescope hardware.
-    To run manually with hardware: pytest -k test_get_latest_preview_frame --runxfail
-    """
-    pytest.skip("Requires telescope hardware - manual test only")
+async def test_get_latest_preview_frame_success():
+    """Test successful preview frame retrieval."""
+    from unittest.mock import AsyncMock, patch
 
     client = SeestarClient()
 
-    try:
-        # Try to connect to telescope
-        await client.connect("192.168.2.47")
+    # Mock get_image_file_info to return file list
+    mock_file_info = {
+        "files": [
+            {"name": "preview_002.jpg", "timestamp": "2026-02-15T14:30:00"},
+            {"name": "preview_001.jpg", "timestamp": "2026-02-15T14:29:00"},
+        ]
+    }
 
-        # Should return bytes or None
+    # Mock _download_file to return JPEG bytes
+    jpeg_bytes = b"\xff\xd8\xff\xe0" + b"fake jpeg data"
+
+    with patch.object(client, "get_image_file_info", new=AsyncMock(return_value=mock_file_info)):
+        with patch.object(client, "_download_file", new=AsyncMock(return_value=jpeg_bytes)):
+            # Execute
+            frame = await client.get_latest_preview_frame()
+
+            # Verify
+            assert frame == jpeg_bytes
+            client.get_image_file_info.assert_called_once_with("/mnt/sda1/seestar/preview/")
+            client._download_file.assert_called_once_with("/mnt/sda1/seestar/preview/preview_002.jpg")
+
+
+@pytest.mark.asyncio
+async def test_get_latest_preview_frame_no_files():
+    """Test when no preview frames available."""
+    from unittest.mock import AsyncMock, patch
+
+    client = SeestarClient()
+
+    # Mock empty file list
+    with patch.object(client, "get_image_file_info", new=AsyncMock(return_value={"files": []})):
+        # Execute
         frame = await client.get_latest_preview_frame()
 
-        # If telescope available and has frames, should return JPEG bytes
-        if frame is not None:
-            assert isinstance(frame, bytes)
-            assert len(frame) > 0
-            # Verify it's a JPEG (starts with FF D8)
-            assert frame[:2] == b"\xff\xd8"
-    finally:
-        await client.disconnect()
+        # Verify
+        assert frame is None
+
+
+@pytest.mark.asyncio
+async def test_get_latest_preview_frame_no_timestamps():
+    """Test when files have no timestamps."""
+    from unittest.mock import AsyncMock, patch
+
+    client = SeestarClient()
+
+    # Mock files without timestamps
+    mock_file_info = {"files": [{"name": "preview.jpg"}]}
+
+    with patch.object(client, "get_image_file_info", new=AsyncMock(return_value=mock_file_info)):
+        # Execute
+        frame = await client.get_latest_preview_frame()
+
+        # Verify
+        assert frame is None

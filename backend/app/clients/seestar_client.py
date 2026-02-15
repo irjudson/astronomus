@@ -2870,35 +2870,38 @@ class SeestarClient:
         This is an alternative to get_live_preview() that works when RTSP is unavailable.
 
         Returns:
-            JPEG bytes of latest preview frame, or None if unavailable
+            JPEG bytes of latest preview frame, or None if no frames available
 
         Raises:
+            ConnectionError: If not connected to telescope
             CommandError: If file listing or download fails
         """
-        try:
-            # List files in preview directory
-            preview_info = await self.get_image_file_info("/mnt/sda1/seestar/preview/")
+        # List files - let exceptions propagate
+        preview_info = await self.get_image_file_info("/mnt/sda1/seestar/preview/")
 
-            if "files" not in preview_info or not preview_info["files"]:
-                self.logger.warning("No preview frames available")
-                return None
-
-            # Sort by timestamp (most recent first)
-            files = sorted(preview_info["files"], key=lambda f: f.get("timestamp", ""), reverse=True)
-
-            latest_file = files[0]
-            file_path = f"/mnt/sda1/seestar/preview/{latest_file['name']}"
-
-            self.logger.info(f"Downloading latest preview frame: {file_path}")
-
-            # Download file using existing method
-            frame_bytes = await self._download_file(file_path)
-
-            return frame_bytes
-
-        except Exception as e:
-            self.logger.error(f"Failed to get preview frame: {e}")
+        if "files" not in preview_info or not preview_info["files"]:
+            self.logger.warning("No preview frames available")
             return None
+
+        # Filter out files without timestamps and sort
+        files_with_timestamps = [f for f in preview_info["files"] if "timestamp" in f]
+        if not files_with_timestamps:
+            self.logger.warning("No timestamped preview frames available")
+            return None
+
+        files = sorted(files_with_timestamps, key=lambda f: f["timestamp"], reverse=True)
+
+        latest_file = files[0]
+        if "name" not in latest_file:
+            raise CommandError("Invalid file info: missing 'name' field")
+        file_path = f"/mnt/sda1/seestar/preview/{latest_file['name']}"
+
+        self.logger.info(f"Downloading latest preview frame: {file_path}")
+
+        # Download file - let exceptions propagate
+        frame_bytes = await self._download_file(file_path)
+
+        return frame_bytes
 
     async def _download_file(self, remote_path: str) -> bytes:
         """Download file from telescope via port 4801.
