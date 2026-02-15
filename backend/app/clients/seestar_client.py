@@ -1389,6 +1389,107 @@ class SeestarClient:
             self.logger.error(error_msg)
             raise CommandError(error_msg)
 
+    async def start_annotate(self) -> bool:
+        """Enable annotations on preview.
+
+        Returns:
+            True if annotations started successfully
+
+        Raises:
+            CommandError: If annotation start fails
+        """
+        response = await self._send_command("start_annotate", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Annotations started")
+            return True
+        else:
+            error_msg = f"Failed to start annotations: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_annotate(self) -> bool:
+        """Disable annotations on preview.
+
+        Returns:
+            True if annotations stopped successfully
+
+        Raises:
+            CommandError: If annotation stop fails
+        """
+        response = await self._send_command("stop_annotate", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Annotations stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop annotations: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_scan_planet(self) -> bool:
+        """Start scanning for visible planets.
+
+        Returns:
+            True if planet scan started successfully
+
+        Raises:
+            CommandError: If planet scan fails to start
+        """
+        response = await self._send_command("iscope_start_scan_planet", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Planet scan started")
+            return True
+        else:
+            error_msg = f"Failed to start planet scan: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_planet_stack(self, planet_name: str, exposure: int, gain: int) -> bool:
+        """Start planetary imaging stack.
+
+        Args:
+            planet_name: Name of the planet to image
+            exposure: Exposure time in milliseconds
+            gain: Gain value (0-300)
+
+        Returns:
+            True if planetary stack started successfully
+
+        Raises:
+            CommandError: If planetary stack fails to start
+        """
+        params = {"target": planet_name, "exposure": exposure, "gain": gain}
+        response = await self._send_command("iscope_start_planet_stack", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Planet stack started: {planet_name} (exp={exposure}ms, gain={gain})")
+            return True
+        else:
+            error_msg = f"Failed to start planet stack: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_planet_stack(self) -> bool:
+        """Stop planetary imaging stack.
+
+        Returns:
+            True if planetary stack stopped successfully
+
+        Raises:
+            CommandError: If planetary stack fails to stop
+        """
+        response = await self._send_command("iscope_stop_planet_stack", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Planet stack stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop planet stack: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
     async def stop_slew(self) -> bool:
         """Stop current slew/goto operation.
 
