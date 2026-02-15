@@ -16,7 +16,13 @@ export const usePlanningStore = defineStore('planning', {
       setup_time_minutes: 30,
       object_types: ['galaxy', 'nebula', 'cluster', 'planetary_nebula'],
       daytime_planning: false
-    }
+    },
+
+    // Execution state
+    executionId: null,
+    executionStatus: null,
+    executionProgress: null,
+    progressPollInterval: null
   }),
 
   getters: {
@@ -135,6 +141,84 @@ export const usePlanningStore = defineStore('planning', {
       } catch (err) {
         this.error = 'Failed to export plan: ' + err.message
         return null
+      }
+    },
+
+    async executePlan(parkWhenDone = true) {
+      if (!this.currentPlan || !this.currentPlan.scheduled_targets) {
+        this.error = 'No plan to execute'
+        return
+      }
+
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await axios.post('/api/telescope/execute', {
+          scheduled_targets: this.currentPlan.scheduled_targets,
+          park_when_done: parkWhenDone
+        })
+
+        this.executionId = response.data.execution_id
+        this.executionStatus = response.data.status
+
+        // Start polling for progress
+        this.startProgressPolling()
+      } catch (err) {
+        this.error = 'Failed to execute plan: ' + (err.response?.data?.detail || err.message)
+        console.error('Execution error:', err)
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    startProgressPolling() {
+      if (this.progressPollInterval) {
+        clearInterval(this.progressPollInterval)
+      }
+
+      this.progressPollInterval = setInterval(async () => {
+        if (!this.executionId) {
+          this.stopProgressPolling()
+          return
+        }
+
+        try {
+          const response = await axios.get('/api/telescope/progress', {
+            params: { execution_id: this.executionId }
+          })
+
+          this.executionProgress = response.data
+
+          // Stop polling if execution completed or failed
+          if (response.data.state === 'completed' || response.data.state === 'failed') {
+            this.stopProgressPolling()
+            this.executionStatus = response.data.state
+          }
+        } catch (err) {
+          console.error('Progress poll error:', err)
+        }
+      }, 2000)
+    },
+
+    stopProgressPolling() {
+      if (this.progressPollInterval) {
+        clearInterval(this.progressPollInterval)
+        this.progressPollInterval = null
+      }
+    },
+
+    async abortExecution() {
+      if (!this.executionId) return
+
+      try {
+        await axios.post('/api/telescope/abort')
+        this.executionStatus = 'aborted'
+        this.stopProgressPolling()
+      } catch (err) {
+        this.error = 'Failed to abort execution: ' + err.message
+        console.error('Abort error:', err)
       }
     }
   }

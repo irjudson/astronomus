@@ -24,7 +24,7 @@ class RTMPPreviewService:
 
         Args:
             host: Telescope IP address
-            port: RTSP port (4554 for Seestar S50 live stream)
+            port: RTSP port (4554 for Seestar S50 telephoto live stream)
         """
         self.host = host
         self.port = port

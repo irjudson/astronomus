@@ -29,6 +29,13 @@
             </div>
             <div v-if="planningStore.currentPlan" class="flex gap-2">
               <button
+                @click="executePlan"
+                :disabled="planningStore.loading || !executionStore.connected"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Execute Plan
+              </button>
+              <button
                 @click="savePlan"
                 class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors"
               >
@@ -136,11 +143,15 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
 import { usePlanningStore } from '@/stores/planning'
+import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import PlanningControls from '@/components/planning/PlanningControls.vue'
 
+const router = useRouter()
 const planningStore = usePlanningStore()
+const executionStore = useExecutionStore()
 
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'
@@ -185,6 +196,25 @@ const exportPlan = async () => {
     }
   } catch (err) {
     alert('Failed to export plan: ' + err.message)
+  }
+}
+
+const executePlan = async () => {
+  if (!executionStore.connected) {
+    alert('Please connect to telescope first (Execution view)')
+    return
+  }
+
+  if (!confirm('Execute this observation plan on the telescope?')) {
+    return
+  }
+
+  try {
+    await planningStore.executePlan(true) // park when done
+    alert('Plan execution started! Switch to Execution view to monitor progress.')
+    router.push('/execution')
+  } catch (err) {
+    alert('Failed to execute plan: ' + err.message)
   }
 }
 </script>

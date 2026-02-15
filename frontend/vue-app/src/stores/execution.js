@@ -29,7 +29,11 @@ export const useExecutionStore = defineStore('execution', {
     hardware: {
       sensorTemp: null,
       dewHeaterStatus: 'Off',
-      trackingStatus: 'Inactive'
+      dewHeaterPower: 50,
+      trackingStatus: 'Inactive',
+      mountMode: null, // 'equatorial' or 'altaz'
+      firmwareVersion: null,
+      model: null
     },
 
     // Messages
@@ -81,6 +85,11 @@ export const useExecutionStore = defineStore('execution', {
           this.connected = true
           this.telescopeIp = ip
           this.startPositionPolling()
+
+          // Fetch initial hardware status
+          this.fetchSystemInfo()
+          this.fetchDewHeaterStatus()
+
           this.addMessage('Telescope connected successfully')
         } else {
           this.error = response.data.message || 'Connection failed'
@@ -122,12 +131,33 @@ export const useExecutionStore = defineStore('execution', {
 
       try {
         const response = await axios.get('/api/telescope/status')
-        this.updatePosition(response.data.position)
 
-        if (response.data.hardware) {
-          this.hardware = {
-            ...this.hardware,
-            ...response.data.hardware
+        // Parse telescope status response
+        if (response.data) {
+          // Convert RA hours to degrees (15 degrees per hour)
+          const raDeg = (response.data.current_ra_hours || 0) * 15
+          const decDeg = response.data.current_dec_degrees || 0
+
+          this.updatePosition({
+            ra: raDeg,
+            dec: decDeg,
+            alt: 0, // Not provided by API
+            az: 0   // Not provided by API
+          })
+
+          // Update tracking status from state field (not just is_tracking boolean)
+          if (response.data.state) {
+            const state = response.data.state.toLowerCase()
+            if (state === 'parked' || state === 'parking') {
+              this.hardware.trackingStatus = 'Parked'
+            } else if (state === 'tracking' || response.data.is_tracking) {
+              this.hardware.trackingStatus = 'Active'
+            } else {
+              this.hardware.trackingStatus = 'Inactive'
+            }
+          } else if (response.data.is_tracking !== undefined) {
+            // Fallback to is_tracking if state not available
+            this.hardware.trackingStatus = response.data.is_tracking ? 'Active' : 'Inactive'
           }
         }
       } catch (err) {
@@ -196,7 +226,7 @@ export const useExecutionStore = defineStore('execution', {
 
     async stopMotion() {
       try {
-        await axios.post('/api/telescope/stop')
+        await axios.post('/api/telescope/stop-slew')
         this.addMessage('Motion stopped')
       } catch (err) {
         this.error = 'Failed to stop motion: ' + err.message
@@ -216,29 +246,63 @@ export const useExecutionStore = defineStore('execution', {
       }
     },
 
+    async moveDirection(direction, speed) {
+      if (!this.connected) {
+        this.error = 'Telescope not connected'
+        throw new Error('Telescope not connected')
+      }
+
+      try {
+        // Convert speed string to numeric multiplier
+        const speedMap = {
+          slow: 0.5,
+          fast: 2.0
+        }
+
+        // API expects 'action' (up/down/left/right) and numeric 'speed'
+        await axios.post('/api/telescope/move', {
+          action: direction,
+          speed: speedMap[speed] || 1.0
+        })
+
+        this.addMessage(`Moving ${direction} (${speed})`)
+      } catch (err) {
+        this.error = 'Failed to move telescope: ' + err.message
+        console.error('Move error:', err)
+        throw err
+      }
+    },
+
     async startImaging(params) {
       this.imaging.active = true
       this.imaging.framesCaptured = 0
       this.imaging.currentExposure = params.exposure || 10
-      this.addMessage(`Started imaging: ${params.frames} frames @ ${params.exposure}s`)
+      this.addMessage(`Started live preview`)
 
       try {
-        await axios.post('/api/imaging/start', params)
+        // Start preview/live view mode (not stacking)
+        await axios.post('/api/telescope/start-preview', {
+          mode: 'star',  // Star mode for deep sky imaging
+          brightness: 50
+        })
       } catch (err) {
-        this.error = 'Failed to start imaging: ' + err.message
+        this.error = 'Failed to start preview: ' + err.message
         this.imaging.active = false
         console.error('Imaging error:', err)
+        throw err
       }
     },
 
     async stopImaging() {
       try {
-        await axios.post('/api/imaging/stop')
+        // Stop preview/live view
+        await axios.post('/api/telescope/stop-imaging')
         this.imaging.active = false
-        this.addMessage('Imaging stopped')
+        this.addMessage('Preview stopped')
       } catch (err) {
-        this.error = 'Failed to stop imaging: ' + err.message
+        this.error = 'Failed to stop preview: ' + err.message
         console.error('Stop imaging error:', err)
+        throw err
       }
     },
 
@@ -342,10 +406,59 @@ export const useExecutionStore = defineStore('execution', {
       this.messages = []
     },
 
-    toggleDewHeater() {
-      this.hardware.dewHeaterStatus =
-        this.hardware.dewHeaterStatus === 'Off' ? 'On' : 'Off'
-      this.addMessage(`Dew heater ${this.hardware.dewHeaterStatus.toLowerCase()}`)
+    async fetchDewHeaterStatus() {
+      if (!this.connected) return
+
+      try {
+        const response = await axios.get('/api/telescope/features/hardware/dew-heater/status')
+        if (response.data) {
+          this.hardware.dewHeaterStatus = response.data.enabled ? 'On' : 'Off'
+          this.hardware.dewHeaterPower = response.data.power || 0
+        }
+      } catch (err) {
+        console.error('Failed to fetch dew heater status:', err)
+      }
+    },
+
+    async setDewHeater(enabled, power = 50) {
+      if (!this.connected) {
+        this.error = 'Telescope not connected'
+        return
+      }
+
+      try {
+        await axios.post('/api/telescope/features/hardware/dew-heater', {
+          enabled,
+          power
+        })
+
+        this.hardware.dewHeaterStatus = enabled ? 'On' : 'Off'
+        this.hardware.dewHeaterPower = power
+        this.addMessage(`Dew heater ${enabled ? 'on' : 'off'}${enabled ? ` (${power}%)` : ''}`)
+      } catch (err) {
+        this.error = 'Failed to set dew heater: ' + err.message
+        console.error('Dew heater error:', err)
+      }
+    },
+
+    async toggleDewHeater() {
+      const newState = this.hardware.dewHeaterStatus !== 'On'
+      await this.setDewHeater(newState, this.hardware.dewHeaterPower || 50)
+    },
+
+    async fetchSystemInfo() {
+      if (!this.connected) return
+
+      try {
+        const response = await axios.get('/api/telescope/features/system/info')
+        if (response.data) {
+          this.hardware.sensorTemp = response.data.temperature || null
+          this.hardware.firmwareVersion = response.data.firmware || null
+          this.hardware.model = response.data.model || null
+        }
+      } catch (err) {
+        console.error('Failed to fetch system info:', err)
+      }
     }
   }
 })

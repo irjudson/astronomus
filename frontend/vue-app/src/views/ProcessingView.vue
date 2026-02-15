@@ -48,18 +48,40 @@
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Processing</h3>
       </div>
       <div class="space-y-4 p-4 overflow-y-auto">
+        <!-- Batch Processing -->
         <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-gray-500 mb-3">
-            STACK IMAGES
+            BATCH PROCESSING
+          </h3>
+
+          <div class="space-y-3">
+            <button
+              @click="processingStore.batchProcessNew()"
+              :disabled="processingStore.loading"
+              class="w-full px-4 py-2 rounded font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Process All New Files
+            </button>
+
+            <p class="text-xs text-gray-500">
+              Automatically processes all unprocessed FITS files
+            </p>
+          </div>
+        </div>
+
+        <!-- Stack Selected Images -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-500 mb-3">
+            STACK SELECTED
           </h3>
 
           <div class="space-y-3">
             <button
               @click="processingStore.stackImages()"
-              :disabled="!processingStore.hasSelection"
+              :disabled="!processingStore.hasSelection || processingStore.loading"
               class="w-full px-4 py-2 rounded font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Stack Images
+              Stack {{ processingStore.selectedFileCount }} Image{{ processingStore.selectedFileCount !== 1 ? 's' : '' }}
             </button>
 
             <div v-if="processingStore.activeJob" class="space-y-2">
