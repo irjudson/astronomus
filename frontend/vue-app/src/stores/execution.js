@@ -36,6 +36,9 @@ export const useExecutionStore = defineStore('execution', {
       model: null
     },
 
+    // Annotations
+    annotationsEnabled: false,
+
     // Messages
     messages: [],
 
@@ -311,6 +314,18 @@ export const useExecutionStore = defineStore('execution', {
       this.imaging.totalExposure = data.totalExposure || this.imaging.totalExposure
     },
 
+    async toggleAnnotations(enabled) {
+      try {
+        await axios.post('/api/telescope/annotation/toggle', { enabled })
+        this.annotationsEnabled = enabled
+        this.addMessage(`Annotations ${enabled ? 'enabled' : 'disabled'}`)
+      } catch (err) {
+        this.error = 'Failed to toggle annotations: ' + err.message
+        console.error('Toggle annotations error:', err)
+        throw err
+      }
+    },
+
     async executePlan(plan) {
       if (!this.connected) {
         this.error = 'Telescope not connected'
@@ -450,6 +465,54 @@ export const useExecutionStore = defineStore('execution', {
       if (!this.connected) return
 
       try {
+    },
+
+    async startTracking(type, id) {
+      if (!this.connected) {
+        this.error = 'Telescope not connected'
+        return
+      }
+
+      try {
+        await axios.post('/api/telescope/tracking/start', {
+          object_type: type,
+          object_id: id
+        })
+
+        this.tracking.active = true
+        this.tracking.objectType = type
+        this.tracking.objectId = id
+
+        this.addMessage(`Started tracking ${type}: ${id}`)
+      } catch (err) {
+        this.error = 'Failed to start tracking: ' + (err.response?.data?.detail || err.message)
+        console.error('Tracking error:', err)
+        throw err
+      }
+    },
+
+    async stopTracking() {
+      if (!this.connected) {
+        this.error = 'Telescope not connected'
+        return
+      }
+
+      try {
+        await axios.post('/api/telescope/tracking/stop')
+
+        const prevType = this.tracking.objectType
+        const prevId = this.tracking.objectId
+
+        this.tracking.active = false
+        this.tracking.objectType = null
+        this.tracking.objectId = null
+
+        this.addMessage(`Stopped tracking ${prevType}: ${prevId}`)
+      } catch (err) {
+        this.error = 'Failed to stop tracking: ' + (err.response?.data?.detail || err.message)
+        console.error('Stop tracking error:', err)
+        throw err
+      }
         const response = await axios.get('/api/telescope/features/system/info')
         if (response.data) {
           this.hardware.sensorTemp = response.data.temperature || null
