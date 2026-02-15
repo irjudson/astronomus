@@ -89,7 +89,7 @@
   <!-- Empty State -->
   <div v-else class="flex items-center justify-center min-h-[400px]">
     <div class="text-center">
-      <div class="text-6xl mb-4">🔭</div>
+      <Telescope class="w-16 h-16 mx-auto text-gray-600 mb-4" />
       <p class="text-gray-400 text-lg mb-2">
         Ready to observe
       </p>
@@ -103,6 +103,7 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
 import { useExecutionStore } from '@/stores/execution'
+import { Telescope } from 'lucide-vue-next'
 
 const executionStore = useExecutionStore()
 const previewImage = ref(null)
@@ -114,6 +115,7 @@ const fetchPreview = async () => {
   try {
     // Get live frame from RTMP stream
     // Add timestamp to prevent caching and force refresh
+    // NOTE: Using legacy endpoint for now - will be updated to /api/telescope/preview/frame in Task 2.2
     previewImage.value = `/api/telescope/features/images/preview/live?t=${Date.now()}`
     previewUpdateKey.value++
   } catch (err) {

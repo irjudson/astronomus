@@ -16,19 +16,19 @@
           <div class="flex items-center gap-3">
             <div class="text-center">
               <div class="text-gray-500">RA</div>
-              <div class="font-mono text-gray-200">{{ formatRA(executionStore.position.ra) }}</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position?.ra !== undefined ? formatRA(executionStore.position.ra) : '--:--:--' }}</div>
             </div>
             <div class="text-center">
               <div class="text-gray-500">Dec</div>
-              <div class="font-mono text-gray-200">{{ formatDec(executionStore.position.dec) }}</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position?.dec !== undefined ? formatDec(executionStore.position.dec) : '--:--:--' }}</div>
             </div>
             <div class="text-center">
               <div class="text-gray-500">Alt</div>
-              <div class="font-mono text-gray-200">{{ executionStore.position.alt.toFixed(1) }}°</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position?.alt !== undefined ? executionStore.position.alt.toFixed(1) + '°' : '--°' }}</div>
             </div>
             <div class="text-center">
               <div class="text-gray-500">Az</div>
-              <div class="font-mono text-gray-200">{{ executionStore.position.az.toFixed(1) }}°</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position?.az !== undefined ? executionStore.position.az.toFixed(1) + '°' : '--°' }}</div>
             </div>
           </div>
 
