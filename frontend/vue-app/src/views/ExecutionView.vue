@@ -1,14 +1,21 @@
 <template>
   <PanelContainer
-    :left-panel-visible="true"
-    :right-panel-visible="true"
+    v-model:left-panel-visible="leftPanelVisible"
+    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
+    <!-- Left panel header -->
+    <template #left-header>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-200">Telescope</h3>
+      </div>
+    </template>
+
+    <!-- Left panel label (for peek tab) -->
+    <template #left-label>Telescope</template>
+
     <!-- Left: Telescope Controls -->
     <template #left>
-      <div class="p-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Telescope</h3>
-      </div>
       <div class="p-4 space-y-4">
         <div>
           <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Control</h4>
@@ -96,12 +103,19 @@
       </div>
     </template>
 
+    <!-- Right panel header -->
+    <template #right-header>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-200">Operations</h3>
+      </div>
+    </template>
+
+    <!-- Right panel label (for peek tab) -->
+    <template #right-label>Operations</template>
+
     <!-- Right: Plan Execution, Polar Alignment, Messages -->
     <template #right>
-      <div class="p-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Operations</h3>
-      </div>
-      <div class="p-4 space-y-4 overflow-y-auto">
+      <div class="p-4 space-y-4">
         <!-- Plan Execution -->
         <div>
           <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan Execution</h4>
@@ -125,6 +139,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
@@ -136,6 +151,8 @@ import PolarAlignmentPanel from '@/components/execution/PolarAlignmentPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()
+const leftPanelVisible = ref(true)
+const rightPanelVisible = ref(true)
 
 const formatRA = (ra) => {
   const hours = ra / 15

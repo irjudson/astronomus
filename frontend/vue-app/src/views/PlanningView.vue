@@ -1,14 +1,21 @@
 <template>
   <PanelContainer
-    :left-panel-visible="true"
-    :right-panel-visible="false"
+    v-model:left-panel-visible="leftPanelVisible"
+    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
+    <!-- Left panel header -->
+    <template #left-header>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-200">Planning</h3>
+      </div>
+    </template>
+
+    <!-- Left panel label (for peek tab) -->
+    <template #left-label>Planning</template>
+
     <!-- Left: Planning Controls -->
     <template #left>
-      <div class="p-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Planning</h3>
-      </div>
       <PlanningControls />
     </template>
 
@@ -143,6 +150,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlanningStore } from '@/stores/planning'
 import { useExecutionStore } from '@/stores/execution'
@@ -152,6 +160,8 @@ import PlanningControls from '@/components/planning/PlanningControls.vue'
 const router = useRouter()
 const planningStore = usePlanningStore()
 const executionStore = useExecutionStore()
+const leftPanelVisible = ref(true)
+const rightPanelVisible = ref(false)
 
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'

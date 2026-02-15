@@ -1,22 +1,23 @@
 <template>
   <PanelContainer
-    :left-panel-visible="true"
-    :right-panel-visible="false"
+    v-model:left-panel-visible="leftPanelVisible"
+    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
+    <!-- Left panel header -->
+    <template #left-header>
+      <div>
+        <h3 class="text-sm font-semibold text-gray-200">Filters</h3>
+      </div>
+    </template>
+
+    <!-- Left panel label (for peek tab) -->
+    <template #left-label>Filters</template>
+
     <!-- Left: Search Filters -->
     <template #left>
-      <div class="h-full flex flex-col bg-gray-900 border-r border-gray-800">
-        <div class="p-4 border-b border-gray-800">
-          <h2 class="text-lg font-semibold text-gray-200">Astronomus</h2>
-          <p class="text-xs text-gray-500 mt-1">Catalog Browser</p>
-        </div>
-        <div class="p-3 space-y-1">
-          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 py-2">
-            Filters
-          </h3>
-          <SearchFilters />
-        </div>
+      <div class="p-3 space-y-1">
+        <SearchFilters />
       </div>
     </template>
 
@@ -41,13 +42,15 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCatalogStore } from '@/stores/catalog'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import SearchFilters from '@/components/discovery/SearchFilters.vue'
 import CatalogGrid from '@/components/discovery/CatalogGrid.vue'
 
 const catalogStore = useCatalogStore()
+const leftPanelVisible = ref(true)
+const rightPanelVisible = ref(false)
 
 onMounted(async () => {
   await catalogStore.fetchCatalogData()
