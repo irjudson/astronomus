@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import router
 from app.core import get_settings
+from app.routers import preview
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api")
+app.include_router(preview.router)
 
 # Paths - handle both local (backend/app/main.py) and container (/app/app/main.py) environments
 # Try container path first (2 parents from /app/app/main.py -> /app/)

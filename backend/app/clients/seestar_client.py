@@ -2956,3 +2956,25 @@ class SeestarClient:
             raise ConnectionError(f"Timeout connecting to file server on port {self.FILE_TRANSFER_PORT}")
         except Exception as e:
             raise CommandError(f"File download failed: {str(e)}")
+
+
+# Module-level singleton instance
+_seestar_client: Optional[SeestarClient] = None
+
+
+def get_seestar_client() -> SeestarClient:
+    """Get the singleton SeestarClient instance.
+
+    Returns:
+        SeestarClient: The global telescope client instance
+
+    Raises:
+        RuntimeError: If client has not been initialized
+    """
+    global _seestar_client
+
+    if _seestar_client is None:
+        # Initialize on first access
+        _seestar_client = SeestarClient()
+
+    return _seestar_client
