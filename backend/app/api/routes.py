@@ -2294,49 +2294,73 @@ async def get_field_annotations():
         raise HTTPException(status_code=500, detail=f"Failed to get annotations: {str(e)}")
 
 
+@router.post("/telescope/annotation/toggle")
+async def toggle_annotations(request: AnnotationRequest, telescope: SeestarClient = Depends(get_current_telescope)):
+    """
+    Toggle field annotations on/off.
+
+    Args:
+        request: AnnotationRequest with enabled flag
+        telescope: Connected telescope client
+    """
+    try:
+        if request.enabled:
+            success = await telescope.start_annotate()
+        else:
+            success = await telescope.stop_annotate()
+        return {"success": success, "enabled": request.enabled}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle annotations: {str(e)}")
+
+
 # ==========================================
 # PLANETARY IMAGING
 # ==========================================
 
 
-@router.post("/telescope/planet/start")
-async def start_planet_scan(planet_name: str, exposure_ms: int = 30, gain: float = 100.0):
+@router.post("/telescope/imaging/planet/scan")
+async def scan_planets(telescope: SeestarClient = Depends(get_current_telescope)):
     """
-    Start planetary scanning mode.
+    Scan for visible planets.
 
-    Activates planet-specific imaging with different stacking algorithm
-    optimized for planetary targets.
+    Returns a list of planets currently above the horizon.
+    """
+    try:
+        planets = await telescope.start_scan_planet()
+        return {"planets": planets if planets else []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to scan planets: {str(e)}")
+
+
+@router.post("/telescope/imaging/planet/start")
+async def start_planetary_imaging(
+    planet_name: str, exposure: int = 10, gain: int = 80, telescope: SeestarClient = Depends(get_current_telescope)
+):
+    """
+    Start planetary imaging.
 
     Args:
         planet_name: Name of planet to image
-        exposure_ms: Exposure time in milliseconds
-        gain: Gain value (0-100)
+        exposure: Exposure time in milliseconds
+        gain: Gain value (0-200)
     """
-    if seestar_client is None or not seestar_client.connected:
-        raise HTTPException(status_code=400, detail="Telescope not connected")
-
     try:
-        success = await seestar_client.start_planet_scan(planet_name, exposure_ms, gain)
-        return {"success": success, "message": f"Planetary scan started for {planet_name}"}
+        success = await telescope.start_planet_stack(planet_name, exposure, gain)
+        return {"success": success, "message": f"Planetary imaging started for {planet_name}"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start planet scan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start planetary imaging: {str(e)}")
 
 
-@router.post("/telescope/planet/configure")
-async def configure_planetary_imaging(config: Dict[str, Any]):
+@router.post("/telescope/imaging/planet/stop")
+async def stop_planetary_imaging(telescope: SeestarClient = Depends(get_current_telescope)):
     """
-    Configure planetary imaging settings.
-
-    Sets planet-specific parameters like ROI, exposure, gain, frame rate.
+    Stop planetary imaging.
     """
-    if seestar_client is None or not seestar_client.connected:
-        raise HTTPException(status_code=400, detail="Telescope not connected")
-
     try:
-        success = await seestar_client.configure_planetary_imaging(**config)
-        return {"success": success, "message": "Planetary imaging configured"}
+        success = await telescope.stop_planet_stack()
+        return {"success": success, "message": "Planetary imaging stopped"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to configure planetary imaging: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop planetary imaging: {str(e)}")
 
 
 # ==========================================
