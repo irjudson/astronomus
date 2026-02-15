@@ -50,6 +50,23 @@ router.include_router(user_preferences_router, prefix="/user", tags=["user"])
 # Telescope control (singleton seestar client instance)
 seestar_client: Optional[SeestarClient] = None
 
+
+# Dependency injection for telescope client
+def get_current_telescope() -> Optional[SeestarClient]:
+    """
+    Dependency function to get the current telescope client.
+
+    Returns:
+        The current SeestarClient instance if connected, None otherwise
+
+    Raises:
+        HTTPException: If no telescope is connected
+    """
+    if seestar_client is None:
+        raise HTTPException(status_code=503, detail="Telescope not connected")
+    return seestar_client
+
+
 # In-memory storage for shared plans (in production, use Redis or database)
 shared_plans: Dict[str, ObservingPlan] = {}
 
@@ -1601,6 +1618,78 @@ async def stop_slew():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop slew failed: {str(e)}")
+
+
+@router.post("/telescope/polar-align/start")
+async def start_polar_align():
+    """
+    Start polar alignment process.
+
+    Returns:
+        Polar alignment start status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.start_polar_align()
+
+        if success:
+            return {"status": "active", "message": "Polar alignment started"}
+        else:
+            return {"status": "error", "message": "Failed to start polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Start polar alignment failed: {str(e)}")
+
+
+@router.post("/telescope/polar-align/stop")
+async def stop_polar_align():
+    """
+    Stop polar alignment process.
+
+    Returns:
+        Polar alignment stop status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.stop_polar_align()
+
+        if success:
+            return {"status": "stopped", "message": "Polar alignment stopped"}
+        else:
+            return {"status": "error", "message": "Failed to stop polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stop polar alignment failed: {str(e)}")
+
+
+@router.post("/telescope/polar-align/pause")
+async def pause_polar_align():
+    """
+    Pause polar alignment process.
+
+    Returns:
+        Polar alignment pause status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.pause_polar_align()
+
+        if success:
+            return {"status": "paused", "message": "Polar alignment paused"}
+        else:
+            return {"status": "error", "message": "Failed to pause polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pause polar alignment failed: {str(e)}")
 
 
 @router.post("/telescope/start-imaging")

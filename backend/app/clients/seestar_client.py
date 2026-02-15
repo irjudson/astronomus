@@ -1389,6 +1389,50 @@ class SeestarClient:
             self.logger.error(error_msg)
             raise CommandError(error_msg)
 
+    async def start_track_object(self, object_type: str, object_id: str) -> bool:
+        """Start tracking a satellite, comet, or asteroid.
+
+        Args:
+            object_type: Type of object - "satellite", "comet", or "asteroid"
+            object_id: Identifier of the object to track
+
+        Returns:
+            True if tracking started successfully
+
+        Raises:
+            CommandError: If tracking fails to start
+        """
+        params = {"type": object_type, "id": object_id}
+
+        response = await self._send_command("start_track_object", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Object tracking started: {object_type} - {object_id}")
+            return True
+        else:
+            error_msg = f"Failed to start tracking {object_type} '{object_id}': {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_track_object(self) -> bool:
+        """Stop tracking current object.
+
+        Returns:
+            True if tracking stopped successfully
+
+        Raises:
+            CommandError: If tracking fails to stop
+        """
+        response = await self._send_command("stop_track_object", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Object tracking stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop tracking object: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
     async def start_annotate(self) -> bool:
         """Enable annotations on preview.
 
