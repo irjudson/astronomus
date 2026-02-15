@@ -88,6 +88,15 @@ class ExecutePlanRequest(BaseModel):
     saved_plan_id: Optional[int] = None  # Optional: link execution to saved plan
 
 
+class AnnotationRequest(BaseModel):
+    enabled: bool
+
+
+class StartTrackingRequest(BaseModel):
+    object_type: str  # "satellite", "comet", or "asteroid"
+    object_id: str
+
+
 @router.post("/plan", response_model=ObservingPlan)
 async def generate_plan(request: PlanRequest, db: Session = Depends(get_db)):
     """
@@ -1796,6 +1805,68 @@ async def stop_recording():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to stop recording: {str(e)}")
+
+
+@router.post("/telescope/tracking/start")
+async def start_tracking(
+    request: StartTrackingRequest,
+    client: SeestarClient = Depends(get_current_telescope)
+):
+    """
+    Start tracking an object (satellite, comet, or asteroid).
+
+    Args:
+        request: StartTrackingRequest with object_type and object_id
+        client: Connected telescope client
+
+    Returns:
+        Tracking status with object details
+    """
+    try:
+        success = await client.start_track_object(
+            object_type=request.object_type,
+            object_id=request.object_id
+        )
+
+        if success:
+            return {
+                "status": "tracking_started",
+                "object_type": request.object_type,
+                "object_id": request.object_id
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to start tracking {request.object_type} {request.object_id}"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start tracking: {str(e)}")
+
+
+@router.post("/telescope/tracking/stop")
+async def stop_tracking(client: SeestarClient = Depends(get_current_telescope)):
+    """
+    Stop tracking the current object.
+
+    Args:
+        client: Connected telescope client
+
+    Returns:
+        Tracking status
+    """
+    try:
+        success = await client.stop_track_object()
+
+        if success:
+            return {"status": "tracking_stopped"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to stop tracking")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop tracking: {str(e)}")
 
 
 @router.post("/telescope/start-preview")
