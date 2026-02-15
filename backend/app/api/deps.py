@@ -13,8 +13,8 @@ def get_current_telescope() -> SeestarClient:
     Get the currently connected telescope client.
 
     Raises:
-        HTTPException: If no telescope is connected
+        HTTPException: If no telescope is connected (503 Service Unavailable)
     """
     if routes.seestar_client is None:
-        raise HTTPException(status_code=400, detail="No telescope connected. Connect to a telescope first.")
+        raise HTTPException(status_code=503, detail="Telescope not connected")
     return routes.seestar_client

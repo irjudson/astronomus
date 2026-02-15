@@ -81,12 +81,18 @@
         </div>
       </div>
 
-      <!-- Right Column: Plan Execution + Messages (1/3 width on large screens) -->
+      <!-- Right Column: Plan Execution + Polar Alignment + Messages (1/3 width on large screens) -->
       <div class="space-y-4">
         <!-- Plan Execution Area -->
         <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <h2 class="text-lg font-semibold text-gray-100 mb-4">Plan Execution</h2>
           <PlanExecutionPanel />
+        </div>
+
+        <!-- Polar Alignment Area -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Polar Alignment</h2>
+          <PolarAlignmentPanel />
         </div>
 
         <!-- Messages -->
@@ -106,6 +112,7 @@ import DirectionalControlPanel from '@/components/execution/DirectionalControlPa
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'
 import PlanExecutionPanel from '@/components/execution/PlanExecutionPanel.vue'
+import PolarAlignmentPanel from '@/components/execution/PolarAlignmentPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()

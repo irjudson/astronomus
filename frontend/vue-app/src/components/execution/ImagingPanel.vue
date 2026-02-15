@@ -77,6 +77,26 @@
           Stop Imaging
         </button>
 
+        <!-- Recording Button -->
+        <button
+          v-if="!executionStore.recording.active"
+          @click="startRecording"
+          :disabled="!executionStore.connected"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <span class="w-3 h-3 rounded-full bg-white"></span>
+          Start Recording
+        </button>
+
+        <button
+          v-else
+          @click="stopRecording"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2"
+        >
+          <span class="w-3 h-3 rounded-full bg-white animate-pulse"></span>
+          Stop Recording
+        </button>
+
         <button
           @click="autoFocus"
           :disabled="!executionStore.connected || executionStore.imaging.active"
@@ -99,6 +119,14 @@
             class="bg-blue-500 h-1.5 rounded-full transition-all"
             :style="{ width: imagingProgress + '%' }"
           ></div>
+        </div>
+      </div>
+
+      <!-- Recording Indicator -->
+      <div v-if="executionStore.recording.active" class="p-3 bg-red-900/20 border border-red-800 rounded-lg">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          <span class="text-xs text-red-400 font-medium">Recording in progress</span>
         </div>
       </div>
 
@@ -163,6 +191,25 @@ const stopImaging = async () => {
     showStatus('Imaging stopped', 'info')
   } catch (err) {
     showStatus(err.message || 'Failed to stop imaging', 'error')
+  }
+}
+
+const startRecording = async () => {
+  try {
+    const filename = `recording_${new Date().toISOString().replace(/[:.]/g, '-')}`
+    await executionStore.startRecording(filename)
+    showStatus(`Started recording: ${filename}`, 'success')
+  } catch (err) {
+    showStatus(err.message || 'Failed to start recording', 'error')
+  }
+}
+
+const stopRecording = async () => {
+  try {
+    await executionStore.stopRecording()
+    showStatus('Recording stopped', 'info')
+  } catch (err) {
+    showStatus(err.message || 'Failed to stop recording', 'error')
   }
 }
 

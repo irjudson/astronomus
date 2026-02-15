@@ -1808,10 +1808,7 @@ async def stop_recording():
 
 
 @router.post("/telescope/tracking/start")
-async def start_tracking(
-    request: StartTrackingRequest,
-    client: SeestarClient = Depends(get_current_telescope)
-):
+async def start_tracking(request: StartTrackingRequest, client: SeestarClient = Depends(get_current_telescope)):
     """
     Start tracking an object (satellite, comet, or asteroid).
 
@@ -1823,21 +1820,13 @@ async def start_tracking(
         Tracking status with object details
     """
     try:
-        success = await client.start_track_object(
-            object_type=request.object_type,
-            object_id=request.object_id
-        )
+        success = await client.start_track_object(object_type=request.object_type, object_id=request.object_id)
 
         if success:
-            return {
-                "status": "tracking_started",
-                "object_type": request.object_type,
-                "object_id": request.object_id
-            }
+            return {"status": "tracking_started", "object_type": request.object_type, "object_id": request.object_id}
         else:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to start tracking {request.object_type} {request.object_id}"
+                status_code=500, detail=f"Failed to start tracking {request.object_type} {request.object_id}"
             )
     except HTTPException:
         raise

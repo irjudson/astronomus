@@ -20,25 +20,10 @@ export const useExecutionStore = defineStore('execution', {
     // Imaging state
     imaging: {
       active: false,
-      mode: 'deep-sky',
       framesCaptured: 0,
       currentExposure: 0,
-      totalExposure: 0,
-      selectedPlanet: null,
-      availablePlanets: []
+      totalExposure: 0
     },
-
-    // Recording state
-    recording: { active: false },
-
-    // Polar alignment state
-    polarAlignment: { active: false, status: 'idle' },
-
-    // Object tracking state
-    tracking: { active: false, objectType: null, objectId: null },
-
-    // Annotations
-    annotationsEnabled: false,
 
     // Hardware state
     hardware: {
@@ -53,6 +38,13 @@ export const useExecutionStore = defineStore('execution', {
 
     // Messages
     messages: [],
+
+    // Object tracking state
+    tracking: {
+      active: false,
+      objectType: null,
+      objectId: null
+    },
 
     // Plan execution
     currentPlan: null,
@@ -459,126 +451,6 @@ export const useExecutionStore = defineStore('execution', {
     async toggleDewHeater() {
       const newState = this.hardware.dewHeaterStatus !== 'On'
       await this.setDewHeater(newState, this.hardware.dewHeaterPower || 50)
-    },
-
-    async startRecording(filename) {
-      try {
-        await axios.post("/api/telescope/recording/start", { filename })
-        this.recording.active = true
-        this.addMessage(`Recording started${filename ? ": " + filename : ""}`)
-      } catch (err) {
-        this.error = "Failed to start recording: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async stopRecording() {
-      try {
-        await axios.post("/api/telescope/recording/stop")
-        this.recording.active = false
-        this.addMessage("Recording stopped")
-      } catch (err) {
-        this.error = "Failed to stop recording: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async scanPlanets() {
-      try {
-        const response = await axios.post("/api/telescope/imaging/planet/scan")
-        this.imaging.availablePlanets = response.data.planets || []
-        this.addMessage(`Found ${this.imaging.availablePlanets.length} planets`)
-      } catch (err) {
-        this.error = "Failed to scan planets: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async startPlanetaryImaging(params) {
-      try {
-        await axios.post("/api/telescope/imaging/planet/start", {
-          planet_name: params.planet, exposure: params.exposure || 10, gain: params.gain || 80
-        })
-        this.imaging.active = true
-        this.imaging.mode = "planetary"
-        this.imaging.selectedPlanet = params.planet
-        this.addMessage(`Planetary imaging started: ${params.planet}`)
-      } catch (err) {
-        this.error = "Failed to start planetary imaging: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async stopPlanetaryImaging() {
-      try {
-        await axios.post("/api/telescope/imaging/planet/stop")
-        this.imaging.active = false
-        this.addMessage("Planetary imaging stopped")
-      } catch (err) {
-        this.error = "Failed to stop planetary imaging: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async startPolarAlign() {
-      try {
-        await axios.post("/api/telescope/polar-align/start")
-        this.polarAlignment.active = true
-        this.polarAlignment.status = "active"
-        this.addMessage("Polar alignment started")
-      } catch (err) {
-        this.error = "Failed to start polar alignment: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async pausePolarAlign() {
-      try {
-        await axios.post("/api/telescope/polar-align/pause")
-        this.polarAlignment.status = "paused"
-        this.addMessage("Polar alignment paused")
-      } catch (err) {
-        this.error = "Failed to pause polar alignment: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async stopPolarAlign() {
-      try {
-        await axios.post("/api/telescope/polar-align/stop")
-        this.polarAlignment.active = false
-        this.polarAlignment.status = "idle"
-        this.addMessage("Polar alignment stopped")
-      } catch (err) {
-        this.error = "Failed to stop polar alignment: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async startTracking(type, id) {
-      try {
-        await axios.post("/api/telescope/tracking/start", { object_type: type, object_id: id })
-        this.tracking.active = true
-        this.tracking.objectType = type
-        this.tracking.objectId = id
-        this.addMessage(`Started tracking ${type}: ${id}`)
-      } catch (err) {
-        this.error = "Failed to start tracking: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async stopTracking() {
-      try {
-        await axios.post("/api/telescope/tracking/stop")
-        this.tracking.active = false
-        this.tracking.objectType = null
-        this.tracking.objectId = null
-        this.addMessage("Stopped tracking")
-      } catch (err) {
-        this.error = "Failed to stop tracking: " + (err.response?.data?.detail || err.message)
-      }
-    },
-
-    async toggleAnnotations(enabled) {
-      try {
-        await axios.post("/api/telescope/annotation/toggle", { enabled })
-        this.annotationsEnabled = enabled
-        this.addMessage(`Annotations ${enabled ? "enabled" : "disabled"}`)
-      } catch (err) {
-        this.error = "Failed to toggle annotations: " + (err.response?.data?.detail || err.message)
-      }
     },
 
     async fetchSystemInfo() {
