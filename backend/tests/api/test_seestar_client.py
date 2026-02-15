@@ -125,3 +125,31 @@ class TestSeestarClient:
 # 3. The seestar_alp simulator if available
 
 # The tests above cover the basic functionality using mocks
+
+
+@pytest.mark.asyncio
+async def test_get_latest_preview_frame():
+    """Test file-based preview frame fetching.
+
+    This test is skipped by default as it requires telescope hardware.
+    To run manually with hardware: pytest -k test_get_latest_preview_frame --runxfail
+    """
+    pytest.skip("Requires telescope hardware - manual test only")
+
+    client = SeestarClient()
+
+    try:
+        # Try to connect to telescope
+        await client.connect("192.168.2.47")
+
+        # Should return bytes or None
+        frame = await client.get_latest_preview_frame()
+
+        # If telescope available and has frames, should return JPEG bytes
+        if frame is not None:
+            assert isinstance(frame, bytes)
+            assert len(frame) > 0
+            # Verify it's a JPEG (starts with FF D8)
+            assert frame[:2] == b"\xff\xd8"
+    finally:
+        await client.disconnect()

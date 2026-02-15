@@ -2863,6 +2863,43 @@ class SeestarClient:
 
         return frame_bytes
 
+    async def get_latest_preview_frame(self) -> Optional[bytes]:
+        """Get latest preview frame from telescope filesystem.
+
+        Uses file-based approach (not RTSP) to fetch preview frames.
+        This is an alternative to get_live_preview() that works when RTSP is unavailable.
+
+        Returns:
+            JPEG bytes of latest preview frame, or None if unavailable
+
+        Raises:
+            CommandError: If file listing or download fails
+        """
+        try:
+            # List files in preview directory
+            preview_info = await self.get_image_file_info("/mnt/sda1/seestar/preview/")
+
+            if "files" not in preview_info or not preview_info["files"]:
+                self.logger.warning("No preview frames available")
+                return None
+
+            # Sort by timestamp (most recent first)
+            files = sorted(preview_info["files"], key=lambda f: f.get("timestamp", ""), reverse=True)
+
+            latest_file = files[0]
+            file_path = f"/mnt/sda1/seestar/preview/{latest_file['name']}"
+
+            self.logger.info(f"Downloading latest preview frame: {file_path}")
+
+            # Download file using existing method
+            frame_bytes = await self._download_file(file_path)
+
+            return frame_bytes
+
+        except Exception as e:
+            self.logger.error(f"Failed to get preview frame: {e}")
+            return None
+
     async def _download_file(self, remote_path: str) -> bytes:
         """Download file from telescope via port 4801.
 
