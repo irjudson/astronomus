@@ -36,8 +36,19 @@
           Refresh Preview
         </button>
         <span class="text-xs text-gray-500">
-          Auto-refreshing every 3s
+          Auto-refreshing every 2s
         </span>
+
+        <!-- Annotation Toggle -->
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            :checked="executionStore.annotationsEnabled"
+            @change="handleAnnotationToggle"
+            class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+          />
+          <span class="text-sm text-gray-300">Show Annotations</span>
+        </label>
       </div>
       <div class="text-sm text-gray-400">
         {{ executionStore.currentTarget?.name || 'Imaging' }}
@@ -110,21 +121,37 @@ const previewImage = ref(null)
 const previewUpdateKey = ref(0)
 let previewInterval = null
 
-// Fetch latest preview image from live RTMP stream
+// Fetch latest preview image from file-based endpoint
 const fetchPreview = async () => {
   try {
-    // Get live frame from RTMP stream
+    // Fetch from new file-based preview endpoint
     // Add timestamp to prevent caching and force refresh
-    // NOTE: Using legacy endpoint for now - will be updated to /api/telescope/preview/frame in Task 2.2
-    previewImage.value = `/api/telescope/features/images/preview/live?t=${Date.now()}`
-    previewUpdateKey.value++
+    const url = `/api/telescope/preview/frame?t=${Date.now()}`
+    const response = await fetch(url)
+
+    if (response.ok) {
+      // Frame available - update preview
+      previewImage.value = url
+      previewUpdateKey.value++
+    } else if (response.status === 503) {
+      // 503 = No frames available yet - this is expected, keep waiting
+      console.debug('No preview frames available yet')
+      // Keep showing the placeholder (don't clear previewImage if it exists)
+    } else {
+      console.warn('Preview fetch failed:', response.status, response.statusText)
+    }
   } catch (err) {
-    console.warn('Preview fetch failed:', err)
+    console.warn('Preview fetch error:', err)
   }
 }
 
 const refreshPreview = () => {
   fetchPreview()
+}
+
+const handleAnnotationToggle = async (event) => {
+  const enabled = event.target.checked
+  await executionStore.toggleAnnotations(enabled)
 }
 
 // Watch imaging state to start/stop preview updates
@@ -133,7 +160,7 @@ watch(() => executionStore.imaging.active, (isActive) => {
     // Start auto-refresh when imaging begins
     previewImage.value = null
     fetchPreview()
-    previewInterval = setInterval(fetchPreview, 3000) // Every 3 seconds
+    previewInterval = setInterval(fetchPreview, 2000) // Every 2 seconds
   } else {
     // Stop auto-refresh when imaging ends
     if (previewInterval) {
