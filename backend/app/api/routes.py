@@ -2321,40 +2321,25 @@ async def toggle_annotations(request: AnnotationRequest, telescope: SeestarClien
 @router.post("/telescope/imaging/planet/scan")
 async def scan_planets():
     """
-    Scan for visible planets using astronomical calculations.
+    Get list of planets/moons available for imaging.
 
-    Returns a list of planets/moons currently above the horizon (alt > 20°).
-    Includes: Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Moon, Sun.
+    Returns major solar system imaging targets:
+    Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Moon
+
+    Note: Sun excluded for safety (requires special solar filter).
     """
     try:
         from app.services.planet_service import PlanetService
-        from datetime import datetime, timezone
-
-        # Use default location
-        # TODO: Get actual location from user settings or telescope connection
-        location_lat = 45.9183
-        location_lon = -111.5433
 
         planet_service = PlanetService()
         all_planets = planet_service.get_all_planets()
 
-        # Filter for visible planets (above horizon)
-        visible_planets = []
-        current_time = datetime.now(timezone.utc)
+        # Return all major planets/moons except Sun (safety)
+        imaging_targets = [p.name for p in all_planets if p.name != "Sun"]
 
-        for planet in all_planets:
-            try:
-                ephemeris = planet_service.compute_ephemeris(planet.name, current_time)
-                # Check if planet is above minimum altitude (20°)
-                if ephemeris.altitude_deg > 20:
-                    visible_planets.append(planet.name)
-            except Exception:
-                # Skip planets we can't compute
-                continue
-
-        return {"planets": visible_planets}
+        return {"planets": imaging_targets}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to scan planets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get planets: {str(e)}")
 
 
 @router.post("/telescope/imaging/planet/start")
