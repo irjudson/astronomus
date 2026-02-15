@@ -7,23 +7,44 @@
     <!-- Left panel header -->
     <template #left-header>
       <div>
-        <h3 class="text-sm font-semibold text-gray-200">Telescope</h3>
+        <h3 class="text-sm font-semibold text-gray-200">Controls</h3>
       </div>
     </template>
 
     <!-- Left panel label (for peek tab) -->
-    <template #left-label>Telescope</template>
+    <template #left-label>Controls</template>
 
-    <!-- Left: Telescope Controls -->
+    <!-- Left: All Controls -->
     <template #left>
       <div class="p-4 space-y-4">
+        <!-- Telescope Control -->
         <div>
           <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Control</h4>
           <TelescopePanel />
         </div>
+
+        <!-- Movement -->
         <div>
           <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Movement</h4>
           <DirectionalControlPanel />
+        </div>
+
+        <!-- Plan Execution -->
+        <div class="border-t border-gray-800 pt-4">
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan Execution</h4>
+          <PlanExecutionPanel />
+        </div>
+
+        <!-- Polar Alignment -->
+        <div class="border-t border-gray-800 pt-4">
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Polar Alignment</h4>
+          <PolarAlignmentPanel />
+        </div>
+
+        <!-- Messages -->
+        <div class="border-t border-gray-800 pt-4">
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Messages</h4>
+          <MessagesPanel />
         </div>
       </div>
     </template>
@@ -103,38 +124,6 @@
       </div>
     </template>
 
-    <!-- Right panel header -->
-    <template #right-header>
-      <div>
-        <h3 class="text-sm font-semibold text-gray-200">Operations</h3>
-      </div>
-    </template>
-
-    <!-- Right panel label (for peek tab) -->
-    <template #right-label>Operations</template>
-
-    <!-- Right: Plan Execution, Polar Alignment, Messages -->
-    <template #right>
-      <div class="p-4 space-y-4">
-        <!-- Plan Execution -->
-        <div>
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan Execution</h4>
-          <PlanExecutionPanel />
-        </div>
-
-        <!-- Polar Alignment -->
-        <div>
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Polar Alignment</h4>
-          <PolarAlignmentPanel />
-        </div>
-
-        <!-- Messages -->
-        <div>
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Messages</h4>
-          <MessagesPanel />
-        </div>
-      </div>
-    </template>
   </PanelContainer>
 </template>
 
@@ -152,7 +141,7 @@ import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()
 const leftPanelVisible = ref(true)
-const rightPanelVisible = ref(true)
+const rightPanelVisible = ref(false)
 
 const formatRA = (ra) => {
   const hours = ra / 15
