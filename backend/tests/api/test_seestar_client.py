@@ -1,7 +1,7 @@
 """Tests for Seestar S50 client."""
 
 import asyncio
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -188,3 +188,37 @@ async def test_get_latest_preview_frame_no_timestamps():
 
         # Verify
         assert frame is None
+
+
+@pytest.mark.asyncio
+async def test_start_stop_video_recording():
+    """Test starting and stopping video recording."""
+    client = SeestarClient()
+
+    # Mock the command sending
+    with patch.object(client, "_send_command", new_callable=AsyncMock) as mock_send:
+        # Test start recording
+        mock_send.return_value = {"code": 0}
+
+        result = await client.start_record_avi(filename="test_recording")
+        assert result is True
+        mock_send.assert_called_with("start_record_avi", {"name": "test_recording"})
+
+        # Test stop recording
+        mock_send.reset_mock()
+        result = await client.stop_record_avi()
+        assert result is True
+        mock_send.assert_called_with("stop_record_avi", {})
+
+
+@pytest.mark.asyncio
+async def test_start_record_avi_without_filename():
+    """Test starting recording without specifying filename."""
+    client = SeestarClient()
+
+    with patch.object(client, "_send_command", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = {"code": 0}
+
+        result = await client.start_record_avi()
+        assert result is True
+        mock_send.assert_called_with("start_record_avi", {})

@@ -1656,6 +1656,59 @@ async def stop_imaging():
         raise HTTPException(status_code=500, detail=f"Stop imaging failed: {str(e)}")
 
 
+@router.post("/telescope/recording/start")
+async def start_recording(request: dict = None):
+    """
+    Start AVI video recording.
+
+    Args:
+        request: {"filename": str (optional)} - Optional filename for recording
+
+    Returns:
+        Recording status with filename
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        filename = None if request is None else request.get("filename")
+
+        success = await seestar_client.start_record_avi(filename=filename)
+
+        if success:
+            return {"status": "recording_started", "filename": filename or "auto"}
+        else:
+            return {"status": "error", "message": "Failed to start recording"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start recording: {str(e)}")
+
+
+@router.post("/telescope/recording/stop")
+async def stop_recording():
+    """
+    Stop AVI video recording.
+
+    Returns:
+        Recording status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.stop_record_avi()
+
+        if success:
+            return {"status": "recording_stopped"}
+        else:
+            return {"status": "error", "message": "Failed to stop recording"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop recording: {str(e)}")
+
+
 @router.post("/telescope/start-preview")
 async def start_preview(request: dict = None):
     """

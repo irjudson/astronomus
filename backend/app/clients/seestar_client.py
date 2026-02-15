@@ -1344,6 +1344,51 @@ class SeestarClient:
         self.logger.info(f"Stop imaging response: {response}")
         return response.get("result") == 0
 
+    async def start_record_avi(self, filename: Optional[str] = None) -> bool:
+        """Start AVI video recording.
+
+        Args:
+            filename: Optional filename for recording (without extension)
+
+        Returns:
+            True if recording started successfully
+
+        Raises:
+            CommandError: If recording fails to start
+        """
+        params = {}
+        if filename:
+            params["name"] = filename
+
+        response = await self._send_command("start_record_avi", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Video recording started: {filename or 'auto'}")
+            return True
+        else:
+            error_msg = f"Failed to start video recording: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_record_avi(self) -> bool:
+        """Stop AVI video recording.
+
+        Returns:
+            True if recording stopped successfully
+
+        Raises:
+            CommandError: If recording fails to stop
+        """
+        response = await self._send_command("stop_record_avi", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Video recording stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop video recording: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
     async def stop_slew(self) -> bool:
         """Stop current slew/goto operation.
 
