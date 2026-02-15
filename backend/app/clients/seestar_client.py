@@ -2727,6 +2727,54 @@ class SeestarClient:
         self.logger.info(f"Stop demo mode response: {response}")
         return response.get("result") == 0
 
+    async def start_polar_align(self) -> bool:
+        """Start polar alignment process.
+
+        Returns:
+            True if polar alignment started successfully
+
+        Raises:
+            CommandError: If start fails
+        """
+        self.logger.info("Starting polar alignment")
+
+        response = await self._send_command("iscope_start_polar_align", {})
+
+        self.logger.info(f"Start polar align response: {response}")
+        return response.get("result") == 0
+
+    async def stop_polar_align(self) -> bool:
+        """Stop polar alignment process.
+
+        Returns:
+            True if polar alignment stopped successfully
+
+        Raises:
+            CommandError: If stop fails
+        """
+        self.logger.info("Stopping polar alignment")
+
+        response = await self._send_command("iscope_stop_polar_align", {})
+
+        self.logger.info(f"Stop polar align response: {response}")
+        return response.get("result") == 0
+
+    async def pause_polar_align(self) -> bool:
+        """Pause polar alignment process.
+
+        Returns:
+            True if polar alignment paused successfully
+
+        Raises:
+            CommandError: If pause fails
+        """
+        self.logger.info("Pausing polar alignment")
+
+        response = await self._send_command("iscope_pause_polar_align", {})
+
+        self.logger.info(f"Pause polar align response: {response}")
+        return response.get("result") == 0
+
     async def check_client_verified(self) -> bool:
         """Check if current client is verified/authenticated.
 
