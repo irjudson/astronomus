@@ -1,146 +1,111 @@
 <template>
-  <PanelContainer
-    :left-panel-visible="true"
-    :right-panel-visible="false"
-    :console-visible="false"
-  >
-    <!-- Left: Execution Controls -->
-    <template #left>
-      <div class="p-4 border-b border-gray-800">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Execution</h3>
-      </div>
-      <div class="space-y-4 p-4">
-        <!-- Plan Execution Panel -->
-        <div v-if="executionStore.currentPlan" class="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-gray-500 mb-3">
-            PLAN EXECUTION
-          </h3>
-
-          <div class="space-y-3">
-            <div class="text-sm text-gray-200">
-              Target {{ executionStore.currentTargetIndex + 1 }} of {{ executionStore.currentPlan.targets.length }}
-            </div>
-
-            <button
-              v-if="!executionStore.planExecuting"
-              @click="executionStore.executePlan()"
-              :disabled="!executionStore.connected"
-              class="w-full px-4 py-2 rounded font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Execute Plan
-            </button>
-
-            <div v-else class="space-y-2">
-              <button
-                @click="executionStore.pausePlan()"
-                class="w-full px-4 py-2 rounded font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
-              >
-                Pause
-              </button>
-
-              <button
-                @click="executionStore.stopPlan()"
-                class="w-full px-4 py-2 rounded font-medium transition-colors bg-red-900 hover:bg-red-800 text-white"
-              >
-                Stop
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <TelescopePanel />
-        <MotionControlPanel />
-        <ImagingPanel />
-        <HardwarePanel />
-        <MessagesPanel />
-      </div>
-    </template>
-
-    <!-- Main: Execution Display -->
-    <template #main>
-      <div class="flex flex-col h-full">
-        <!-- View Header -->
-        <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
+  <div class="flex flex-col h-full">
+    <!-- View Header -->
+    <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
+      <div class="flex items-center justify-between">
+        <div>
           <h2 class="text-lg font-semibold text-gray-200">Live Execution</h2>
           <p class="text-sm text-gray-500">
             {{ executionStore.currentTarget?.name || 'Ready' }}
           </p>
         </div>
 
-        <!-- Content -->
-        <div class="flex-1 overflow-auto">
-          <div v-if="executionStore.currentTarget" class="p-6 space-y-6">
+        <!-- Status Info -->
+        <div v-if="executionStore.connected" class="flex items-center gap-6 text-xs">
+          <!-- Position -->
+          <div class="flex items-center gap-3">
             <div class="text-center">
-              <h2 class="text-3xl font-semibold text-gray-200 mb-2">
-                {{ executionStore.currentTarget.name }}
-              </h2>
-              <p class="text-sm text-gray-500">
-                {{ executionStore.currentTarget.type }}
-              </p>
+              <div class="text-gray-500">RA</div>
+              <div class="font-mono text-gray-200">{{ formatRA(executionStore.position.ra) }}</div>
             </div>
-
-            <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
-              <div class="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div class="text-xs text-gray-500">RA</div>
-                  <div class="text-lg text-gray-200 font-mono">
-                    {{ formatRA(executionStore.position.ra) }}
-                  </div>
-                </div>
-                <div>
-                  <div class="text-xs text-gray-500">Dec</div>
-                  <div class="text-lg text-gray-200 font-mono">
-                    {{ formatDec(executionStore.position.dec) }}
-                  </div>
-                </div>
-                <div>
-                  <div class="text-xs text-gray-500">Alt</div>
-                  <div class="text-lg text-gray-200 font-mono">
-                    {{ executionStore.position.alt.toFixed(1) }}°
-                  </div>
-                </div>
-                <div>
-                  <div class="text-xs text-gray-500">Az</div>
-                  <div class="text-lg text-gray-200 font-mono">
-                    {{ executionStore.position.az.toFixed(1) }}°
-                  </div>
-                </div>
-              </div>
+            <div class="text-center">
+              <div class="text-gray-500">Dec</div>
+              <div class="font-mono text-gray-200">{{ formatDec(executionStore.position.dec) }}</div>
             </div>
-
-            <div v-if="executionStore.imaging.active">
-              <div class="text-sm text-gray-500 mb-2">
-                Progress: {{ executionStore.progressPercent }}%
-              </div>
-              <div class="w-full bg-gray-800 rounded-full h-2">
-                <div
-                  class="bg-blue-500 h-2 rounded-full transition-all"
-                  :style="{ width: executionStore.progressPercent + '%' }"
-                ></div>
-              </div>
+            <div class="text-center">
+              <div class="text-gray-500">Alt</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position.alt.toFixed(1) }}°</div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-500">Az</div>
+              <div class="font-mono text-gray-200">{{ executionStore.position.az.toFixed(1) }}°</div>
             </div>
           </div>
 
-          <div v-else class="flex items-center justify-center h-full">
+          <!-- Divider -->
+          <div class="h-8 w-px bg-gray-700"></div>
+
+          <!-- Hardware Status -->
+          <div class="flex items-center gap-3">
             <div class="text-center">
-              <p class="text-gray-500">
-                Load a plan or connect telescope to begin
-              </p>
+              <div class="text-gray-500">Tracking</div>
+              <div class="font-mono"
+                :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : executionStore.hardware.trackingStatus === 'Parked' ? 'text-yellow-400' : 'text-gray-400'">
+                {{ executionStore.hardware.trackingStatus }}
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="text-gray-500">Temp</div>
+              <div class="font-mono text-gray-200">
+                {{ executionStore.hardware.sensorTemp !== null ? executionStore.hardware.sensorTemp.toFixed(1) + '°C' : '--' }}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </template>
-  </PanelContainer>
+    </div>
+
+    <!-- Main Content - 4-Area Responsive Layout -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-auto">
+      <!-- Left Column: Telescope Control + Imaging + Live Preview (2/3 width on large screens) -->
+      <div class="lg:col-span-2 space-y-4">
+        <!-- Telescope Control Area -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Telescope Control</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TelescopePanel />
+            <DirectionalControlPanel />
+          </div>
+        </div>
+
+        <!-- Imaging Area -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Imaging</h2>
+          <ImagingPanel />
+        </div>
+
+        <!-- Live Preview -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Live Preview</h2>
+          <LivePreviewPanel />
+        </div>
+      </div>
+
+      <!-- Right Column: Plan Execution + Messages (1/3 width on large screens) -->
+      <div class="space-y-4">
+        <!-- Plan Execution Area -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Plan Execution</h2>
+          <PlanExecutionPanel />
+        </div>
+
+        <!-- Messages -->
+        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-100 mb-4">Messages</h2>
+          <MessagesPanel />
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { useExecutionStore } from '@/stores/execution'
-import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
-import MotionControlPanel from '@/components/execution/MotionControlPanel.vue'
+import DirectionalControlPanel from '@/components/execution/DirectionalControlPanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
-import HardwarePanel from '@/components/execution/HardwarePanel.vue'
+import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'
+import PlanExecutionPanel from '@/components/execution/PlanExecutionPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()

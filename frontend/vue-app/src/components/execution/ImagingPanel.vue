@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+  <div>
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
       Imaging Controls
     </h3>

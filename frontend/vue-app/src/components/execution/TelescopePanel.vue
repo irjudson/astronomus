@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+  <div>
     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
       Connection & Status
     </h3>
@@ -34,62 +34,52 @@
     </div>
 
     <!-- Connected State -->
-    <div v-else class="space-y-4">
+    <div v-else class="space-y-3">
       <!-- Connection Info -->
       <div class="p-3 bg-green-900/20 border border-green-800 rounded-lg">
-        <div class="flex items-center gap-2 mb-2">
+        <div class="flex items-center gap-2">
           <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
           <span class="text-sm font-medium text-green-400">Connected</span>
         </div>
-        <div class="text-xs text-gray-400">
-          {{ executionStore.telescopeIp }}
-        </div>
       </div>
 
-      <!-- Position Display -->
-      <div class="grid grid-cols-2 gap-3">
-        <div class="p-3 bg-gray-800 rounded-lg">
-          <div class="text-xs text-gray-500 mb-1">RA</div>
-          <div class="text-sm font-mono text-gray-200">
-            {{ formatRA(executionStore.position.ra) }}
-          </div>
-        </div>
-        <div class="p-3 bg-gray-800 rounded-lg">
-          <div class="text-xs text-gray-500 mb-1">Dec</div>
-          <div class="text-sm font-mono text-gray-200">
-            {{ formatDec(executionStore.position.dec) }}
-          </div>
-        </div>
-        <div class="p-3 bg-gray-800 rounded-lg">
-          <div class="text-xs text-gray-500 mb-1">Alt</div>
-          <div class="text-sm font-mono text-gray-200">
-            {{ executionStore.position.alt.toFixed(1) }}°
-          </div>
-        </div>
-        <div class="p-3 bg-gray-800 rounded-lg">
-          <div class="text-xs text-gray-500 mb-1">Az</div>
-          <div class="text-sm font-mono text-gray-200">
-            {{ executionStore.position.az.toFixed(1) }}°
-          </div>
-        </div>
-      </div>
+      <!-- Park/Unpark Toggle -->
+      <button
+        v-if="executionStore.hardware.trackingStatus === 'Parked'"
+        @click="executionStore.unparkTelescope()"
+        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        Unpark Telescope
+      </button>
 
-      <!-- Tracking Status -->
-      <div class="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-        <span class="text-sm text-gray-400">Tracking</span>
-        <span :class="[
-          'text-sm font-medium',
-          executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : 'text-gray-500'
-        ]">
-          {{ executionStore.hardware.trackingStatus }}
-        </span>
-      </div>
+      <button
+        v-else
+        @click="parkTelescope"
+        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+      >
+        Park Telescope
+      </button>
 
-      <!-- Current Target -->
-      <div v-if="executionStore.currentTarget" class="p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
-        <div class="text-xs text-gray-500 mb-1">Current Target</div>
-        <div class="text-sm font-medium text-blue-400">
-          {{ executionStore.currentTarget.name }}
+      <!-- Dew Heater Control -->
+      <div class="space-y-2">
+        <button
+          @click="executionStore.toggleDewHeater()"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+        >
+          {{ executionStore.hardware.dewHeaterStatus === 'On' ? 'Turn Off' : 'Turn On' }} Dew Heater
+        </button>
+
+        <div v-if="executionStore.hardware.dewHeaterStatus === 'On'" class="space-y-1">
+          <label class="text-xs text-gray-500">Power: {{ dewHeaterPower }}%</label>
+          <input
+            v-model.number="dewHeaterPower"
+            type="range"
+            min="0"
+            max="100"
+            step="10"
+            @change="updateDewHeaterPower"
+            class="w-full"
+          />
         </div>
       </div>
 
@@ -105,30 +95,30 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useExecutionStore } from '@/stores/execution'
 
 const executionStore = useExecutionStore()
 const telescopeIp = ref('192.168.2.47')
+const dewHeaterPower = ref(50)
+
+// Sync local power with store
+watch(() => executionStore.hardware.dewHeaterPower, (newPower) => {
+  dewHeaterPower.value = newPower
+}, { immediate: true })
 
 const connect = async () => {
   await executionStore.connectTelescope(telescopeIp.value)
 }
 
-const formatRA = (ra) => {
-  const hours = ra / 15
-  const h = Math.floor(hours)
-  const m = Math.floor((hours - h) * 60)
-  const s = Math.floor(((hours - h) * 60 - m) * 60)
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+const parkTelescope = async () => {
+  if (!confirm('Park telescope?')) return
+  await executionStore.parkTelescope()
 }
 
-const formatDec = (dec) => {
-  const sign = dec >= 0 ? '+' : '-'
-  const absDec = Math.abs(dec)
-  const d = Math.floor(absDec)
-  const m = Math.floor((absDec - d) * 60)
-  const s = Math.floor(((absDec - d) * 60 - m) * 60)
-  return `${sign}${d.toString().padStart(2, '0')}°${m.toString().padStart(2, '0')}'${s.toString().padStart(2, '0')}"`
+const updateDewHeaterPower = async () => {
+  if (executionStore.hardware.dewHeaterStatus === 'On') {
+    await executionStore.setDewHeater(true, dewHeaterPower.value)
+  }
 }
 </script>
