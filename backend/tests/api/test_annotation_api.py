@@ -35,9 +35,8 @@ class TestAnnotationEndpoints:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "enabled"
-            assert "message" in data
-            assert "enabled" in data["message"].lower()
+            assert data["success"] is True
+            assert data["enabled"] is True
             mock_seestar_client.start_annotate.assert_called_once()
             mock_seestar_client.stop_annotate.assert_not_called()
 
@@ -48,30 +47,29 @@ class TestAnnotationEndpoints:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "disabled"
-            assert "message" in data
-            assert "disabled" in data["message"].lower()
+            assert data["success"] is True
+            assert data["enabled"] is False
             mock_seestar_client.stop_annotate.assert_called_once()
             mock_seestar_client.start_annotate.assert_not_called()
 
     def test_toggle_annotation_not_connected(self, client):
-        """Test annotation toggle when telescope not connected."""
+        """Test annotation toggle when telescope not connected (returns 503)."""
         with patch("app.api.routes.seestar_client", None):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
-            assert response.status_code == 400
+            assert response.status_code == 503
             assert "not connected" in response.json()["detail"].lower()
 
     def test_toggle_annotation_enable_failure(self, client, mock_seestar_client):
-        """Test annotation enable failure."""
+        """Test annotation enable returns success=False when operation fails."""
         mock_seestar_client.start_annotate = AsyncMock(return_value=False)
         with patch("app.api.routes.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "error"
-            assert "failed" in data["message"].lower()
+            assert data["success"] is False
+            assert data["enabled"] is True
 
     def test_toggle_annotation_disable_failure(self, client, mock_seestar_client):
         """Test annotation disable returns success=False when operation fails."""

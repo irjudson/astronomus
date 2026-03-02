@@ -82,7 +82,7 @@ class TestPlanetaryStartEndpoint:
             app.dependency_overrides.clear()
 
     def test_start_planetary_imaging_failure(self, client, mock_seestar_client):
-        """Test start planetary imaging when operation fails."""
+        """Test start planetary imaging when operation fails (returns success=False)."""
         from app.api.routes import get_current_telescope
 
         mock_seestar_client.start_planet_stack = AsyncMock(return_value=False)
@@ -91,8 +91,9 @@ class TestPlanetaryStartEndpoint:
         try:
             response = client.post("/api/telescope/imaging/planet/start?planet_name=Jupiter")
 
-            assert response.status_code == 500
-            assert "failed to start" in response.json()["detail"].lower()
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is False
         finally:
             app.dependency_overrides.clear()
 
@@ -153,7 +154,7 @@ class TestPlanetaryStopEndpoint:
             app.dependency_overrides.clear()
 
     def test_stop_planetary_imaging_failure(self, client, mock_seestar_client):
-        """Test stop planetary imaging when operation fails."""
+        """Test stop planetary imaging when operation fails (returns success=False)."""
         from app.api.routes import get_current_telescope
 
         mock_seestar_client.stop_planet_stack = AsyncMock(return_value=False)
@@ -162,8 +163,9 @@ class TestPlanetaryStopEndpoint:
         try:
             response = client.post("/api/telescope/imaging/planet/stop")
 
-            assert response.status_code == 500
-            assert "failed to stop" in response.json()["detail"].lower()
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is False
         finally:
             app.dependency_overrides.clear()
 
