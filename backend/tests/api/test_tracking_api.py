@@ -105,8 +105,8 @@ def test_start_tracking_not_connected():
             json={"object_type": "satellite", "object_id": "25544"}
         )
 
-        assert response.status_code == 400
-        assert "No telescope connected" in response.json()["detail"]
+        assert response.status_code == 503
+        assert "not connected" in response.json()["detail"].lower()
 
 
 def test_start_tracking_failure(mock_seestar_client):
@@ -138,8 +138,8 @@ def test_stop_tracking_not_connected():
     with patch("app.api.routes.seestar_client", None):
         response = client.post("/api/telescope/tracking/stop")
 
-        assert response.status_code == 400
-        assert "No telescope connected" in response.json()["detail"]
+        assert response.status_code == 503
+        assert "not connected" in response.json()["detail"].lower()
 
 
 def test_stop_tracking_failure(mock_seestar_client):

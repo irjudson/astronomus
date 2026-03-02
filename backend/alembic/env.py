@@ -27,8 +27,10 @@ from app.core.config import get_settings
 target_metadata = Base.metadata
 
 # Get database URL from settings (respects .env file)
-settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Only set if not already configured (allows test environment to override via alembic_cfg)
+if not config.get_main_option("sqlalchemy.url", None):
+    settings = get_settings()
+    config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -73,22 +75,23 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+    # Check if we should run without transaction wrapper (used by test fixtures)
+    use_transaction = config.attributes.get('use_transaction', True)
 
-        # Check if we should run without transaction wrapper
-        # This is needed for pytest where we want DDL changes to persist
-        # outside of any transaction context
-        use_transaction = config.attributes.get('use_transaction', True)
-
-        if use_transaction:
+    if use_transaction:
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
             with context.begin_transaction():
                 context.run_migrations()
-        else:
-            # Run migrations without transaction wrapper
-            # DDL will auto-commit in PostgreSQL
+    else:
+        # Use AUTOCOMMIT isolation so DDL changes persist immediately
+        # Required for pytest fixtures where test sessions need to see schema changes
+        with connectable.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
             context.run_migrations()
 
 
