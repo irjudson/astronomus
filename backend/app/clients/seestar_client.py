@@ -1648,16 +1648,17 @@ class SeestarClient:
             raise ValueError(f"Invalid action '{action}'. Must be one of: {valid_actions}")
 
         # Handle stop/abort actions directly
+        # Firmware expects a bare string param, not {"action": "stop"} (code 105 otherwise)
         if action in ["stop", "abort"]:
             self.logger.info(f"Scope move: {action}")
-            response = await self._send_command("scope_move", {"action": action})
+            response = await self._send_command("scope_move", action)
             self.logger.info(f"Scope move response: {response}")
             return response.get("result") == 0
 
         # Handle directional movement using scope_speed_move command
         if action in ["up", "down", "left", "right"]:
             # Map direction to angle (degrees)
-            # Based on empirical testing:
+            # Based on empirical testing with seestar_alp reference:
             # 0° = increase azimuth (turn right/clockwise)
             # 90° = increase altitude (tilt up)
             # 180° = decrease azimuth (turn left/counter-clockwise)
@@ -1670,16 +1671,15 @@ class SeestarClient:
             }
             angle = direction_angles[action]
 
-            # Speed multiplier maps to percent (0-100)
+            # speed param maps to "speed" field (upstream uses 10=slow, 1000=fast)
             speed_multiplier = speed if speed is not None else 1.0
-            percent = int(min(100, max(1, speed_multiplier * 10)))  # 10% per speed unit, capped at 100
-            level = int(speed_multiplier)  # Use speed as level
+            speed_val = int(min(1000, max(10, speed_multiplier * 100)))
 
             self.logger.info(
-                f"Directional move {action}: angle={angle}°, percent={percent}%, level={level}, speed={speed_multiplier:.1f}x"
+                f"Directional move {action}: angle={angle}°, speed={speed_val}, speed_multiplier={speed_multiplier:.1f}x"
             )
 
-            params = {"angle": angle, "percent": percent, "level": level, "dur_sec": 3}  # Duration in seconds
+            params = {"speed": speed_val, "angle": angle, "dur_sec": 3}
 
             response = await self._send_command("scope_speed_move", params)
             return response.get("result") == 0
@@ -2057,9 +2057,8 @@ class SeestarClient:
         """
         self.logger.info("Stopping telescope movement")
 
-        params = {"action": "stop"}
-
-        response = await self._send_command("scope_move", params)
+        # Firmware expects a bare string param, not a dict (code 105 otherwise)
+        response = await self._send_command("scope_move", "stop")
 
         self.logger.info(f"Stop movement response: {response}")
         return response.get("result") == 0
@@ -2090,6 +2089,9 @@ class SeestarClient:
     async def move_focuser_relative(self, offset: int) -> bool:
         """Move focuser by relative offset.
 
+        Fetches current position then sends an absolute target step, which is
+        the format the firmware accepts (upstream seestar_alp pattern).
+
         Args:
             offset: Steps to move (positive = out, negative = in)
 
@@ -2099,9 +2101,18 @@ class SeestarClient:
         Raises:
             CommandError: If move fails
         """
-        self.logger.info(f"Moving focuser by offset {offset}")
+        self.logger.info(f"Moving focuser by relative offset {offset}")
 
-        params = {"offset": offset}
+        # Firmware accepts absolute "step" value only; fetch current position first
+        pos_response = await self._send_command("get_focuser_position", {})
+        current_pos = pos_response.get("result", 0)
+        if isinstance(current_pos, dict):
+            current_pos = current_pos.get("step", 0)
+
+        target = int(current_pos) + offset
+        self.logger.info(f"Focuser: current={current_pos}, target={target}")
+
+        params = {"step": target, "ret_step": True}
 
         self._update_status(state=SeestarState.FOCUSING)
 
@@ -2285,8 +2296,8 @@ class SeestarClient:
         Raises:
             CommandError: If query fails
         """
-        # Fixed: Parameter name is "name" not "path" (see GetImgFileInfoCmd.java line 47)
-        params = {"name": file_path} if file_path else {}
+        # Firmware expects a string param (code 105 otherwise); pass path string directly
+        params = file_path  # may be "" — firmware accepts empty string to list recent files
 
         response = await self._send_command("get_img_file_info", params)
 
@@ -2325,7 +2336,8 @@ class SeestarClient:
         """
         self.logger.info(f"Setting location: lon={longitude}, lat={latitude}")
 
-        params = {"lon_lat": [longitude, latitude]}
+        # Upstream seestar_alp uses separate lat/lon keys with force=True
+        params = {"lat": latitude, "lon": longitude, "force": True}
 
         response = await self._send_command("set_user_location", params)
 
