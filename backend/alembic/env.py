@@ -26,11 +26,11 @@ from app.core.config import get_settings
 
 target_metadata = Base.metadata
 
-# Get database URL from settings (respects .env file)
-# Only set if not already configured (allows test environment to override via alembic_cfg)
-if not config.get_main_option("sqlalchemy.url", None):
-    settings = get_settings()
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+# Get database URL from settings (respects DATABASE_URL env var and .env file)
+# This overrides the hardcoded URL in alembic.ini, allowing tests and deployment
+# environments to use DATABASE_URL env var to point to the correct database.
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
