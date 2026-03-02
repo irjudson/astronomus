@@ -382,3 +382,52 @@ async def delete_location(location_id: int, db: Session = Depends(get_db)):
     db.delete(location)
     db.commit()
     return {"message": f"Location '{location.name}' deleted"}
+
+
+# ========================================================================
+# Wish List Endpoints
+# ========================================================================
+
+
+@router.get("/wishlist")
+async def get_wishlist(db: Session = Depends(get_db)):
+    """Get user's wish list of favorite targets."""
+    import json
+
+    setting = db.query(AppSetting).filter(AppSetting.key == "user.wishlist_targets").first()
+
+    if not setting:
+        return []
+
+    try:
+        wishlist = json.loads(setting.value)
+        return wishlist
+    except json.JSONDecodeError:
+        return []
+
+
+@router.put("/wishlist")
+async def update_wishlist(wishlist: List[dict], db: Session = Depends(get_db)):
+    """Update user's wish list of favorite targets."""
+    import json
+
+    setting = db.query(AppSetting).filter(AppSetting.key == "user.wishlist_targets").first()
+
+    wishlist_json = json.dumps(wishlist)
+
+    if setting:
+        # Update existing
+        setting.value = wishlist_json
+    else:
+        # Create new
+        setting = AppSetting(
+            key="user.wishlist_targets",
+            value=wishlist_json,
+            value_type="json",
+            category="user",
+            description="User's favorite targets wish list",
+        )
+        db.add(setting)
+
+    db.commit()
+    return {"message": "Wishlist updated successfully", "count": len(wishlist)}

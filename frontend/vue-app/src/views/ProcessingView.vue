@@ -1,7 +1,6 @@
 <template>
   <PanelContainer
     v-model:left-panel-visible="leftPanelVisible"
-    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
     <!-- Left panel header -->
@@ -148,5 +147,4 @@ import FileBrowser from '@/components/processing/FileBrowser.vue'
 
 const processingStore = useProcessingStore()
 const leftPanelVisible = ref(true)
-const rightPanelVisible = ref(false)
 </script>

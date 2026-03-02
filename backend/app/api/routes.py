@@ -653,7 +653,10 @@ async def search_catalog(
     constellation: Optional[str] = Query(None, description="Filter by constellation"),
     max_magnitude: Optional[float] = Query(None, description="Maximum magnitude (fainter limit)"),
     visible_now: bool = Query(False, description="Only show targets visible now (altitude > 30°)"),
-    sort_by: str = Query("name", description="Sort by: name, magnitude, or type"),
+    sort_by: str = Query("name", description="Sort by: name, magnitude, type, or score"),
+    use_scoring: bool = Query(
+        False, description="Use comprehensive scoring algorithm (location, coverage, brightness)"
+    ),
     page: int = Query(1, description="Page number (1-indexed)", ge=1),
     page_size: int = Query(20, description="Items per page", ge=1, le=100),
 ):
@@ -669,12 +672,13 @@ async def search_catalog(
         constellation: Constellation filter (3-letter abbreviation)
         max_magnitude: Maximum magnitude filter
         visible_now: Only show targets visible now (altitude > 30°)
-        sort_by: Sort field (name, magnitude, type)
+        sort_by: Sort field (name, magnitude, type, or score)
+        use_scoring: Use comprehensive scoring algorithm including location, coverage, brightness, size, and field rotation
         page: Page number (1-indexed)
         page_size: Number of items per page
 
     Returns:
-        Paginated catalog search results
+        Paginated catalog search results with optional scoring
     """
     try:
         import time
@@ -747,6 +751,9 @@ async def search_catalog(
         else:  # name (default)
             query = query.order_by(DSOCatalog.catalog_name.asc(), DSOCatalog.catalog_number.asc())
 
+        # Initialize score details map (used when comprehensive scoring is enabled)
+        score_details = {}
+
         # Handle visibility filtering
         if visible_now:
             # Optimization: Sort by brightness and size first (using DB indexes),
@@ -807,6 +814,23 @@ async def search_catalog(
             # Filter candidates by visibility (altitude > 30°)
             # Calculate visibility score for final sorting
             visible_results = []  # List of tuples: (dso, visibility_score)
+
+            # Use comprehensive scoring if requested
+            if use_scoring or sort_by == "score":
+                from app.models import ObservingConstraints
+                from app.services.scheduler_service import SchedulerService
+                from app.services.weather_service import WeatherService
+
+                scheduler = SchedulerService()
+                weather_service = WeatherService()
+                constraints = ObservingConstraints()
+
+                # Get weather forecast for scoring
+                twilight_times = ephemeris.calculate_twilight_times(location, current_time)
+                scoring_start = twilight_times.get("astronomical_twilight_end", observing_time)
+                scoring_end = twilight_times.get("astronomical_twilight_start", observing_time + timedelta(hours=8))
+                weather_forecasts = weather_service.get_forecast(location, scoring_start, scoring_end)
+
             for dso in candidates:
                 # Create DSOTarget for ephemeris calculation
                 # Use defaults for None values (99.0 for magnitude = very faint, 1.0 for size)
@@ -824,23 +848,48 @@ async def search_catalog(
                 try:
                     altitude, _ = ephemeris.calculate_position(target, location, observing_time)
                     if altitude > 30.0:  # Minimum altitude threshold
-                        # Calculate visibility score (lower is better):
-                        # - Brighter objects (lower magnitude) are better
-                        # - Bigger objects are better (subtract size bonus)
-                        # - Higher altitude is better (subtract altitude bonus)
-                        magnitude = dso.magnitude if dso.magnitude is not None else 99.0
-                        size = dso.size_major_arcmin if dso.size_major_arcmin is not None else 0.0
-                        visibility_score = magnitude - (size / 10.0) - (altitude / 20.0)
-                        visible_results.append((dso, visibility_score))
+                        if use_scoring or sort_by == "score":
+                            # Use comprehensive scheduler scoring
+                            duration = scheduler._calculate_visibility_duration(
+                                target, location, scoring_start, scoring_end, constraints
+                            )
+                            weather_score = scheduler._get_weather_score_for_time(observing_time, weather_forecasts)
+                            score_data = scheduler._score_target(
+                                target, location, observing_time, duration, constraints, weather_score
+                            )
+                            # Store score as tuple: (dso, score, detailed_scores)
+                            # Higher score is better, so negate for sorting (we want highest first)
+                            visible_results.append((dso, -score_data.total_score, score_data))
+                        else:
+                            # Calculate simple visibility score (lower is better):
+                            # - Brighter objects (lower magnitude) are better
+                            # - Bigger objects are better (subtract size bonus)
+                            # - Higher altitude is better (subtract altitude bonus)
+                            magnitude = dso.magnitude if dso.magnitude is not None else 99.0
+                            size = dso.size_major_arcmin if dso.size_major_arcmin is not None else 0.0
+                            visibility_score = magnitude - (size / 10.0) - (altitude / 20.0)
+                            visible_results.append((dso, visibility_score, None))
                 except Exception:
                     # Skip targets that fail calculation
                     continue
 
-            # Sort by visibility score (lower = more visible)
+            # Sort by visibility score
+            # (for simple score: lower is better; for comprehensive score: already negated so lower means higher score)
             visible_results.sort(key=lambda x: x[1])
 
-            # Extract just the DSO objects (drop the scores)
-            visible_dsos = [dso for dso, score in visible_results]
+            # Extract DSO objects and detailed scores
+            visible_dsos = []
+            score_details = {}  # Map catalog_id to score details
+            for dso, _, score_data in visible_results:
+                visible_dsos.append(dso)
+                if score_data:  # If comprehensive scoring was used
+                    catalog_id = f"{dso.catalog_name}{dso.catalog_number}"
+                    score_details[catalog_id] = {
+                        "total_score": score_data.total_score,
+                        "visibility_score": score_data.visibility_score,
+                        "weather_score": score_data.weather_score,
+                        "object_score": score_data.object_score,
+                    }
 
             # Prepend exact matches even if not visible (user specifically searched for them)
             if exact_match_objects:
@@ -878,23 +927,29 @@ async def search_catalog(
             # Get constellation details
             constellation_details = catalog_service._get_constellation_details(dso.constellation)
 
-            items.append(
-                {
-                    "id": target.catalog_id,
-                    "name": target.name,
-                    "common_name": dso.common_name,  # Include common_name from database
-                    "type": target.object_type,
-                    "constellation": dso.constellation,
-                    "constellation_full": (
-                        constellation_details["full_name"] if constellation_details else dso.constellation
-                    ),
-                    "constellation_common": constellation_details["common_name"] if constellation_details else None,
-                    "magnitude": target.magnitude,
-                    "ra": target.ra_hours * 15,  # Convert hours to degrees
-                    "dec": target.dec_degrees,
-                    "size": f"{target.size_arcmin:.1f}'" if target.size_arcmin and target.size_arcmin > 1 else None,
-                }
-            )
+            item = {
+                "id": target.catalog_id,
+                "name": target.name,
+                "common_name": dso.common_name,  # Include common_name from database
+                "type": target.object_type,
+                "constellation": dso.constellation,
+                "constellation_full": (
+                    constellation_details["full_name"] if constellation_details else dso.constellation
+                ),
+                "constellation_common": constellation_details["common_name"] if constellation_details else None,
+                "magnitude": target.magnitude,
+                "ra": target.ra_hours * 15,  # Convert hours to degrees
+                "dec": target.dec_degrees,
+                "size": f"{target.size_arcmin:.1f}'" if target.size_arcmin and target.size_arcmin > 1 else None,
+            }
+
+            # Add score details if comprehensive scoring was used
+            if visible_now and (use_scoring or sort_by == "score"):
+                catalog_id = target.catalog_id
+                if catalog_id in score_details:
+                    item["score"] = score_details[catalog_id]
+
+            items.append(item)
 
         result = {
             "items": items,
@@ -2576,6 +2631,49 @@ async def health_check():
         "version": "1.0.0",
         "telescope_connected": seestar_client is not None and seestar_client.connected,
     }
+
+
+@router.get("/wishlist/defaults")
+async def get_wishlist_defaults():
+    """
+    Get default solar system objects for wish list.
+
+    Returns 19 solar system objects:
+    - 8 planets including Pluto (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto)
+    - Moon
+    - Sun
+    - Jupiter's Galilean moons (Io, Europa, Ganymede, Callisto)
+    - Saturn's major moons (Titan, Rhea, Tethys, Dione, Enceladus)
+
+    Returns:
+        List of default targets with name and type
+    """
+    return [
+        # Planets
+        {"name": "Mercury", "type": "planet"},
+        {"name": "Venus", "type": "planet"},
+        {"name": "Mars", "type": "planet"},
+        {"name": "Jupiter", "type": "planet"},
+        {"name": "Saturn", "type": "planet"},
+        {"name": "Uranus", "type": "planet"},
+        {"name": "Neptune", "type": "planet"},
+        {"name": "Pluto", "type": "planet"},
+        # Earth's Moon
+        {"name": "Moon", "type": "moon"},
+        # Sun
+        {"name": "Sun", "type": "star"},
+        # Jupiter's Galilean moons
+        {"name": "Io", "type": "moon"},
+        {"name": "Europa", "type": "moon"},
+        {"name": "Ganymede", "type": "moon"},
+        {"name": "Callisto", "type": "moon"},
+        # Saturn's major moons
+        {"name": "Titan", "type": "moon"},
+        {"name": "Rhea", "type": "moon"},
+        {"name": "Tethys", "type": "moon"},
+        {"name": "Dione", "type": "moon"},
+        {"name": "Enceladus", "type": "moon"},
+    ]
 
 
 @router.get("/images/previews/{filename}")

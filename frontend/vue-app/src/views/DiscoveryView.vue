@@ -1,7 +1,6 @@
 <template>
   <PanelContainer
     v-model:left-panel-visible="leftPanelVisible"
-    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
     <!-- Left panel header -->
@@ -50,7 +49,6 @@ import CatalogGrid from '@/components/discovery/CatalogGrid.vue'
 
 const catalogStore = useCatalogStore()
 const leftPanelVisible = ref(true)
-const rightPanelVisible = ref(false)
 
 onMounted(async () => {
   await catalogStore.fetchCatalogData()

@@ -38,6 +38,19 @@
                 <span class="catalog-card-label">Size:</span>
                 <span class="catalog-card-value">{{ item.size }}</span>
               </div>
+              <div v-if="item.score" class="catalog-card-detail border-t border-gray-700 pt-2 mt-2">
+                <span class="catalog-card-label">Capture Score:</span>
+                <span class="catalog-card-value font-semibold" :class="getScoreColor(item.score.total_score)">
+                  {{ (item.score.total_score * 100).toFixed(0) }}%
+                </span>
+              </div>
+              <div v-if="item.score" class="catalog-card-detail text-xs text-gray-500">
+                <div class="flex justify-between">
+                  <span>Visibility: {{ (item.score.visibility_score * 100).toFixed(0) }}%</span>
+                  <span>Weather: {{ (item.score.weather_score * 100).toFixed(0) }}%</span>
+                  <span>Object: {{ (item.score.object_score * 100).toFixed(0) }}%</span>
+                </div>
+              </div>
             </div>
             <div class="catalog-card-actions">
               <button
@@ -110,6 +123,13 @@ const formatTitle = (item) => {
     title = `${catalogStore.escapeHtml(item.id)} - ${catalogStore.escapeHtml(item.common_name)}`;
   }
   return title;
+};
+
+const getScoreColor = (score) => {
+  if (score >= 0.8) return 'text-green-400';
+  if (score >= 0.6) return 'text-blue-400';
+  if (score >= 0.4) return 'text-yellow-400';
+  return 'text-orange-400';
 };
 
 // --- Dynamic Page Size Calculation (Ported from old JS) ---

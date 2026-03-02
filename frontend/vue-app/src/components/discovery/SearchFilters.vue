@@ -62,6 +62,59 @@
       />
     </div>
 
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
+        Sort By
+      </label>
+      <select
+        v-model="sortBy"
+        @change="applyFilters"
+        class="w-full px-3 py-2 bg-gray-800 border border-transparent focus:border-blue-500/50 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+      >
+        <option value="name">Name</option>
+        <option value="magnitude">Brightness</option>
+        <option value="type">Type</option>
+        <option value="score">Best Chance (Score)</option>
+      </select>
+    </div>
+
+    <div class="border-t border-gray-800 pt-4">
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">
+        Visibility Options
+      </label>
+
+      <div class="flex items-center gap-2 mb-2 px-1">
+        <input
+          type="checkbox"
+          id="visible-now"
+          v-model="visibleNow"
+          @change="applyFilters"
+          class="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
+        />
+        <label for="visible-now" class="text-sm text-gray-300 cursor-pointer">
+          Visible tonight (alt > 30°)
+        </label>
+      </div>
+
+      <div class="flex items-center gap-2 px-1">
+        <input
+          type="checkbox"
+          id="use-scoring"
+          v-model="useScoring"
+          @change="applyFilters"
+          :disabled="!visibleNow"
+          class="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500 disabled:opacity-50"
+        />
+        <label for="use-scoring" class="text-sm text-gray-300 cursor-pointer" :class="{ 'opacity-50': !visibleNow }">
+          Use comprehensive scoring
+        </label>
+      </div>
+
+      <p class="text-xs text-gray-500 mt-2 px-1">
+        Scoring considers location, coverage, brightness, size, and field rotation for optimal capture.
+      </p>
+    </div>
+
     <button
       @click="clearFilters"
       class="w-full px-3 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
@@ -85,6 +138,9 @@ const searchQuery = ref('')
 const selectedType = ref('')
 const selectedConstellation = ref('')
 const maxMagnitude = ref(null)
+const sortBy = ref('name')
+const visibleNow = ref(false)
+const useScoring = ref(false)
 
 const constellations = [
   'Andromeda', 'Aquarius', 'Aquila', 'Aries', 'Auriga',
@@ -107,7 +163,10 @@ const applyFilters = () => {
     search: searchQuery.value,
     type: selectedType.value,
     constellation: selectedConstellation.value,
-    max_magnitude: maxMagnitude.value || ''
+    max_magnitude: maxMagnitude.value || '',
+    sort_by: sortBy.value,
+    visible_now: visibleNow.value,
+    use_scoring: useScoring.value
   })
 }
 
@@ -116,6 +175,9 @@ const clearFilters = () => {
   selectedType.value = ''
   selectedConstellation.value = ''
   maxMagnitude.value = null
+  sortBy.value = 'name'
+  visibleNow.value = false
+  useScoring.value = false
   catalogStore.clearFilters()
 }
 

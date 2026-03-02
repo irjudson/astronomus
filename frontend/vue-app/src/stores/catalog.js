@@ -15,6 +15,8 @@ export const useCatalogStore = defineStore('catalog', {
       constellation: '',
       max_magnitude: '',
       sort_by: 'name',
+      visible_now: false,
+      use_scoring: false,
     },
     prefetchCache: new Map(),
     selectedTargets: [], // For "Add to Plan" functionality
@@ -137,6 +139,8 @@ export const useCatalogStore = defineStore('catalog', {
         constellation: '',
         max_magnitude: '',
         sort_by: 'name',
+        visible_now: false,
+        use_scoring: false,
       };
       this.currentPage = 1;
       this.prefetchCache.clear(); // Clear cache on clear filters

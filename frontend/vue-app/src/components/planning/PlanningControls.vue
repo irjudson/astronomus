@@ -129,11 +129,14 @@
     <section>
       <button
         @click="generatePlan"
-        :disabled="wishlistCount === 0 || planningStore.loading"
+        :disabled="planningStore.loading"
         class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {{ planningStore.loading ? 'Generating Plan...' : 'Generate Plan' }}
+        {{ planningStore.loading ? 'Generating Plan...' : wishlistCount > 0 ? 'Generate Plan' : 'Auto-Generate Plan' }}
       </button>
+      <p v-if="wishlistCount === 0" class="text-xs text-gray-500 mt-1 text-center">
+        Will auto-select best targets for tonight
+      </p>
 
       <p v-if="planningStore.error" class="text-xs text-red-400 mt-2">
         {{ planningStore.error }}

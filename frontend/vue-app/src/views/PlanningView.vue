@@ -1,7 +1,6 @@
 <template>
   <PanelContainer
     v-model:left-panel-visible="leftPanelVisible"
-    v-model:right-panel-visible="rightPanelVisible"
     :console-visible="false"
   >
     <!-- Left panel header -->
@@ -161,7 +160,6 @@ const router = useRouter()
 const planningStore = usePlanningStore()
 const executionStore = useExecutionStore()
 const leftPanelVisible = ref(true)
-const rightPanelVisible = ref(false)
 
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'
