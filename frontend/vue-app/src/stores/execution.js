@@ -586,8 +586,8 @@ export const useExecutionStore = defineStore('execution', {
       try {
         const response = await axios.get('/api/telescope/features/calibration/compass/state')
         const d = response.data || {}
-        // heading field name varies by firmware: 'heading', 'angle', 'yaw'
-        const heading = d.heading ?? d.angle ?? d.yaw ?? null
+        // heading field name varies by firmware: 'direction' (confirmed), 'heading', 'angle', 'yaw'
+        const heading = d.direction ?? d.heading ?? d.angle ?? d.yaw ?? null
         if (heading !== null) this.compass.heading = Math.round(heading)
       } catch { /* silent */ }
     },
