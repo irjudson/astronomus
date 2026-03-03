@@ -1442,7 +1442,7 @@ class SeestarClient:
         Raises:
             CommandError: If annotation start fails
         """
-        response = await self._send_command("start_annotate", {})
+        response = await self._send_command("start_annotate")
 
         if response.get("code") == 0:
             self.logger.info("Annotations started")
@@ -1648,10 +1648,10 @@ class SeestarClient:
             raise ValueError(f"Invalid action '{action}'. Must be one of: {valid_actions}")
 
         # Handle stop/abort actions directly
-        # Firmware expects a bare string param, not {"action": "stop"} (code 105 otherwise)
+        # Firmware expects a JSON array ["none"], not a string or dict (code 105 otherwise)
         if action in ["stop", "abort"]:
             self.logger.info(f"Scope move: {action}")
-            response = await self._send_command("scope_move", action)
+            response = await self._send_command("scope_move", ["none"])
             self.logger.info(f"Scope move response: {response}")
             return response.get("result") == 0
 
@@ -1671,15 +1671,16 @@ class SeestarClient:
             }
             angle = direction_angles[action]
 
-            # speed param maps to "speed" field (upstream uses 10=slow, 1000=fast)
+            # percent maps joystick distance to 1-100; level is always 1; dur_sec=3
+            # Source: ScopeSpeedMoveCmd.java — params are {angle, percent, level, dur_sec}
             speed_multiplier = speed if speed is not None else 1.0
-            speed_val = int(min(1000, max(10, speed_multiplier * 100)))
+            percent = int(min(100, max(1, speed_multiplier * 100)))
 
             self.logger.info(
-                f"Directional move {action}: angle={angle}°, speed={speed_val}, speed_multiplier={speed_multiplier:.1f}x"
+                f"Directional move {action}: angle={angle}°, percent={percent}, speed_multiplier={speed_multiplier:.1f}x"
             )
 
-            params = {"speed": speed_val, "angle": angle, "dur_sec": 3}
+            params = {"angle": angle, "percent": percent, "level": 1, "dur_sec": 3}
 
             response = await self._send_command("scope_speed_move", params)
             return response.get("result") == 0
@@ -2057,8 +2058,8 @@ class SeestarClient:
         """
         self.logger.info("Stopping telescope movement")
 
-        # Firmware expects a bare string param, not a dict (code 105 otherwise)
-        response = await self._send_command("scope_move", "stop")
+        # Firmware expects a JSON array ["none"], not a string or dict (code 105 otherwise)
+        response = await self._send_command("scope_move", ["none"])
 
         self.logger.info(f"Stop movement response: {response}")
         return response.get("result") == 0
