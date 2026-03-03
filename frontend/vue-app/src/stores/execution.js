@@ -558,8 +558,15 @@ export const useExecutionStore = defineStore('execution', {
       try {
         const response = await axios.get('/api/telescope/features/calibration/polar-alignment')
         const d = response.data || {}
-        // firmware may return error_arcmin, alt_err, or similar — handle all known shapes
-        this.polarAlignment.errorArcmin = d.error_arcmin ?? d.alt_err ?? d.error ?? null
+        // x_arcsec is the confirmed firmware field (arcseconds → arcminutes)
+        let errorArcmin = d.error_arcmin ?? d.alt_err ?? d.error ?? null
+        if (errorArcmin === null && d.x_arcsec != null) errorArcmin = Math.abs(d.x_arcsec) / 60
+        this.polarAlignment.errorArcmin = errorArcmin
+        // Update status from firmware state field
+        if (d.state) {
+          const stateMap = { working: 'active', complete: 'idle', fail: 'idle', cancel: 'idle', idle: 'idle' }
+          this.polarAlignment.status = stateMap[d.state] ?? this.polarAlignment.status
+        }
       } catch { /* silent */ }
     },
 

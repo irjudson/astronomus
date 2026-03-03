@@ -2951,10 +2951,10 @@ class SeestarClient:
         """
         self.logger.info("Starting polar alignment")
 
-        response = await self._send_command("iscope_start_polar_align", {})
+        response = await self._send_command("start_polar_align")
 
         self.logger.info(f"Start polar align response: {response}")
-        return response.get("result") == 0
+        return response.get("code") == 0
 
     async def stop_polar_align(self) -> bool:
         """Stop polar alignment process.
@@ -2967,10 +2967,10 @@ class SeestarClient:
         """
         self.logger.info("Stopping polar alignment")
 
-        response = await self._send_command("iscope_stop_polar_align", {})
+        response = await self._send_command("stop_polar_align")
 
         self.logger.info(f"Stop polar align response: {response}")
-        return response.get("result") == 0
+        return response.get("code") == 0
 
     async def pause_polar_align(self) -> bool:
         """Pause polar alignment process.
@@ -2983,10 +2983,10 @@ class SeestarClient:
         """
         self.logger.info("Pausing polar alignment")
 
-        response = await self._send_command("iscope_pause_polar_align", {})
+        response = await self._send_command("pause_polar_align")
 
         self.logger.info(f"Pause polar align response: {response}")
-        return response.get("result") == 0
+        return response.get("code") == 0
 
     async def check_client_verified(self) -> bool:
         """Check if current client is verified/authenticated.
