@@ -16,19 +16,25 @@
     <!-- Left: All Controls -->
     <template #left>
       <div class="p-4 space-y-4">
-        <!-- Telescope Control (collapsible) -->
+        <!-- Connection & Control (collapsible) -->
         <div>
           <button
             @click="controlOpen = !controlOpen"
             class="flex items-center justify-between w-full text-left mb-3 group"
           >
-            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Control</h4>
+            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Connection & Control</h4>
             <ChevronDownIcon
               class="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-all"
               :class="controlOpen ? 'rotate-0' : '-rotate-90'"
             />
           </button>
           <TelescopePanel v-show="controlOpen" />
+        </div>
+
+        <!-- Object Tracking (always visible) -->
+        <div class="border-t border-gray-800 pt-4">
+          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Object Tracking</h4>
+          <ObjectTrackingPanel />
         </div>
 
         <!-- Movement -->
@@ -135,6 +141,7 @@ import { ChevronDownIcon } from 'lucide-vue-next'
 import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
+import ObjectTrackingPanel from '@/components/execution/ObjectTrackingPanel.vue'
 import DirectionalControlPanel from '@/components/execution/DirectionalControlPanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'

@@ -1,10 +1,6 @@
 <template>
   <div>
-    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-      Connection & Status
-    </h3>
-
-    <!-- Connection Section -->
+    <!-- Disconnected: show connect form -->
     <div v-if="!executionStore.connected" class="space-y-3">
       <div>
         <label class="block text-xs text-gray-500 mb-1">Telescope IP Address</label>
@@ -33,9 +29,9 @@
       </div>
     </div>
 
-    <!-- Connected State -->
+    <!-- Connected: status, park, dew heater, disconnect -->
     <div v-else class="space-y-3">
-      <!-- Connection Info -->
+      <!-- Connection status -->
       <div class="p-3 bg-green-900/20 border border-green-800 rounded-lg">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -43,7 +39,7 @@
         </div>
       </div>
 
-      <!-- Park/Unpark Toggle -->
+      <!-- Park / Unpark -->
       <button
         v-if="executionStore.hardware.trackingStatus === 'Parked'"
         @click="executionStore.unparkTelescope()"
@@ -51,7 +47,6 @@
       >
         Unpark Telescope
       </button>
-
       <button
         v-else
         @click="parkTelescope"
@@ -60,11 +55,9 @@
         Park Telescope
       </button>
 
-      <!-- Dew Heater Control -->
+      <!-- Dew Heater -->
       <div class="space-y-2 pt-2 border-t border-gray-700">
-        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Dew Heater
-        </h4>
+        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dew Heater</h4>
 
         <button
           @click="executionStore.toggleDewHeater()"
@@ -77,87 +70,20 @@
           <label class="text-xs text-gray-500">Power: {{ dewHeaterPower }}%</label>
           <input
             v-model.number="dewHeaterPower"
-            type="range"
-            min="0"
-            max="100"
-            step="10"
+            type="range" min="0" max="100" step="10"
             @change="updateDewHeaterPower"
             class="w-full"
           />
         </div>
       </div>
 
-      <!-- Disconnect Button -->
+      <!-- Disconnect -->
       <button
         @click="executionStore.disconnectTelescope()"
         class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
       >
         Disconnect
       </button>
-
-      <!-- Object Tracking Section -->
-      <div class="space-y-2 pt-2 border-t border-gray-700">
-        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Object Tracking
-        </h4>
-
-        <div v-if="!executionStore.tracking.active">
-          <!-- Object Type Selector -->
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-1">Object Type</label>
-            <select
-              v-model="objectType"
-              class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 text-sm focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-500/50 transition-all"
-            >
-              <option value="satellite">Satellite</option>
-              <option value="comet">Comet</option>
-              <option value="asteroid">Asteroid</option>
-            </select>
-          </div>
-
-          <!-- Object ID Input -->
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-1">Object ID</label>
-            <input
-              v-model="objectId"
-              type="text"
-              :placeholder="getPlaceholder(objectType)"
-              class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:border-blue-500 focus:ring-blue-500/50 transition-all"
-              @keyup.enter="startTracking"
-            />
-          </div>
-
-          <!-- Start Tracking Button -->
-          <button
-            @click="startTracking"
-            :disabled="!objectId.trim()"
-            class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Start Tracking
-          </button>
-        </div>
-
-        <div v-else>
-          <!-- Active Tracking Info -->
-          <div class="p-3 bg-purple-900/20 border border-purple-800 rounded-lg mb-2">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
-              <span class="text-sm font-medium text-purple-400">Tracking Active</span>
-            </div>
-            <p class="text-xs text-gray-400">
-              {{ executionStore.tracking.objectType }}: {{ executionStore.tracking.objectId }}
-            </p>
-          </div>
-
-          <!-- Stop Tracking Button -->
-          <button
-            @click="stopTracking"
-            class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
-          >
-            Stop Tracking
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -170,18 +96,9 @@ const executionStore = useExecutionStore()
 const telescopeIp = ref('192.168.2.47')
 const dewHeaterPower = ref(50)
 
-// Object tracking fields
-const objectType = ref('satellite')
-const objectId = ref('')
+watch(() => executionStore.hardware.dewHeaterPower, (p) => { dewHeaterPower.value = p }, { immediate: true })
 
-// Sync local power with store
-watch(() => executionStore.hardware.dewHeaterPower, (newPower) => {
-  dewHeaterPower.value = newPower
-}, { immediate: true })
-
-const connect = async () => {
-  await executionStore.connectTelescope(telescopeIp.value)
-}
+const connect = async () => { await executionStore.connectTelescope(telescopeIp.value) }
 
 const parkTelescope = async () => {
   if (!confirm('Park telescope?')) return
@@ -192,26 +109,5 @@ const updateDewHeaterPower = async () => {
   if (executionStore.hardware.dewHeaterStatus === 'On') {
     await executionStore.setDewHeater(true, dewHeaterPower.value)
   }
-}
-
-const getPlaceholder = (type) => {
-  const placeholders = {
-    satellite: 'ISS, STARLINK-1234, etc.',
-    comet: '1P/Halley, C/2023 A3, etc.',
-    asteroid: '433 Eros, 2024 AB1, etc.'
-  }
-  return placeholders[type] || 'Enter object identifier'
-}
-
-const startTracking = async () => {
-  if (!objectId.value.trim()) return
-  await executionStore.startTracking(objectType.value, objectId.value)
-  // Keep the values in the form for easy reference
-}
-
-const stopTracking = async () => {
-  await executionStore.stopTracking()
-  // Clear the form after stopping
-  objectId.value = ''
 }
 </script>
