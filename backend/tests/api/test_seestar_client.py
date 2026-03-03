@@ -424,7 +424,7 @@ async def test_start_annotate_success():
 
         result = await client.start_annotate()
         assert result is True
-        mock_send.assert_called_with("start_annotate", {})
+        mock_send.assert_called_with("start_annotate")
 
 
 @pytest.mark.asyncio

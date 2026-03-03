@@ -32,10 +32,16 @@ export const useExecutionStore = defineStore('execution', {
     recording: { active: false },
 
     // Polar alignment state
-    polarAlignment: { active: false, status: 'idle' },
+    polarAlignment: { active: false, status: 'idle', errorArcmin: null },
+
+    // Compass calibration state
+    compass: { status: 'idle', heading: null },
 
     // Object tracking state
     tracking: { active: false, objectType: null, objectId: null },
+
+    // Balance / leveling
+    balance: { x: 0, y: 0, z: 0, angle: 0 },
 
     // Annotations
     annotationsEnabled: false,
@@ -547,6 +553,45 @@ export const useExecutionStore = defineStore('execution', {
       }
     },
 
+    async fetchPolarAlignStatus() {
+      if (!this.connected) return
+      try {
+        const response = await axios.get('/api/telescope/features/calibration/polar-alignment')
+        const d = response.data || {}
+        // firmware may return error_arcmin, alt_err, or similar — handle all known shapes
+        this.polarAlignment.errorArcmin = d.error_arcmin ?? d.alt_err ?? d.error ?? null
+      } catch { /* silent */ }
+    },
+
+    async startCompassCalibration() {
+      try {
+        await axios.post('/api/telescope/features/calibration/compass/start')
+        this.compass.status = 'calibrating'
+      } catch (err) {
+        this.error = 'Failed to start compass calibration: ' + (err.response?.data?.detail || err.message)
+      }
+    },
+
+    async stopCompassCalibration() {
+      try {
+        await axios.post('/api/telescope/features/calibration/compass/stop')
+        this.compass.status = 'idle'
+      } catch (err) {
+        this.error = 'Failed to stop compass calibration: ' + (err.response?.data?.detail || err.message)
+      }
+    },
+
+    async fetchCompassState() {
+      if (!this.connected) return
+      try {
+        const response = await axios.get('/api/telescope/features/calibration/compass/state')
+        const d = response.data || {}
+        // heading field name varies by firmware: 'heading', 'angle', 'yaw'
+        const heading = d.heading ?? d.angle ?? d.yaw ?? null
+        if (heading !== null) this.compass.heading = Math.round(heading)
+      } catch { /* silent */ }
+    },
+
     async startTracking(type, id) {
       try {
         await axios.post("/api/telescope/tracking/start", { object_type: type, object_id: id })
@@ -594,6 +639,22 @@ export const useExecutionStore = defineStore('execution', {
       } catch (err) {
         console.error('Failed to fetch system info:', err)
       }
+    },
+
+    async startLeveling() {
+      await axios.post('/api/telescope/features/calibration/balance/start')
+    },
+
+    async fetchBalance() {
+      if (!this.connected) return
+      try {
+        const response = await axios.get('/api/telescope/features/calibration/balance')
+        this.balance = { ...this.balance, ...response.data }
+      } catch { /* silent — called frequently, don't spam errors */ }
+    },
+
+    async calibrateGsensor() {
+      await axios.post('/api/telescope/features/calibration/gsensor/start')
     }
   }
 })

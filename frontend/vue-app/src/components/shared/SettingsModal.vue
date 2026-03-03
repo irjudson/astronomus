@@ -12,8 +12,26 @@
         </button>
       </div>
 
-      <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <!-- Tab bar -->
+      <div class="flex gap-1 px-6 pt-4">
+        <button
+          @click="activeTab = 'general'"
+          class="px-4 py-2 text-sm rounded-lg transition-colors"
+          :class="activeTab === 'general' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        >
+          General
+        </button>
+        <button
+          @click="activeTab = 'scope'"
+          class="px-4 py-2 text-sm rounded-lg transition-colors"
+          :class="activeTab === 'scope' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        >
+          Scope
+        </button>
+      </div>
+
+      <!-- Content: General tab -->
+      <div v-if="activeTab === 'general'" class="flex-1 overflow-y-auto p-6 space-y-6">
         <!-- Observing Location -->
         <section>
           <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Observing Location</h3>
@@ -130,8 +148,219 @@
         </section>
       </div>
 
-      <!-- Footer -->
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
+      <!-- Content: Scope tab -->
+      <div v-else-if="activeTab === 'scope'" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Leveling -->
+        <section>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Leveling</h3>
+          <div class="bg-gray-800 rounded-lg p-4 space-y-4">
+            <!-- Not monitoring yet -->
+            <div v-if="!levelingActive" class="flex flex-col items-center gap-3 py-2">
+              <p class="text-sm text-gray-400 text-center">
+                Activates the IMU and begins reading live tilt data from the telescope.
+              </p>
+              <button
+                :disabled="!executionStore.connected"
+                @click="handleStartLeveling"
+                class="px-4 py-2 text-sm rounded-lg font-medium transition-colors"
+                :class="executionStore.connected
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                  : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
+              >
+                Start Leveling
+              </button>
+              <p v-if="!executionStore.connected" class="text-xs text-gray-500">
+                Connect telescope to enable leveling.
+              </p>
+            </div>
+
+            <!-- Active monitoring -->
+            <div v-else>
+              <div class="flex items-center gap-6">
+                <BubbleLevel
+                  :x="executionStore.balance.x"
+                  :y="executionStore.balance.y"
+                  :z="executionStore.balance.z"
+                  :angle="executionStore.balance.angle"
+                  :size="80"
+                />
+                <div class="flex-1 space-y-2">
+                  <div class="text-sm text-gray-300">
+                    Tilt: <span class="font-mono text-white">{{ executionStore.balance.angle.toFixed(2) }}°</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="w-2 h-2 rounded-full" :class="levelStatusDot"></span>
+                    <span :class="levelStatusText">{{ levelStatusLabel }}</span>
+                  </div>
+                  <div class="flex gap-2 mt-2">
+                    <button
+                      @click="handleCalibrateImu"
+                      class="px-3 py-1.5 text-xs rounded-lg transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200"
+                    >
+                      Calibrate IMU
+                    </button>
+                    <button
+                      @click="handleStopLeveling"
+                      class="px-3 py-1.5 text-xs rounded-lg transition-colors bg-gray-700 hover:bg-gray-600 text-gray-400"
+                    >
+                      Stop
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Compass Calibration -->
+        <section>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Compass Calibration</h3>
+          <div class="bg-gray-800 rounded-lg p-4 space-y-3">
+            <div class="flex items-center gap-5">
+              <!-- Visual: compass rose with sector coverage -->
+              <CompassCalibration
+                :heading="executionStore.compass.heading"
+                :active="executionStore.compass.status === 'calibrating'"
+                :size="120"
+              />
+
+              <!-- Right: status + instruction + button -->
+              <div class="flex-1 space-y-3">
+                <!-- Status -->
+                <div class="flex items-center gap-2 text-sm">
+                  <span
+                    class="w-2 h-2 rounded-full flex-shrink-0"
+                    :class="executionStore.compass.status === 'calibrating' ? 'bg-blue-400 animate-pulse' : 'bg-gray-500'"
+                  ></span>
+                  <span :class="executionStore.compass.status === 'calibrating' ? 'text-blue-300' : 'text-gray-400'">
+                    {{ executionStore.compass.status === 'calibrating' ? 'Calibrating…' : 'Idle' }}
+                  </span>
+                </div>
+
+                <!-- Instruction -->
+                <p class="text-xs text-gray-400 leading-relaxed">
+                  <template v-if="executionStore.compass.status === 'calibrating'">
+                    Slowly rotate the scope through a full 360°. Blue sectors indicate covered angles.
+                  </template>
+                  <template v-else>
+                    Start calibration then slowly rotate the scope 360° to cover all sectors.
+                  </template>
+                </p>
+
+                <!-- Button -->
+                <button
+                  v-if="executionStore.compass.status !== 'calibrating'"
+                  :disabled="!executionStore.connected"
+                  @click="handleStartCompass"
+                  class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                  :class="executionStore.connected
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                    : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
+                >
+                  Start Calibration
+                </button>
+                <button
+                  v-else
+                  @click="handleStopCompass"
+                  class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-red-700 hover:bg-red-600 text-white"
+                >
+                  Stop
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Polar Alignment -->
+        <section>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Polar Alignment</h3>
+          <div class="bg-gray-800 rounded-lg p-4 space-y-3">
+            <div class="flex items-center gap-5">
+              <!-- Visual: bullseye quality indicator -->
+              <PolarAlignVisual
+                :errorArcmin="executionStore.polarAlignment.errorArcmin"
+                :active="executionStore.polarAlignment.status === 'active'"
+                :size="120"
+              />
+
+              <!-- Right: status + quality + guidance + controls -->
+              <div class="flex-1 space-y-3">
+                <!-- Status dot + label -->
+                <div class="flex items-center gap-2 text-sm">
+                  <span
+                    class="w-2 h-2 rounded-full flex-shrink-0"
+                    :class="{
+                      'bg-green-500 animate-pulse': executionStore.polarAlignment.status === 'active',
+                      'bg-yellow-500': executionStore.polarAlignment.status === 'paused',
+                      'bg-gray-500': executionStore.polarAlignment.status === 'idle'
+                    }"
+                  ></span>
+                  <span :class="{
+                    'text-green-400': executionStore.polarAlignment.status === 'active',
+                    'text-yellow-400': executionStore.polarAlignment.status === 'paused',
+                    'text-gray-400': executionStore.polarAlignment.status === 'idle'
+                  }">{{ polarStatusLabel }}</span>
+                </div>
+
+                <!-- Alignment error + quality label -->
+                <div v-if="executionStore.polarAlignment.errorArcmin !== null" class="text-sm">
+                  <span class="text-gray-400">Error: </span>
+                  <span class="font-mono" :class="polarErrorClass">
+                    {{ executionStore.polarAlignment.errorArcmin.toFixed(1) }}'
+                  </span>
+                  <span class="ml-2 text-xs" :class="polarErrorClass">{{ polarQualityLabel }}</span>
+                </div>
+
+                <!-- Guided instruction text -->
+                <p class="text-xs text-gray-400 leading-relaxed">{{ polarInstructionText }}</p>
+
+                <!-- Controls: context-sensitive buttons -->
+                <div class="flex gap-2">
+                  <!-- Idle: show Start -->
+                  <button
+                    v-if="executionStore.polarAlignment.status === 'idle'"
+                    :disabled="!executionStore.connected"
+                    @click="handlePolarStart"
+                    class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                    :class="executionStore.connected
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                      : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
+                  >
+                    Start Alignment
+                  </button>
+
+                  <!-- Active or paused: Pause/Resume + Stop -->
+                  <template v-else>
+                    <button
+                      v-if="executionStore.polarAlignment.status === 'active'"
+                      @click="handlePolarPause"
+                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-yellow-600 hover:bg-yellow-500 text-white"
+                    >
+                      Pause
+                    </button>
+                    <button
+                      v-else
+                      @click="handlePolarStart"
+                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white"
+                    >
+                      Resume
+                    </button>
+                    <button
+                      @click="handlePolarStop"
+                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-red-700 hover:bg-red-600 text-white"
+                    >
+                      Stop
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer (General tab only) -->
+      <div v-if="activeTab === 'general'" class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
         <button
           @click="$emit('close')"
           class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
@@ -150,8 +379,13 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { XIcon } from 'lucide-vue-next'
+import axios from 'axios'
+import { useExecutionStore } from '@/stores/execution'
+import BubbleLevel from './BubbleLevel.vue'
+import CompassCalibration from './CompassCalibration.vue'
+import PolarAlignVisual from './PolarAlignVisual.vue'
 
 const props = defineProps({
   isOpen: {
@@ -161,6 +395,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const executionStore = useExecutionStore()
+const activeTab = ref('general')
+const levelingActive = ref(false)
 
 // Load settings from localStorage
 const loadSettings = () => {
@@ -182,10 +420,11 @@ const loadSettings = () => {
 
 const localSettings = ref(loadSettings())
 
-// Reload settings when modal opens
+// Reload settings when modal opens; reset to general tab
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     localSettings.value = loadSettings()
+    activeTab.value = 'general'
   }
 })
 
@@ -194,4 +433,142 @@ const saveSettings = () => {
   emit('save', localSettings.value)
   emit('close')
 }
+
+// Level status helpers
+const levelStatusDot = computed(() => {
+  const angle = executionStore.balance.angle
+  if (angle <= 2) return 'bg-green-500'
+  if (angle <= 5) return 'bg-yellow-500'
+  return 'bg-red-500'
+})
+
+const levelStatusText = computed(() => {
+  const angle = executionStore.balance.angle
+  if (angle <= 2) return 'text-green-400'
+  if (angle <= 5) return 'text-yellow-400'
+  return 'text-red-400'
+})
+
+const levelStatusLabel = computed(() => {
+  const angle = executionStore.balance.angle
+  if (angle <= 2) return 'Level'
+  if (angle <= 5) return 'Almost level — adjust tripod'
+  return 'Not level — adjust tripod'
+})
+
+// ── Leveling poll ─────────────────────────────────────────────────────────────
+let levelingTimer = null
+
+const stopLevelingPoll = () => {
+  clearInterval(levelingTimer)
+  levelingTimer = null
+  levelingActive.value = false
+}
+
+watch(activeTab, (tab) => {
+  if (tab !== 'scope') {
+    stopLevelingPoll()
+    stopCompassPoll()
+    stopPolarPoll()
+  }
+})
+watch(() => props.isOpen, (open) => {
+  if (!open) {
+    stopLevelingPoll()
+    stopCompassPoll()
+    stopPolarPoll()
+  }
+})
+
+const handleStartLeveling = async () => {
+  try { await executionStore.startLeveling() } catch { /* firmware may return non-zero but still activates */ }
+  levelingActive.value = true
+  await executionStore.fetchBalance()
+  levelingTimer = setInterval(() => executionStore.fetchBalance(), 500)
+}
+
+const handleStopLeveling = () => stopLevelingPoll()
+
+const handleCalibrateImu = async () => {
+  try { await executionStore.calibrateGsensor() } catch { /* ignore */ }
+}
+
+// ── Compass poll ───────────────────────────────────────────────────────────────
+let compassTimer = null
+
+const stopCompassPoll = () => {
+  clearInterval(compassTimer)
+  compassTimer = null
+}
+
+const handleStartCompass = async () => {
+  await executionStore.startCompassCalibration()
+  await executionStore.fetchCompassState()
+  compassTimer = setInterval(() => executionStore.fetchCompassState(), 1000)
+}
+
+const handleStopCompass = async () => {
+  await executionStore.stopCompassCalibration()
+  stopCompassPoll()
+}
+
+// ── Polar alignment poll ───────────────────────────────────────────────────────
+let polarTimer = null
+
+const stopPolarPoll = () => {
+  clearInterval(polarTimer)
+  polarTimer = null
+}
+
+const handlePolarStart = async () => {
+  try {
+    await executionStore.startPolarAlign()
+    if (!polarTimer) {
+      polarTimer = setInterval(() => executionStore.fetchPolarAlignStatus(), 2000)
+    }
+  } catch { /* ignore */ }
+}
+
+const handlePolarPause = async () => {
+  try { await executionStore.pausePolarAlign() } catch { /* ignore */ }
+}
+
+const handlePolarStop = async () => {
+  try {
+    await executionStore.stopPolarAlign()
+    stopPolarPoll()
+  } catch { /* ignore */ }
+}
+
+// ── Polar alignment helpers ────────────────────────────────────────────────────
+const polarStatusLabel = computed(() => {
+  const s = executionStore.polarAlignment.status
+  if (s === 'active') return 'Measuring alignment…'
+  if (s === 'paused') return 'Paused'
+  return 'Idle'
+})
+
+const polarErrorClass = computed(() => {
+  const e = executionStore.polarAlignment.errorArcmin
+  if (e === null) return 'text-gray-400'
+  if (e < 5)  return 'text-green-400'
+  if (e < 15) return 'text-yellow-400'
+  return 'text-red-400'
+})
+
+const polarQualityLabel = computed(() => {
+  const e = executionStore.polarAlignment.errorArcmin
+  if (e === null) return ''
+  if (e < 5)  return '● Excellent'
+  if (e < 15) return '● Good'
+  if (e < 30) return '● Fair'
+  return '● Poor'
+})
+
+const polarInstructionText = computed(() => {
+  const s = executionStore.polarAlignment.status
+  if (s === 'active') return "Analyzing polar axis. Adjust the mount's altitude and azimuth bolts to minimize the error shown."
+  if (s === 'paused') return 'Paused — resume when ready to continue adjustments.'
+  return 'Start polar alignment to measure and guide polar axis correction. Telescope must be in equatorial mode.'
+})
 </script>

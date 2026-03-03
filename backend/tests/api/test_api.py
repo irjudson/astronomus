@@ -146,7 +146,6 @@ class TestTwilightEndpoint:
             assert field in data
             assert data[field] is not None
 
-    @pytest.mark.skip(reason="Input validation not yet implemented - TODO: Add Pydantic validators for lat/lon range")
     def test_twilight_with_invalid_location(self, client):
         """Test twilight calculation with invalid location.
 
@@ -224,7 +223,6 @@ class TestPlanEndpoint:
             plan = response.json()
             assert isinstance(plan["scheduled_targets"], list)
 
-    @pytest.mark.skip(reason="Date validation not yet implemented - TODO: Add Pydantic date validators")
     def test_generate_plan_with_invalid_date(self, client, sample_plan_request):
         """Test plan generation with invalid date.
 

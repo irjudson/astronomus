@@ -34,12 +34,6 @@
           <PlanExecutionPanel />
         </div>
 
-        <!-- Polar Alignment -->
-        <div class="border-t border-gray-800 pt-4">
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Polar Alignment</h4>
-          <PolarAlignmentPanel />
-        </div>
-
         <!-- Messages -->
         <div class="border-t border-gray-800 pt-4">
           <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Messages</h4>
@@ -135,7 +129,6 @@ import DirectionalControlPanel from '@/components/execution/DirectionalControlPa
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'
 import PlanExecutionPanel from '@/components/execution/PlanExecutionPanel.vue'
-import PolarAlignmentPanel from '@/components/execution/PolarAlignmentPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()

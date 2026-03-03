@@ -201,8 +201,8 @@ class CatalogService:
         if constellation:
             query = query.filter(DSOCatalog.constellation == constellation)
 
-        # Order by magnitude (brightest first)
-        query = query.order_by(DSOCatalog.magnitude.asc())
+        # Order by magnitude (brightest first), then id for stable pagination
+        query = query.order_by(DSOCatalog.magnitude.asc(), DSOCatalog.id.asc())
 
         if limit:
             query = query.limit(limit).offset(offset)

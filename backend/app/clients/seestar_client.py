@@ -2458,15 +2458,70 @@ class SeestarClient:
     async def get_compass_state(self) -> Dict[str, Any]:
         """Get compass heading and calibration state.
 
+        Reads from device_state (compass_sensor key) which we confirmed is populated
+        by the firmware.  Same nested-data pattern as balance_sensor.
+
         Returns:
-            Compass state dict with heading and calibration status
+            Dict with at minimum a 'heading' field (degrees 0-360).
+        """
+        response = await self._send_command("get_device_state", {})
+        result = response.get("result", {})
+        if "compass_sensor" in result:
+            sensor = result["compass_sensor"]
+            return sensor.get("data", sensor)
+        # Fall back to dedicated command if key is absent
+        response = await self._send_command("get_compass_state", {})
+        return response.get("result", {})
+
+    async def start_leveling(self) -> bool:
+        """Activate the IMU leveling mode (mirrors the Seestar app's 'Please level' screen).
+
+        Sends start_gsensor_calibration with no params, which is the command the Seestar
+        app issues before displaying the bubble level.  After calling this, the firmware
+        begins populating balance sensor data so get_balance_sensor() returns live values.
+
+        Returns:
+            True if the command was accepted (code == 0)
+        """
+        self.logger.info("Activating IMU leveling mode")
+        response = await self._send_command("start_gsensor_calibration")
+        self.logger.info(f"start_leveling (start_gsensor_calibration) response: {response}")
+        return response.get("code") == 0
+
+    async def get_balance_sensor(self) -> Dict[str, Any]:
+        """Get current balance sensor data for leveling.
+
+        Returns:
+            Dict with x, y, z (accelerometer) and angle (total tilt in degrees).
 
         Raises:
             CommandError: If query fails
         """
-        response = await self._send_command("get_compass_state", {})
+        response = await self._send_command("get_device_state", {})
+        result = response.get("result", {})
+        for key in ("balance_sensor", "balance", "imu", "gsensor", "accelerometer"):
+            if key in result:
+                sensor = result[key]
+                # Firmware wraps values in a nested 'data' key: {'code': 0, 'data': {x, y, z, angle}}
+                return sensor.get("data", sensor)
+        self.logger.warning("Balance sensor key not found in device state; keys: %s", list(result.keys()))
+        return {"x": 0, "y": 0, "z": 0, "angle": 0}
 
-        return response.get("result", {})
+    async def start_gsensor_calibration(self) -> bool:
+        """Calibrate G-sensor (IMU accelerometer reference point).
+
+        Sends no params — same wire format as start_annotate.
+
+        Returns:
+            True if calibration accepted (code == 0)
+
+        Raises:
+            CommandError: If command fails
+        """
+        self.logger.info("Starting G-sensor calibration")
+        response = await self._send_command("start_gsensor_calibration")
+        self.logger.info(f"start_gsensor_calibration response: {response}")
+        return response.get("code") == 0
 
     # ========================================================================
     # Phase 6: Remote Connection Management
