@@ -16,10 +16,19 @@
     <!-- Left: All Controls -->
     <template #left>
       <div class="p-4 space-y-4">
-        <!-- Telescope Control -->
+        <!-- Telescope Control (collapsible) -->
         <div>
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Control</h4>
-          <TelescopePanel />
+          <button
+            @click="controlOpen = !controlOpen"
+            class="flex items-center justify-between w-full text-left mb-3 group"
+          >
+            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Control</h4>
+            <ChevronDownIcon
+              class="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-all"
+              :class="controlOpen ? 'rotate-0' : '-rotate-90'"
+            />
+          </button>
+          <TelescopePanel v-show="controlOpen" />
         </div>
 
         <!-- Movement -->
@@ -122,6 +131,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { ChevronDownIcon } from 'lucide-vue-next'
 import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
@@ -133,6 +143,7 @@ import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 
 const executionStore = useExecutionStore()
 const leftPanelVisible = ref(true)
+const controlOpen = ref(true)
 
 const formatRA = (ra) => {
   const hours = ra / 15

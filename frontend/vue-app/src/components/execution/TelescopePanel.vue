@@ -60,6 +60,41 @@
         Park Telescope
       </button>
 
+      <!-- Dew Heater Control -->
+      <div class="space-y-2 pt-2 border-t border-gray-700">
+        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Dew Heater
+        </h4>
+
+        <button
+          @click="executionStore.toggleDewHeater()"
+          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
+        >
+          {{ executionStore.hardware.dewHeaterStatus === 'On' ? 'Turn Off' : 'Turn On' }} Dew Heater
+        </button>
+
+        <div v-if="executionStore.hardware.dewHeaterStatus === 'On'" class="space-y-1">
+          <label class="text-xs text-gray-500">Power: {{ dewHeaterPower }}%</label>
+          <input
+            v-model.number="dewHeaterPower"
+            type="range"
+            min="0"
+            max="100"
+            step="10"
+            @change="updateDewHeaterPower"
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <!-- Disconnect Button -->
+      <button
+        @click="executionStore.disconnectTelescope()"
+        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
+      >
+        Disconnect
+      </button>
+
       <!-- Object Tracking Section -->
       <div class="space-y-2 pt-2 border-t border-gray-700">
         <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -123,41 +158,6 @@
           </button>
         </div>
       </div>
-
-      <!-- Dew Heater Control -->
-      <div class="space-y-2 pt-2 border-t border-gray-700">
-        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Dew Heater
-        </h4>
-        
-        <button
-          @click="executionStore.toggleDewHeater()"
-          class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600"
-        >
-          {{ executionStore.hardware.dewHeaterStatus === 'On' ? 'Turn Off' : 'Turn On' }} Dew Heater
-        </button>
-
-        <div v-if="executionStore.hardware.dewHeaterStatus === 'On'" class="space-y-1">
-          <label class="text-xs text-gray-500">Power: {{ dewHeaterPower }}%</label>
-          <input
-            v-model.number="dewHeaterPower"
-            type="range"
-            min="0"
-            max="100"
-            step="10"
-            @change="updateDewHeaterPower"
-            class="w-full"
-          />
-        </div>
-      </div>
-
-      <!-- Disconnect Button -->
-      <button
-        @click="executionStore.disconnectTelescope()"
-        class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
-      >
-        Disconnect
-      </button>
     </div>
   </div>
 </template>
