@@ -15,9 +15,14 @@ import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import { useSettingsStore } from '@/stores/settings'
+import { useCatalogStore } from '@/stores/catalog'
 
 const settingsStore = useSettingsStore()
-onMounted(() => settingsStore.load())
+const catalogStore = useCatalogStore()
+onMounted(() => {
+  settingsStore.load()
+  catalogStore.fetchWishlist()
+})
 </script>
 
 <style scoped>

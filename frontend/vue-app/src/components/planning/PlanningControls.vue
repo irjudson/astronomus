@@ -45,16 +45,16 @@
 
       <div v-if="wishlistCount > 0" class="space-y-2">
         <div
-          v-for="target in catalogStore.selectedTargets"
-          :key="target.id || target.catalog_id"
+          v-for="target in catalogStore.wishlist"
+          :key="target.name"
           class="flex items-center justify-between p-2 bg-gray-800 rounded hover:bg-gray-750 transition-colors"
         >
           <div class="flex-1 min-w-0">
-            <div class="text-sm text-gray-200 truncate">{{ target.name || target.common_name }}</div>
-            <div class="text-xs text-gray-500">{{ target.object_type }}</div>
+            <div class="text-sm text-gray-200 truncate">{{ target.name }}</div>
+            <div class="text-xs text-gray-500 capitalize">{{ target.type }}</div>
           </div>
           <button
-            @click="catalogStore.removeSelectedTarget(target.name || target.common_name)"
+            @click="catalogStore.removeFromWishlist(target.name)"
             class="ml-2 text-red-500 hover:text-red-400 text-xs px-2 py-1"
           >
             Remove
@@ -160,8 +160,7 @@ const settingsStore = useSettingsStore()
 // Set default observation date to today
 const observationDate = ref(new Date().toISOString().split('T')[0])
 
-// Sync wishlist from catalog to planning store
-const wishlistCount = computed(() => catalogStore.selectedTargets.length)
+const wishlistCount = computed(() => catalogStore.wishlist.length)
 
 // Temperature display with user preference
 const temperatureUnit = computed(() => settingsStore.settings.temperatureUnit || 'F')
@@ -185,12 +184,7 @@ const formatCoordinate = (value, type) => {
 
 const generatePlan = async () => {
   try {
-    // Sync selected targets from catalog to planning store
-    planningStore.selectedTargets = catalogStore.selectedTargets
-
-    // Set observation date
     planningStore.observationDate = observationDate.value
-
     await planningStore.generatePlan()
   } catch (err) {
     console.error('Failed to generate plan:', err)

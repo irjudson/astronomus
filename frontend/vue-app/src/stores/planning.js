@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useSettingsStore } from './settings'
+import { useCatalogStore } from './catalog'
 
 export const usePlanningStore = defineStore('planning', {
   state: () => ({
@@ -87,9 +88,13 @@ export const usePlanningStore = defineStore('planning', {
           }
         }
 
-        // If we have selected targets (wishlist), add them as custom_targets
-        if (this.selectedTargets.length > 0) {
-          request.custom_targets = this.selectedTargets.map(t => t.catalog_id || t.id)
+        // Use DSO items from the persistent wishlist as custom_targets
+        const wishlist = useCatalogStore().wishlist
+        const dsoTargets = wishlist
+          .filter(t => t.type !== 'planet' && t.type !== 'moon' && t.type !== 'sun')
+          .map(t => t.name)
+        if (dsoTargets.length > 0) {
+          request.custom_targets = dsoTargets
         }
 
         const response = await axios.post('/api/plan', request)
