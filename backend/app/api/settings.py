@@ -437,11 +437,30 @@ async def update_wishlist(wishlist: List[dict], db: Session = Depends(get_db)):
 # User Profile Settings (location + preferences as a single document)
 # ========================================================================
 
+import json as _json
+
 _PREF_KEYS = {
+    # UI preferences
     "temperatureUnit": "user.pref.temperature_unit",
     "distanceUnit": "user.pref.distance_unit",
     "showThumbnails": "user.pref.show_thumbnails",
     "autoRefresh": "user.pref.auto_refresh",
+    # Telescope
+    "telescopeHost": "user.pref.telescope_host",
+    "telescopePort": "user.pref.telescope_port",
+    # Planning constraints
+    "planMinAltitude": "user.pref.plan_min_altitude",
+    "planMaxAltitude": "user.pref.plan_max_altitude",
+    "planAvoidMoon": "user.pref.plan_avoid_moon",
+    "planSetupMinutes": "user.pref.plan_setup_minutes",
+    "planObjectTypes": "user.pref.plan_object_types",
+    # Catalog filter defaults
+    "catalogSortBy": "user.pref.catalog_sort_by",
+    "catalogVisibleNow": "user.pref.catalog_visible_now",
+    "catalogUseScoring": "user.pref.catalog_use_scoring",
+    # Imaging
+    "imagingMode": "user.pref.imaging_mode",
+    "annotationsEnabled": "user.pref.annotations_enabled",
 }
 
 _PREF_DEFAULTS = {
@@ -449,19 +468,49 @@ _PREF_DEFAULTS = {
     "distanceUnit": "mi",
     "showThumbnails": "true",
     "autoRefresh": "false",
+    "telescopeHost": "",
+    "telescopePort": "4700",
+    "planMinAltitude": "30",
+    "planMaxAltitude": "70",
+    "planAvoidMoon": "true",
+    "planSetupMinutes": "30",
+    "planObjectTypes": '["galaxy","nebula","cluster","planetary_nebula"]',
+    "catalogSortBy": "name",
+    "catalogVisibleNow": "false",
+    "catalogUseScoring": "false",
+    "imagingMode": "deep-sky",
+    "annotationsEnabled": "false",
 }
 
 
 class UserSettings(BaseModel):
+    # Location
     locationName: str = ""
     latitude: float = 40.7128
     longitude: float = -74.0060
     elevation: float = 0.0
     timezone: str = "America/New_York"
+    # UI preferences
     temperatureUnit: str = "F"
     distanceUnit: str = "mi"
     showThumbnails: bool = True
     autoRefresh: bool = False
+    # Telescope
+    telescopeHost: str = ""
+    telescopePort: int = 4700
+    # Planning constraints
+    planMinAltitude: int = 30
+    planMaxAltitude: int = 70
+    planAvoidMoon: bool = True
+    planSetupMinutes: int = 30
+    planObjectTypes: List[str] = ["galaxy", "nebula", "cluster", "planetary_nebula"]
+    # Catalog filter defaults
+    catalogSortBy: str = "name"
+    catalogVisibleNow: bool = False
+    catalogUseScoring: bool = False
+    # Imaging
+    imagingMode: str = "deep-sky"
+    annotationsEnabled: bool = False
 
 
 @router.get("/user", response_model=UserSettings)
@@ -476,16 +525,36 @@ async def get_user_settings(db: Session = Depends(get_db)):
     def _bool(val: str) -> bool:
         return val.lower() in ("true", "1", "yes")
 
+    def _pref(key: str) -> str:
+        return prefs.get(_PREF_KEYS[key], _PREF_DEFAULTS[key])
+
+    try:
+        object_types = _json.loads(_pref("planObjectTypes"))
+    except Exception:
+        object_types = ["galaxy", "nebula", "cluster", "planetary_nebula"]
+
     return UserSettings(
         locationName=location.name if location else "",
         latitude=location.latitude if location else 40.7128,
         longitude=location.longitude if location else -74.0060,
         elevation=location.elevation if location else 0.0,
         timezone=location.timezone if location else "America/New_York",
-        temperatureUnit=prefs.get(_PREF_KEYS["temperatureUnit"], _PREF_DEFAULTS["temperatureUnit"]),
-        distanceUnit=prefs.get(_PREF_KEYS["distanceUnit"], _PREF_DEFAULTS["distanceUnit"]),
-        showThumbnails=_bool(prefs.get(_PREF_KEYS["showThumbnails"], _PREF_DEFAULTS["showThumbnails"])),
-        autoRefresh=_bool(prefs.get(_PREF_KEYS["autoRefresh"], _PREF_DEFAULTS["autoRefresh"])),
+        temperatureUnit=_pref("temperatureUnit"),
+        distanceUnit=_pref("distanceUnit"),
+        showThumbnails=_bool(_pref("showThumbnails")),
+        autoRefresh=_bool(_pref("autoRefresh")),
+        telescopeHost=_pref("telescopeHost"),
+        telescopePort=int(_pref("telescopePort")),
+        planMinAltitude=int(_pref("planMinAltitude")),
+        planMaxAltitude=int(_pref("planMaxAltitude")),
+        planAvoidMoon=_bool(_pref("planAvoidMoon")),
+        planSetupMinutes=int(_pref("planSetupMinutes")),
+        planObjectTypes=object_types,
+        catalogSortBy=_pref("catalogSortBy"),
+        catalogVisibleNow=_bool(_pref("catalogVisibleNow")),
+        catalogUseScoring=_bool(_pref("catalogUseScoring")),
+        imagingMode=_pref("imagingMode"),
+        annotationsEnabled=_bool(_pref("annotationsEnabled")),
     )
 
 
@@ -518,6 +587,18 @@ async def update_user_settings(settings: UserSettings, db: Session = Depends(get
         _PREF_KEYS["distanceUnit"]: settings.distanceUnit,
         _PREF_KEYS["showThumbnails"]: str(settings.showThumbnails).lower(),
         _PREF_KEYS["autoRefresh"]: str(settings.autoRefresh).lower(),
+        _PREF_KEYS["telescopeHost"]: settings.telescopeHost,
+        _PREF_KEYS["telescopePort"]: str(settings.telescopePort),
+        _PREF_KEYS["planMinAltitude"]: str(settings.planMinAltitude),
+        _PREF_KEYS["planMaxAltitude"]: str(settings.planMaxAltitude),
+        _PREF_KEYS["planAvoidMoon"]: str(settings.planAvoidMoon).lower(),
+        _PREF_KEYS["planSetupMinutes"]: str(settings.planSetupMinutes),
+        _PREF_KEYS["planObjectTypes"]: _json.dumps(settings.planObjectTypes),
+        _PREF_KEYS["catalogSortBy"]: settings.catalogSortBy,
+        _PREF_KEYS["catalogVisibleNow"]: str(settings.catalogVisibleNow).lower(),
+        _PREF_KEYS["catalogUseScoring"]: str(settings.catalogUseScoring).lower(),
+        _PREF_KEYS["imagingMode"]: settings.imagingMode,
+        _PREF_KEYS["annotationsEnabled"]: str(settings.annotationsEnabled).lower(),
     }
     existing_prefs = {
         row.key: row

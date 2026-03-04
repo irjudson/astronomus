@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
 
 export const useExecutionStore = defineStore('execution', {
-  state: () => ({
+  state: () => {
+    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
+    return {
     // Connection state
     connected: false,
-    telescopeIp: null,
+    telescopeIp: s.telescopeHost || null,
     loading: false,
     error: null,
 
@@ -44,7 +47,7 @@ export const useExecutionStore = defineStore('execution', {
     balance: { x: 0, y: 0, z: 0, angle: 0 },
 
     // Annotations
-    annotationsEnabled: false,
+    annotationsEnabled: s.annotationsEnabled,
 
     // Hardware state
     hardware: {
@@ -67,7 +70,8 @@ export const useExecutionStore = defineStore('execution', {
 
     // Position polling
     positionInterval: null
-  }),
+    }
+  },
 
   getters: {
     currentTarget: (state) => {
@@ -94,6 +98,11 @@ export const useExecutionStore = defineStore('execution', {
   },
 
   actions: {
+    initFromSettings(s) {
+      if (s.telescopeHost) this.telescopeIp = s.telescopeHost
+      this.annotationsEnabled = s.annotationsEnabled ?? this.annotationsEnabled
+    },
+
     async connectTelescope(ip) {
       this.loading = true
       this.error = null
@@ -110,6 +119,9 @@ export const useExecutionStore = defineStore('execution', {
           // Fetch initial hardware status
           this.fetchSystemInfo()
           this.fetchDewHeaterStatus()
+
+          // Persist telescope host so it's pre-filled next session
+          useSettingsStore().save({ telescopeHost: ip }).catch(() => {})
 
           this.addMessage('Telescope connected successfully')
         } else {
@@ -630,6 +642,7 @@ export const useExecutionStore = defineStore('execution', {
       try {
         await axios.post("/api/telescope/annotation/toggle", { enabled })
         this.annotationsEnabled = enabled
+        useSettingsStore().save({ annotationsEnabled: enabled }).catch(() => {})
         this.addMessage(`Annotations ${enabled ? "enabled" : "disabled"}`)
       } catch (err) {
         this.error = "Failed to toggle annotations: " + (err.response?.data?.detail || err.message)

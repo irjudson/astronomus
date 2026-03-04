@@ -1,27 +1,31 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
+import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings';
 
 export const useCatalogStore = defineStore('catalog', {
-  state: () => ({
+  state: () => {
+    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
+    return {
     items: [],
     loading: false,
     error: null,
     currentPage: 1,
-    pageSize: 20, // Initial default, will be dynamic
+    pageSize: 20,
     totalItems: 0,
     filters: {
       search: '',
       type: '',
       constellation: '',
       max_magnitude: '',
-      sort_by: 'name',
-      visible_now: false,
-      use_scoring: false,
+      sort_by: s.catalogSortBy,
+      visible_now: s.catalogVisibleNow,
+      use_scoring: s.catalogUseScoring,
     },
     prefetchCache: new Map(),
     selectedTargets: [], // For "Add to Plan" functionality (session)
     wishlist: [], // Persistent wishlist saved to backend
-  }),
+    }
+  },
   getters: {
     totalPages: (state) => Math.ceil(state.totalItems / state.pageSize),
     hasPrevPage: (state) => state.currentPage > 1,
@@ -123,10 +127,22 @@ export const useCatalogStore = defineStore('catalog', {
     /**
      * Apply new filters and reset to first page
      */
+    initFromSettings(s) {
+      this.filters.sort_by = s.catalogSortBy ?? this.filters.sort_by
+      this.filters.visible_now = s.catalogVisibleNow ?? this.filters.visible_now
+      this.filters.use_scoring = s.catalogUseScoring ?? this.filters.use_scoring
+    },
+
     applyFilters(newFilters) {
       this.filters = { ...this.filters, ...newFilters };
       this.currentPage = 1;
-      this.prefetchCache.clear(); // Clear cache on new filters
+      this.prefetchCache.clear();
+      // Persist filter preferences (sort, visibility, scoring) to DB
+      useSettingsStore().save({
+        catalogSortBy: this.filters.sort_by,
+        catalogVisibleNow: this.filters.visible_now,
+        catalogUseScoring: this.filters.use_scoring,
+      }).catch(() => {})
       this.fetchCatalogData();
     },
 

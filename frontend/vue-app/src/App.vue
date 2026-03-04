@@ -16,11 +16,22 @@ import { RouterView } from 'vue-router'
 import AppHeader from '@/components/shared/AppHeader.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useCatalogStore } from '@/stores/catalog'
+import { usePlanningStore } from '@/stores/planning'
+import { useExecutionStore } from '@/stores/execution'
 
 const settingsStore = useSettingsStore()
 const catalogStore = useCatalogStore()
-onMounted(() => {
-  settingsStore.load()
+const planningStore = usePlanningStore()
+const executionStore = useExecutionStore()
+
+onMounted(async () => {
+  await settingsStore.load()
+  const s = settingsStore.settings
+  // Push DB-loaded settings into each store (overrides localStorage-seeded defaults)
+  planningStore.initFromSettings(s)
+  executionStore.initFromSettings(s)
+  catalogStore.initFromSettings(s)
+  // Load wishlist (separate API call)
   catalogStore.fetchWishlist()
 })
 </script>

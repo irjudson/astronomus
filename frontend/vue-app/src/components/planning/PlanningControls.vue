@@ -185,6 +185,8 @@ const formatCoordinate = (value, type) => {
 const generatePlan = async () => {
   try {
     planningStore.observationDate = observationDate.value
+    // Persist any constraint changes before generating
+    planningStore.saveConstraints().catch(() => {})
     await planningStore.generatePlan()
   } catch (err) {
     console.error('Failed to generate plan:', err)

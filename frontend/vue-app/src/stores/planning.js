@@ -1,31 +1,34 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import { useSettingsStore } from './settings'
+import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
 import { useCatalogStore } from './catalog'
 
 export const usePlanningStore = defineStore('planning', {
-  state: () => ({
-    selectedTargets: [],
-    currentPlan: null,
-    savedPlans: [],
-    loading: false,
-    error: null,
-    observationDate: null,
-    constraints: {
-      min_altitude_degrees: 30,
-      max_altitude_degrees: 70,
-      avoid_moon: true,
-      setup_time_minutes: 30,
-      object_types: ['galaxy', 'nebula', 'cluster', 'planetary_nebula'],
-      daytime_planning: false
-    },
+  state: () => {
+    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
+    return {
+      selectedTargets: [],
+      currentPlan: null,
+      savedPlans: [],
+      loading: false,
+      error: null,
+      observationDate: null,
+      constraints: {
+        min_altitude_degrees: s.planMinAltitude,
+        max_altitude_degrees: s.planMaxAltitude,
+        avoid_moon: s.planAvoidMoon,
+        setup_time_minutes: s.planSetupMinutes,
+        object_types: s.planObjectTypes,
+        daytime_planning: false,
+      },
 
-    // Execution state
-    executionId: null,
-    executionStatus: null,
-    executionProgress: null,
-    progressPollInterval: null
-  }),
+      // Execution state
+      executionId: null,
+      executionStatus: null,
+      executionProgress: null,
+      progressPollInterval: null,
+    }
+  },
 
   getters: {
     hasTargets: (state) => state.selectedTargets.length > 0,
@@ -50,6 +53,24 @@ export const usePlanningStore = defineStore('planning', {
       if (!exists) {
         this.selectedTargets.push(target)
       }
+    },
+
+    initFromSettings(s) {
+      this.constraints.min_altitude_degrees = s.planMinAltitude ?? this.constraints.min_altitude_degrees
+      this.constraints.max_altitude_degrees = s.planMaxAltitude ?? this.constraints.max_altitude_degrees
+      this.constraints.avoid_moon = s.planAvoidMoon ?? this.constraints.avoid_moon
+      this.constraints.setup_time_minutes = s.planSetupMinutes ?? this.constraints.setup_time_minutes
+      if (s.planObjectTypes?.length) this.constraints.object_types = s.planObjectTypes
+    },
+
+    async saveConstraints() {
+      await useSettingsStore().save({
+        planMinAltitude: this.constraints.min_altitude_degrees,
+        planMaxAltitude: this.constraints.max_altitude_degrees,
+        planAvoidMoon: this.constraints.avoid_moon,
+        planSetupMinutes: this.constraints.setup_time_minutes,
+        planObjectTypes: this.constraints.object_types,
+      })
     },
 
     removeTarget(targetId) {
