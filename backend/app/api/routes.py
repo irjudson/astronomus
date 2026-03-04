@@ -771,17 +771,27 @@ async def search_catalog(
 
             # Get default location for visibility calculations
             default_location_db = db.query(ObservingLocation).filter(ObservingLocation.is_default == True).first()
-            if not default_location_db:
-                raise HTTPException(status_code=400, detail="No default location configured for visibility filtering")
 
             # Create Location object for ephemeris calculations
-            location = Location(
-                name=default_location_db.name,
-                latitude=default_location_db.latitude,
-                longitude=default_location_db.longitude,
-                elevation=default_location_db.elevation,
-                timezone=default_location_db.timezone,
-            )
+            if default_location_db:
+                location = Location(
+                    name=default_location_db.name,
+                    latitude=default_location_db.latitude,
+                    longitude=default_location_db.longitude,
+                    elevation=default_location_db.elevation,
+                    timezone=default_location_db.timezone,
+                )
+            else:
+                # Fall back to app settings default location
+                from app.core import get_settings as _get_settings
+                _settings = _get_settings()
+                location = Location(
+                    name=_settings.default_location_name,
+                    latitude=_settings.default_lat,
+                    longitude=_settings.default_lon,
+                    elevation=_settings.default_elevation,
+                    timezone=_settings.default_timezone,
+                )
 
             # Initialize ephemeris service
             ephemeris = EphemerisService()
@@ -963,6 +973,8 @@ async def search_catalog(
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 
