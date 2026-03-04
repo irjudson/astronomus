@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useSettingsStore } from './settings'
 
 export const useWeatherStore = defineStore('weather', {
   state: () => ({
@@ -53,16 +54,8 @@ export const useWeatherStore = defineStore('weather', {
       this.error = null
 
       try {
-        // Get location from settings
-        const settings = localStorage.getItem('astronomus_settings')
-        let lat = 40.7128
-        let lon = -74.0060
-
-        if (settings) {
-          const parsed = JSON.parse(settings)
-          lat = parsed.latitude || lat
-          lon = parsed.longitude || lon
-        }
+        // Get location from settings store
+        const { latitude: lat = 40.7128, longitude: lon = -74.0060 } = useSettingsStore().settings
 
         // Fetch astronomy weather with location
         const response = await axios.get('/api/weather/astronomy', {

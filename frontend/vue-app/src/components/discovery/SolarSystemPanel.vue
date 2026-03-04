@@ -84,8 +84,10 @@ import { ref, computed, onMounted } from 'vue'
 import { defineComponent, h } from 'vue'
 import axios from 'axios'
 import { useCatalogStore } from '@/stores/catalog'
+import { useSettingsStore } from '@/stores/settings'
 
 const catalogStore = useCatalogStore()
+const settingsStore = useSettingsStore()
 
 const loading = ref(true)
 const error = ref(null)
@@ -127,10 +129,10 @@ function toggleWishlist(obj) {
 
 onMounted(async () => {
   try {
-    const settings = JSON.parse(localStorage.getItem('astronomus_settings') || '{}')
+    const { latitude, longitude } = settingsStore.settings
     const params = {}
-    if (settings.latitude != null) params.lat = settings.latitude
-    if (settings.longitude != null) params.lon = settings.longitude
+    if (latitude != null) params.lat = latitude
+    if (longitude != null) params.lon = longitude
 
     const response = await axios.get('/api/solar-system/objects', { params })
     objects.value = response.data.objects || []

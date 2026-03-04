@@ -11,8 +11,13 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from '@/components/shared/AppHeader.vue'
+import { useSettingsStore } from '@/stores/settings'
+
+const settingsStore = useSettingsStore()
+onMounted(() => settingsStore.load())
 </script>
 
 <style scoped>

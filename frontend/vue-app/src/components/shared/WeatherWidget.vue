@@ -20,13 +20,12 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useWeatherStore } from '@/stores/weather'
+import { useSettingsStore } from '@/stores/settings'
 
 const weatherStore = useWeatherStore()
+const settingsStore = useSettingsStore()
 
-const temperatureUnit = computed(() => {
-  const settings = localStorage.getItem('astronomus_settings')
-  return settings ? JSON.parse(settings).temperatureUnit || 'F' : 'F'
-})
+const temperatureUnit = computed(() => settingsStore.settings.temperatureUnit || 'F')
 
 const displayTemperature = computed(() => {
   if (!weatherStore.current?.temperature) return '--'

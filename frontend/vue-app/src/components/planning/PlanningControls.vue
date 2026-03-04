@@ -150,10 +150,12 @@ import { ref, computed, onMounted } from 'vue'
 import { usePlanningStore } from '@/stores/planning'
 import { useCatalogStore } from '@/stores/catalog'
 import { useWeatherStore } from '@/stores/weather'
+import { useSettingsStore } from '@/stores/settings'
 
 const planningStore = usePlanningStore()
 const catalogStore = useCatalogStore()
 const weatherStore = useWeatherStore()
+const settingsStore = useSettingsStore()
 
 // Set default observation date to today
 const observationDate = ref(new Date().toISOString().split('T')[0])
@@ -162,10 +164,7 @@ const observationDate = ref(new Date().toISOString().split('T')[0])
 const wishlistCount = computed(() => catalogStore.selectedTargets.length)
 
 // Temperature display with user preference
-const temperatureUnit = computed(() => {
-  const settings = localStorage.getItem('astronomus_settings')
-  return settings ? JSON.parse(settings).temperatureUnit || 'F' : 'F'
-})
+const temperatureUnit = computed(() => settingsStore.settings.temperatureUnit || 'F')
 
 const displayTemperature = computed(() => {
   if (!weatherStore.current?.temperature) return '--'

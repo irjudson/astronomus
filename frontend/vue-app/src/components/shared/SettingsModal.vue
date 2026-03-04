@@ -499,6 +499,7 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { XIcon } from 'lucide-vue-next'
 import axios from 'axios'
 import { useExecutionStore } from '@/stores/execution'
+import { useSettingsStore } from '@/stores/settings'
 import BubbleLevel from './BubbleLevel.vue'
 import CompassCalibration from './CompassCalibration.vue'
 import PolarAlignVisual from './PolarAlignVisual.vue'
@@ -513,39 +514,22 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 
 const executionStore = useExecutionStore()
+const settingsStore = useSettingsStore()
 const activeTab = ref('general')
 const levelingActive = ref(false)
 
-// Load settings from localStorage
-const loadSettings = () => {
-  const saved = localStorage.getItem('astronomus_settings')
-  if (saved) {
-    return JSON.parse(saved)
-  }
-  return {
-    locationName: '',
-    latitude: 40.7128,
-    longitude: -74.0060,
-    timezone: 'America/New_York',
-    temperatureUnit: 'F',
-    distanceUnit: 'mi',
-    showThumbnails: true,
-    autoRefresh: false
-  }
-}
-
-const localSettings = ref(loadSettings())
+const localSettings = ref({ ...settingsStore.settings })
 
 // Reload settings when modal opens; reset to general tab
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    localSettings.value = loadSettings()
+    localSettings.value = { ...settingsStore.settings }
     activeTab.value = 'general'
   }
 })
 
-const saveSettings = () => {
-  localStorage.setItem('astronomus_settings', JSON.stringify(localSettings.value))
+const saveSettings = async () => {
+  await settingsStore.save(localSettings.value)
   emit('save', localSettings.value)
   emit('close')
 }

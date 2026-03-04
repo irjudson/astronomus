@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useSettingsStore } from './settings'
 
 export const usePlanningStore = defineStore('planning', {
   state: () => ({
@@ -29,25 +30,15 @@ export const usePlanningStore = defineStore('planning', {
     hasTargets: (state) => state.selectedTargets.length > 0,
     targetCount: (state) => state.selectedTargets.length,
 
-    // Get location from user settings
+    // Get location from user settings store
     location: () => {
-      const settings = localStorage.getItem('astronomus_settings')
-      if (settings) {
-        const parsed = JSON.parse(settings)
-        return {
-          name: parsed.locationName || 'My Observatory',
-          latitude: parsed.latitude || 40.7128,
-          longitude: parsed.longitude || -74.0060,
-          elevation: 0,
-          timezone: parsed.timezone || 'America/New_York'
-        }
-      }
+      const s = useSettingsStore().settings
       return {
-        name: 'Default Location',
-        latitude: 40.7128,
-        longitude: -74.0060,
-        elevation: 0,
-        timezone: 'America/New_York'
+        name: s.locationName || 'My Observatory',
+        latitude: s.latitude || 40.7128,
+        longitude: s.longitude || -74.0060,
+        elevation: s.elevation || 0,
+        timezone: s.timezone || 'America/New_York'
       }
     }
   },

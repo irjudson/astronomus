@@ -431,3 +431,103 @@ async def update_wishlist(wishlist: List[dict], db: Session = Depends(get_db)):
 
     db.commit()
     return {"message": "Wishlist updated successfully", "count": len(wishlist)}
+
+
+# ========================================================================
+# User Profile Settings (location + preferences as a single document)
+# ========================================================================
+
+_PREF_KEYS = {
+    "temperatureUnit": "user.pref.temperature_unit",
+    "distanceUnit": "user.pref.distance_unit",
+    "showThumbnails": "user.pref.show_thumbnails",
+    "autoRefresh": "user.pref.auto_refresh",
+}
+
+_PREF_DEFAULTS = {
+    "temperatureUnit": "F",
+    "distanceUnit": "mi",
+    "showThumbnails": "true",
+    "autoRefresh": "false",
+}
+
+
+class UserSettings(BaseModel):
+    locationName: str = ""
+    latitude: float = 40.7128
+    longitude: float = -74.0060
+    elevation: float = 0.0
+    timezone: str = "America/New_York"
+    temperatureUnit: str = "F"
+    distanceUnit: str = "mi"
+    showThumbnails: bool = True
+    autoRefresh: bool = False
+
+
+@router.get("/user", response_model=UserSettings)
+async def get_user_settings(db: Session = Depends(get_db)):
+    """Get user settings (default observing location + UI preferences)."""
+    location = db.query(ObservingLocation).filter(ObservingLocation.is_default == True).first()
+
+    db_keys = list(_PREF_KEYS.values())
+    prefs_rows = db.query(AppSetting).filter(AppSetting.key.in_(db_keys)).all()
+    prefs = {row.key: row.value for row in prefs_rows}
+
+    def _bool(val: str) -> bool:
+        return val.lower() in ("true", "1", "yes")
+
+    return UserSettings(
+        locationName=location.name if location else "",
+        latitude=location.latitude if location else 40.7128,
+        longitude=location.longitude if location else -74.0060,
+        elevation=location.elevation if location else 0.0,
+        timezone=location.timezone if location else "America/New_York",
+        temperatureUnit=prefs.get(_PREF_KEYS["temperatureUnit"], _PREF_DEFAULTS["temperatureUnit"]),
+        distanceUnit=prefs.get(_PREF_KEYS["distanceUnit"], _PREF_DEFAULTS["distanceUnit"]),
+        showThumbnails=_bool(prefs.get(_PREF_KEYS["showThumbnails"], _PREF_DEFAULTS["showThumbnails"])),
+        autoRefresh=_bool(prefs.get(_PREF_KEYS["autoRefresh"], _PREF_DEFAULTS["autoRefresh"])),
+    )
+
+
+@router.put("/user", response_model=UserSettings)
+async def update_user_settings(settings: UserSettings, db: Session = Depends(get_db)):
+    """Save user settings (upserts default observing location + UI preferences)."""
+    # Upsert default observing location
+    location = db.query(ObservingLocation).filter(ObservingLocation.is_default == True).first()
+    if location:
+        location.name = settings.locationName or location.name
+        location.latitude = settings.latitude
+        location.longitude = settings.longitude
+        location.elevation = settings.elevation
+        location.timezone = settings.timezone
+    else:
+        db_location = ObservingLocation(
+            name=settings.locationName or "My Location",
+            latitude=settings.latitude,
+            longitude=settings.longitude,
+            elevation=settings.elevation,
+            timezone=settings.timezone,
+            is_default=True,
+            is_active=True,
+        )
+        db.add(db_location)
+
+    # Upsert preferences
+    pref_values = {
+        _PREF_KEYS["temperatureUnit"]: settings.temperatureUnit,
+        _PREF_KEYS["distanceUnit"]: settings.distanceUnit,
+        _PREF_KEYS["showThumbnails"]: str(settings.showThumbnails).lower(),
+        _PREF_KEYS["autoRefresh"]: str(settings.autoRefresh).lower(),
+    }
+    existing_prefs = {
+        row.key: row
+        for row in db.query(AppSetting).filter(AppSetting.key.in_(list(pref_values.keys()))).all()
+    }
+    for key, value in pref_values.items():
+        if key in existing_prefs:
+            existing_prefs[key].value = value
+        else:
+            db.add(AppSetting(key=key, value=value, value_type="string", category="user"))
+
+    db.commit()
+    return settings
