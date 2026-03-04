@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router
@@ -91,14 +91,11 @@ else:
     logger.warning("Vue app dist folder not found at %s", vue_app_path)
 
 
-# Root route - serve legacy frontend for now
+# Root route - redirect to Vue SPA
 @app.get("/")
 async def root():
-    """Serve legacy frontend index."""
-    index_html = frontend_path / "index.html"
-    if index_html.exists():
-        return FileResponse(index_html)
-    return {"message": "Astronomus API", "docs": "/api/docs"}
+    """Redirect root to Vue SPA."""
+    return RedirectResponse(url="/app/", status_code=302)
 
 
 @app.get("/health")

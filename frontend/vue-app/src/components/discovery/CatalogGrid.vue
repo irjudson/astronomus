@@ -54,8 +54,15 @@
             </div>
             <div class="catalog-card-actions">
               <button
+                @click="toggleWishlist(item)"
+                :title="catalogStore.isInWishlist(item.name) ? 'Remove from wishlist' : 'Add to wishlist'"
+                :class="catalogStore.isInWishlist(item.name)
+                  ? 'px-3 py-2 bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-400 text-base rounded transition-colors'
+                  : 'px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-yellow-400 text-base rounded transition-colors'"
+              >{{ catalogStore.isInWishlist(item.name) ? '★' : '☆' }}</button>
+              <button
                 @click="catalogStore.addSelectedTarget(item)"
-                class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
               >
                 Add to Plan
               </button>
@@ -124,6 +131,14 @@ const formatTitle = (item) => {
   }
   return title;
 };
+
+const toggleWishlist = (item) => {
+  if (catalogStore.isInWishlist(item.name)) {
+    catalogStore.removeFromWishlist(item.name)
+  } else {
+    catalogStore.addToWishlist(item)
+  }
+}
 
 const getScoreColor = (score) => {
   if (score >= 0.8) return 'text-green-400';

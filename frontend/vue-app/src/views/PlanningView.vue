@@ -220,7 +220,7 @@ const executePlan = async () => {
   try {
     await planningStore.executePlan(true) // park when done
     alert('Plan execution started! Switch to Execution view to monitor progress.')
-    router.push('/execution')
+    router.push('/execute')
   } catch (err) {
     alert('Failed to execute plan: ' + err.message)
   }

@@ -1,42 +1,53 @@
 <template>
   <!-- Live Preview when imaging -->
-  <div v-if="executionStore.imaging.active" class="flex flex-col h-full min-h-[400px]">
-    <div class="flex-1 bg-black flex items-center justify-center relative rounded-lg overflow-hidden">
+  <div v-if="executionStore.imaging.active" class="flex flex-col">
+    <div class="bg-black flex items-center justify-center relative rounded-lg overflow-hidden" style="height: min(60vh, 480px)">
+
+      <!-- MJPEG stream: browser keeps connection open and updates the frame continuously -->
       <img
-        v-if="previewImage"
-        :src="previewImage"
-        :key="previewUpdateKey"
+        v-show="streamLoaded && !streamError"
+        :src="STREAM_URL"
         alt="Live Preview"
         class="max-w-full max-h-full object-contain"
+        @load="onStreamLoad"
+        @error="onStreamError"
       />
-      <div v-else class="text-center">
-        <div class="text-gray-500 mb-4">
+
+      <!-- Waiting / error overlay -->
+      <div v-if="!streamLoaded || streamError" class="text-center absolute inset-0 flex flex-col items-center justify-center">
+        <div v-if="!streamError" class="text-gray-500 mb-4">
           <svg class="animate-spin h-12 w-12 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </div>
-        <p class="text-gray-400">Waiting for preview...</p>
+        <div v-else class="text-red-500 mb-4">
+          <svg class="h-12 w-12 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <p class="text-gray-400">{{ streamError ? 'Stream unavailable' : 'Waiting for preview...' }}</p>
+        <button
+          v-if="streamError"
+          @click="retryStream"
+          class="mt-3 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg transition-colors"
+        >
+          Retry
+        </button>
       </div>
 
       <!-- Imaging Info Overlay -->
       <div class="absolute top-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
-        <div class="text-xs text-gray-400 mb-1">Frame {{ executionStore.imaging.framesCaptured }}</div>
-        <div class="text-sm font-medium text-green-400">Imaging...</div>
+        <div class="text-xs text-gray-400 mb-1">{{ elapsedTime }}</div>
+        <div class="text-sm font-medium text-green-400">Live</div>
       </div>
     </div>
 
     <!-- Preview Controls -->
     <div class="bg-gray-900 border-t border-gray-700 px-4 py-3 flex items-center justify-between rounded-b-lg">
       <div class="flex items-center gap-4">
-        <button
-          @click="refreshPreview"
-          class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg transition-colors"
-        >
-          Refresh Preview
-        </button>
         <span class="text-xs text-gray-500">
-          Auto-refreshing every 2s
+          {{ streamLoaded ? 'Streaming live' : 'Connecting to RTSP...' }}
         </span>
 
         <!-- Annotation Toggle -->
@@ -112,69 +123,77 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { useExecutionStore } from '@/stores/execution'
 import { Telescope } from 'lucide-vue-next'
 
+const STREAM_URL = '/api/telescope/preview/stream'
+
 const executionStore = useExecutionStore()
-const previewImage = ref(null)
-const previewUpdateKey = ref(0)
-let previewInterval = null
+const streamLoaded = ref(false)
+const streamError = ref(false)
+const elapsedTime = ref('0:00')
 
-// Fetch latest preview image from file-based endpoint
-const fetchPreview = async () => {
-  try {
-    // Fetch from new file-based preview endpoint
-    // Add timestamp to prevent caching and force refresh
-    const url = `/api/telescope/preview/frame?t=${Date.now()}`
-    const response = await fetch(url)
+let elapsedStart = null
+let elapsedInterval = null
 
-    if (response.ok) {
-      // Frame available - update preview
-      previewImage.value = url
-      previewUpdateKey.value++
-    } else if (response.status === 503) {
-      // 503 = No frames available yet - this is expected, keep waiting
-      console.debug('No preview frames available yet')
-      // Keep showing the placeholder (don't clear previewImage if it exists)
-    } else {
-      console.warn('Preview fetch failed:', response.status, response.statusText)
-    }
-  } catch (err) {
-    console.warn('Preview fetch error:', err)
+const startElapsed = () => {
+  elapsedStart = Date.now()
+  elapsedInterval = setInterval(() => {
+    const secs = Math.floor((Date.now() - elapsedStart) / 1000)
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    elapsedTime.value = `${m}:${s.toString().padStart(2, '0')}`
+  }, 1000)
+}
+
+const stopElapsed = () => {
+  if (elapsedInterval) {
+    clearInterval(elapsedInterval)
+    elapsedInterval = null
   }
+  elapsedTime.value = '0:00'
 }
 
-const refreshPreview = () => {
-  fetchPreview()
+const onStreamLoad = () => {
+  streamLoaded.value = true
+  streamError.value = false
 }
+
+const onStreamError = () => {
+  // Only mark as error if we haven't loaded yet; MJPEG @error fires if
+  // the server returns a non-2xx (e.g. 503 when no frames yet)
+  streamError.value = true
+  streamLoaded.value = false
+}
+
+const retryStream = async () => {
+  // Reset state and force img to reconnect by briefly clearing src
+  streamError.value = false
+  streamLoaded.value = false
+  // The img element is already bound to the fixed URL via v-show,
+  // so we just toggle the error state — the browser will retry on its own
+  // after a short moment once the src becomes visible again.
+  await nextTick()
+}
+
+// Reset stream state and start timer whenever imaging starts/stops
+watch(() => executionStore.imaging.active, (isActive) => {
+  if (isActive) {
+    streamLoaded.value = false
+    streamError.value = false
+    startElapsed()
+  } else {
+    stopElapsed()
+  }
+})
+
+onUnmounted(stopElapsed)
 
 const handleAnnotationToggle = async (event) => {
   const enabled = event.target.checked
   await executionStore.toggleAnnotations(enabled)
 }
-
-// Watch imaging state to start/stop preview updates
-watch(() => executionStore.imaging.active, (isActive) => {
-  if (isActive) {
-    // Start auto-refresh when imaging begins
-    previewImage.value = null
-    fetchPreview()
-    previewInterval = setInterval(fetchPreview, 2000) // Every 2 seconds
-  } else {
-    // Stop auto-refresh when imaging ends
-    if (previewInterval) {
-      clearInterval(previewInterval)
-      previewInterval = null
-    }
-  }
-})
-
-onUnmounted(() => {
-  if (previewInterval) {
-    clearInterval(previewInterval)
-  }
-})
 
 const formatRA = (ra) => {
   const hours = ra / 15

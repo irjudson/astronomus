@@ -2815,3 +2815,91 @@ async def get_target_preview(sanitized_catalog_id: str, db: Session = Depends(ge
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching target image: {str(e)}")
+
+
+def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
+    """Fast sync computation of solar system objects — call via run_in_executor.
+
+    Bypasses compute_visibility (which sweeps 24 h of rise/set times) and
+    uses a single shared AltAz frame for all bodies instead.
+    """
+    # Prevent network calls to IERS servers that can block or fail
+    try:
+        from astropy.utils.iers import conf as iers_conf
+        iers_conf.auto_download = False
+        iers_conf.auto_max_age = None  # don't raise on stale data
+    except Exception:
+        pass
+
+    from astropy import units as u
+    from astropy.coordinates import AltAz, EarthLocation, get_body, get_sun
+    from astropy.time import Time
+    from app.services.planet_service import PlanetService
+
+    planet_service = PlanetService()
+    now_utc = datetime.utcnow()
+    t = Time(now_utc)
+
+    earth_loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+    altaz_frame = AltAz(obstime=t, location=earth_loc)
+
+    MAIN_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon", "Sun"]
+    MOON_PARENTS = {
+        "Io": "Jupiter", "Europa": "Jupiter", "Ganymede": "Jupiter", "Callisto": "Jupiter",
+        "Titan": "Saturn", "Rhea": "Saturn", "Tethys": "Saturn", "Dione": "Saturn", "Enceladus": "Saturn",
+    }
+
+    results = []
+    parent_visible: dict = {}
+
+    for name in MAIN_BODIES:
+        try:
+            eph = planet_service.compute_ephemeris(name, now_utc)
+            # Single AltAz transform — no 24-hour rise/set sweep
+            body_coord = get_sun(t) if name == "Sun" else get_body(name.lower(), t)
+            altaz = body_coord.transform_to(altaz_frame)
+            altitude_deg = float(altaz.alt.degree)
+            is_visible = altitude_deg > 0
+            parent_visible[name] = is_visible
+            obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
+            planet = planet_service.get_planet_by_name(name)
+            results.append({
+                "name": name,
+                "type": obj_type,
+                "magnitude": round(eph.magnitude, 1),
+                "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
+                "altitude_deg": round(altitude_deg, 1),
+                "is_visible": is_visible,
+                "constellation": eph.constellation,
+                "notes": planet.notes if planet else None,
+            })
+        except Exception as exc:
+            logger.warning("solar-system: failed to compute %s: %s", name, exc)
+            obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
+            results.append({"name": name, "type": obj_type, "is_visible": False})
+
+    for moon, parent in MOON_PARENTS.items():
+        results.append({
+            "name": moon,
+            "type": "moon",
+            "parent": parent,
+            "is_visible": parent_visible.get(parent, False),
+            "magnitude": None,
+            "altitude_deg": None,
+            "angular_diameter_arcsec": None,
+            "constellation": None,
+            "notes": None,
+        })
+
+    return results
+
+
+@router.get("/solar-system/objects")
+async def get_solar_system_objects(lat: Optional[float] = Query(None), lon: Optional[float] = Query(None)):
+    """All solar system targets with current ephemeris, computed in a thread pool."""
+    import asyncio
+    loop = asyncio.get_running_loop()
+    objects = await loop.run_in_executor(
+        None, _compute_solar_system_objects_sync, lat or 0.0, lon or 0.0
+    )
+    return {"objects": objects}

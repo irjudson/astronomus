@@ -19,7 +19,8 @@ export const useCatalogStore = defineStore('catalog', {
       use_scoring: false,
     },
     prefetchCache: new Map(),
-    selectedTargets: [], // For "Add to Plan" functionality
+    selectedTargets: [], // For "Add to Plan" functionality (session)
+    wishlist: [], // Persistent wishlist saved to backend
   }),
   getters: {
     totalPages: (state) => Math.ceil(state.totalItems / state.pageSize),
@@ -179,6 +180,44 @@ export const useCatalogStore = defineStore('catalog', {
         console.log(`Added ${item.name} to plan. Total selected: ${this.selectedTargets.length}`);
       } else {
         console.log(`${item.name} is already in your plan.`);
+      }
+    },
+
+    // --- Wishlist (persistent) ---
+
+    async fetchWishlist() {
+      try {
+        const response = await axios.get('/api/settings/wishlist')
+        this.wishlist = response.data || []
+      } catch (err) {
+        console.error('Failed to fetch wishlist:', err)
+      }
+    },
+
+    isInWishlist(name) {
+      return this.wishlist.some(t => t.name === name)
+    },
+
+    async addToWishlist(item) {
+      if (this.isInWishlist(item.name)) return
+      const entry = { name: item.name, type: item.type || item.object_type || 'unknown' }
+      this.wishlist = [...this.wishlist, entry]
+      try {
+        await axios.put('/api/settings/wishlist', this.wishlist)
+      } catch (err) {
+        this.wishlist = this.wishlist.filter(t => t.name !== item.name)
+        console.error('Failed to add to wishlist:', err)
+      }
+    },
+
+    async removeFromWishlist(name) {
+      const prev = this.wishlist
+      this.wishlist = this.wishlist.filter(t => t.name !== name)
+      try {
+        await axios.put('/api/settings/wishlist', this.wishlist)
+      } catch (err) {
+        this.wishlist = prev
+        console.error('Failed to remove from wishlist:', err)
       }
     },
 

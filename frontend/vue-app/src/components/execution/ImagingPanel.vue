@@ -16,6 +16,7 @@
         >
           <option value="deep-sky">Deep Sky</option>
           <option value="planetary">Planetary</option>
+          <option value="landscape">Landscape / Scenery</option>
         </select>
       </div>
 
@@ -73,8 +74,25 @@
         </div>
       </div>
 
+      <!-- Landscape Controls -->
+      <div v-else-if="imagingMode === 'landscape'" class="space-y-3 p-3 bg-gray-900/50 border border-gray-700 rounded-lg">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">
+            Brightness: {{ landscapeBrightness }}%
+          </label>
+          <input
+            type="range"
+            v-model.number="landscapeBrightness"
+            min="0"
+            max="100"
+            step="10"
+            class="w-full accent-blue-500"
+          />
+        </div>
+      </div>
+
       <!-- Deep Sky Controls -->
-      <div v-else class="space-y-3">
+      <div v-else-if="imagingMode === 'deep-sky'" class="space-y-3">
         <div>
           <label class="text-xs text-gray-500 mb-1 block">
             Exposure Time (s)
@@ -163,6 +181,26 @@
             class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
           >
             Stop Planetary Imaging
+          </button>
+        </template>
+
+        <!-- Landscape Imaging -->
+        <template v-else-if="imagingMode === 'landscape'">
+          <button
+            v-if="!executionStore.imaging.active || executionStore.imaging.mode !== 'landscape'"
+            @click="startLandscapeImaging"
+            :disabled="!executionStore.connected"
+            class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Start Landscape View
+          </button>
+
+          <button
+            v-else
+            @click="stopLandscapeImaging"
+            class="w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-700 text-white"
+          >
+            Stop Landscape View
           </button>
         </template>
 
@@ -262,6 +300,7 @@ const imagingMode = ref('deep-sky')
 const selectedPlanet = ref('')
 const planetaryExposure = ref(10)
 const planetaryGain = ref(80)
+const landscapeBrightness = ref(50)
 const annotationsEnabled = ref(false)
 const gainValue = ref(80)
 const frameCountValue = ref(50)
@@ -374,6 +413,24 @@ const toggleAnnotations = async () => {
   } catch (err) {
     showStatus(err.message || 'Failed to toggle annotations', 'error')
     annotationsEnabled.value = !annotationsEnabled.value // Revert on error
+  }
+}
+
+const startLandscapeImaging = async () => {
+  try {
+    await executionStore.startLandscapeImaging(landscapeBrightness.value)
+    showStatus('Landscape view started', 'success')
+  } catch (err) {
+    showStatus(err.message || 'Failed to start landscape view', 'error')
+  }
+}
+
+const stopLandscapeImaging = async () => {
+  try {
+    await executionStore.stopLandscapeImaging()
+    showStatus('Landscape view stopped', 'info')
+  } catch (err) {
+    showStatus(err.message || 'Failed to stop landscape view', 'error')
   }
 }
 

@@ -258,7 +258,7 @@ export const useExecutionStore = defineStore('execution', {
 
     async autoFocus() {
       try {
-        await axios.post('/api/telescope/focus/auto')
+        await axios.post('/api/telescope/features/imaging/autofocus')
         this.addMessage('Auto focus started')
       } catch (err) {
         this.error = 'Failed to start auto focus: ' + err.message
@@ -662,6 +662,29 @@ export const useExecutionStore = defineStore('execution', {
 
     async calibrateGsensor() {
       await axios.post('/api/telescope/features/calibration/gsensor/start')
+    },
+
+    async startLandscapeImaging(brightness = 50) {
+      try {
+        await axios.post('/api/telescope/start-preview', { mode: 'scenery', brightness })
+        this.imaging.active = true
+        this.imaging.mode = 'landscape'
+        this.addMessage('Landscape view started')
+      } catch (err) {
+        this.error = 'Failed to start landscape view: ' + (err.response?.data?.detail || err.message)
+        throw err
+      }
+    },
+
+    async stopLandscapeImaging() {
+      try {
+        await axios.post('/api/telescope/stop-imaging')
+        this.imaging.active = false
+        this.addMessage('Landscape view stopped')
+      } catch (err) {
+        this.error = 'Failed to stop landscape view: ' + (err.response?.data?.detail || err.message)
+        throw err
+      }
     }
   }
 })
