@@ -156,7 +156,13 @@
           <div class="bg-gray-800 rounded-lg p-4 space-y-4">
             <!-- Not monitoring yet -->
             <div v-if="!levelingActive" class="flex flex-col items-center gap-3 py-2">
-              <p class="text-sm text-gray-400 text-center">
+              <!-- Current tilt snapshot (populated by auto-fetch on tab open) -->
+              <div v-if="hasBalanceData" class="flex items-center gap-2 text-sm w-full justify-center">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :class="levelStatusDot"></span>
+                <span :class="levelStatusText">{{ levelStatusLabel }}</span>
+                <span class="text-gray-500 font-mono text-xs">({{ executionStore.balance.angle.toFixed(1) }}°)</span>
+              </div>
+              <p v-else class="text-sm text-gray-400 text-center">
                 Activates the IMU and begins reading live tilt data from the telescope.
               </p>
               <button
@@ -167,7 +173,7 @@
                   ? 'bg-blue-600 hover:bg-blue-500 text-white'
                   : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
               >
-                Start Leveling
+                {{ hasBalanceData ? 'Monitor Live' : 'Start Leveling' }}
               </button>
               <p v-if="!executionStore.connected" class="text-xs text-gray-500">
                 Connect telescope to enable leveling.
@@ -233,8 +239,13 @@
                     :class="executionStore.compass.status === 'calibrating' ? 'bg-blue-400 animate-pulse' : 'bg-gray-500'"
                   ></span>
                   <span :class="executionStore.compass.status === 'calibrating' ? 'text-blue-300' : 'text-gray-400'">
-                    {{ executionStore.compass.status === 'calibrating' ? 'Calibrating…' : 'Idle' }}
+                    {{ executionStore.compass.status === 'calibrating' ? 'Calibrating…' : 'Ready' }}
                   </span>
+                </div>
+                <!-- Current heading snapshot -->
+                <div v-if="executionStore.compass.status !== 'calibrating' && executionStore.compass.heading !== null" class="flex items-center gap-2 text-xs">
+                  <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="headingDeltaClass === 'text-green-400' ? 'bg-green-500' : headingDeltaClass === 'text-yellow-400' ? 'bg-yellow-500' : 'bg-red-500'"></span>
+                  <span :class="headingDeltaClass">{{ headingGuideText }}</span>
                 </div>
 
                 <!-- Instruction -->
@@ -274,87 +285,134 @@
         <!-- Polar Alignment -->
         <section>
           <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Polar Alignment</h3>
-          <div class="bg-gray-800 rounded-lg p-4 space-y-3">
-            <div class="flex items-center gap-5">
-              <!-- Visual: bullseye quality indicator -->
-              <PolarAlignVisual
-                :errorArcmin="executionStore.polarAlignment.errorArcmin"
-                :active="executionStore.polarAlignment.status === 'active'"
-                :size="120"
-              />
+          <div class="bg-gray-800 rounded-lg p-4">
 
-              <!-- Right: status + quality + guidance + controls -->
-              <div class="flex-1 space-y-3">
-                <!-- Status dot + label -->
-                <div class="flex items-center gap-2 text-sm">
-                  <span
-                    class="w-2 h-2 rounded-full flex-shrink-0"
-                    :class="{
-                      'bg-green-500 animate-pulse': executionStore.polarAlignment.status === 'active',
-                      'bg-yellow-500': executionStore.polarAlignment.status === 'paused',
-                      'bg-gray-500': executionStore.polarAlignment.status === 'idle'
-                    }"
-                  ></span>
-                  <span :class="{
-                    'text-green-400': executionStore.polarAlignment.status === 'active',
-                    'text-yellow-400': executionStore.polarAlignment.status === 'paused',
-                    'text-gray-400': executionStore.polarAlignment.status === 'idle'
-                  }">{{ polarStatusLabel }}</span>
+            <!-- IDLE: Setup guide showing elevation + compass direction -->
+            <template v-if="executionStore.polarAlignment.status === 'idle'">
+              <p class="text-xs text-gray-400 mb-3 leading-relaxed">Point the scope at the elevation shown and toward North, then start the measurement.</p>
+
+              <!-- Two-column setup guide SVGs -->
+              <div class="grid grid-cols-2 gap-4 mb-4">
+
+                <!-- Elevation guide -->
+                <div class="text-center">
+                  <p class="text-xs text-gray-500 mb-1 font-medium">Elevation</p>
+                  <svg viewBox="0 0 100 80" class="w-full max-w-[110px] mx-auto">
+                    <!-- horizon line -->
+                    <line x1="5" y1="65" x2="95" y2="65" stroke="#4B5563" stroke-width="1.5"/>
+                    <!-- ground fill hint -->
+                    <line x1="5" y1="68" x2="95" y2="68" stroke="#374151" stroke-width="1"/>
+                    <!-- scope line at latitude° -->
+                    <line x1="15" :x2="scopeEndX" y1="65" :y2="scopeEndY" stroke="#60A5FA" stroke-width="2.5" stroke-linecap="round"/>
+                    <!-- angle arc -->
+                    <path :d="elevArcPath" fill="none" stroke="#93C5FD" stroke-width="1"/>
+                    <!-- angle label -->
+                    <text :x="arcLabelX" :y="arcLabelY" fill="#93C5FD" font-size="9" text-anchor="middle">{{ Math.round(Math.abs(localSettings.latitude || 0)) }}°</text>
+                    <!-- Polaris label at tip -->
+                    <text :x="Number(scopeEndX) + 3" :y="Number(scopeEndY) + 1" fill="#60A5FA" font-size="7">★</text>
+                  </svg>
+                  <p class="text-xs text-gray-400 mt-1">{{ Math.round(Math.abs(localSettings.latitude || 0)) }}° from horizon</p>
                 </div>
 
-                <!-- Alignment error + quality label -->
-                <div v-if="executionStore.polarAlignment.errorArcmin !== null" class="text-sm">
-                  <span class="text-gray-400">Error: </span>
-                  <span class="font-mono" :class="polarErrorClass">
-                    {{ executionStore.polarAlignment.errorArcmin.toFixed(1) }}'
-                  </span>
-                  <span class="ml-2 text-xs" :class="polarErrorClass">{{ polarQualityLabel }}</span>
-                </div>
-
-                <!-- Guided instruction text -->
-                <p class="text-xs text-gray-400 leading-relaxed">{{ polarInstructionText }}</p>
-
-                <!-- Controls: context-sensitive buttons -->
-                <div class="flex gap-2">
-                  <!-- Idle: show Start -->
-                  <button
-                    v-if="executionStore.polarAlignment.status === 'idle'"
-                    :disabled="!executionStore.connected"
-                    @click="handlePolarStart"
-                    class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                    :class="executionStore.connected
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                      : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
-                  >
-                    Start Alignment
-                  </button>
-
-                  <!-- Active or paused: Pause/Resume + Stop -->
-                  <template v-else>
-                    <button
-                      v-if="executionStore.polarAlignment.status === 'active'"
-                      @click="handlePolarPause"
-                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-yellow-600 hover:bg-yellow-500 text-white"
-                    >
-                      Pause
-                    </button>
-                    <button
-                      v-else
-                      @click="handlePolarStart"
-                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white"
-                    >
-                      Resume
-                    </button>
-                    <button
-                      @click="handlePolarStop"
-                      class="px-3 py-1.5 text-xs rounded-lg font-medium transition-colors bg-red-700 hover:bg-red-600 text-white"
-                    >
-                      Stop
-                    </button>
-                  </template>
+                <!-- Compass direction guide -->
+                <div class="text-center">
+                  <p class="text-xs text-gray-500 mb-1 font-medium">Direction</p>
+                  <svg viewBox="0 0 80 80" class="w-full max-w-[90px] mx-auto">
+                    <!-- compass circle -->
+                    <circle cx="40" cy="40" r="34" fill="#111827" stroke="#374151" stroke-width="1"/>
+                    <!-- N/S/E/W labels -->
+                    <text x="40" y="11" fill="#9CA3AF" font-size="8" text-anchor="middle" font-weight="bold">N</text>
+                    <text x="40" y="75" fill="#6B7280" font-size="7" text-anchor="middle">S</text>
+                    <text x="73" y="43" fill="#6B7280" font-size="7" text-anchor="middle">E</text>
+                    <text x="7" y="43" fill="#6B7280" font-size="7" text-anchor="middle">W</text>
+                    <!-- Target North arrow (green) -->
+                    <line x1="40" y1="40" x2="40" y2="14" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+                    <polygon points="40,10 37,16 43,16" fill="#22C55E"/>
+                    <!-- Current heading arrow (orange, if available) -->
+                    <template v-if="executionStore.compass.heading !== null">
+                      <line x1="40" y1="40" :x2="headingX" :y2="headingY" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-dasharray="3,2"/>
+                      <polygon :points="headingArrowPoints" fill="#F97316"/>
+                    </template>
+                  </svg>
+                  <p class="text-xs mt-1" :class="headingDeltaClass">{{ headingGuideText }}</p>
                 </div>
               </div>
-            </div>
+
+              <button
+                :disabled="!executionStore.connected"
+                @click="handlePolarStart"
+                class="w-full px-3 py-2 text-sm rounded-lg font-medium transition-colors"
+                :class="executionStore.connected ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 text-gray-600 cursor-not-allowed'"
+              >
+                Start Alignment
+              </button>
+              <p v-if="!executionStore.connected" class="text-xs text-gray-500 text-center mt-2">Connect telescope to enable polar alignment.</p>
+            </template>
+
+            <!-- ACTIVE: Measuring in progress -->
+            <template v-else-if="executionStore.polarAlignment.status === 'active'">
+              <div class="flex items-center gap-4">
+                <PolarAlignVisual :errorArcmin="null" :active="true" :size="100" />
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></span>
+                    <span class="text-green-400">Measuring…</span>
+                    <span v-if="polarElapsedSec > 0" class="text-gray-500 text-xs">({{ polarElapsedSec }}s)</span>
+                  </div>
+                  <p class="text-xs text-gray-400 leading-relaxed">{{ polarInstructionText }}</p>
+                  <div class="flex gap-2 mt-1">
+                    <button @click="handlePolarPause" class="px-3 py-1.5 text-xs rounded-lg font-medium bg-yellow-600 hover:bg-yellow-500 text-white transition-colors">Pause</button>
+                    <button @click="handlePolarStop" class="px-3 py-1.5 text-xs rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white transition-colors">Stop</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- COMPLETE or PAUSED: Show bullseye + error + controls -->
+            <template v-else>
+              <div class="flex items-center gap-4">
+                <PolarAlignVisual
+                  :errorArcmin="executionStore.polarAlignment.errorArcmin"
+                  :active="false"
+                  :size="120"
+                />
+                <div class="flex-1 space-y-2">
+                  <!-- Status -->
+                  <div class="flex items-center gap-2 text-sm">
+                    <span
+                      class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="{
+                        'bg-blue-400': executionStore.polarAlignment.status === 'complete',
+                        'bg-yellow-500': executionStore.polarAlignment.status === 'paused'
+                      }"
+                    ></span>
+                    <span :class="{
+                      'text-blue-300': executionStore.polarAlignment.status === 'complete',
+                      'text-yellow-400': executionStore.polarAlignment.status === 'paused'
+                    }">{{ polarStatusLabel }}</span>
+                  </div>
+                  <!-- Error + quality -->
+                  <div v-if="executionStore.polarAlignment.errorArcmin !== null" class="text-sm">
+                    <span class="text-gray-400">Error: </span>
+                    <span class="font-mono font-bold" :class="polarErrorClass">{{ executionStore.polarAlignment.errorArcmin.toFixed(1) }}'</span>
+                    <span class="ml-2 text-xs" :class="polarErrorClass">{{ polarQualityLabel }}</span>
+                  </div>
+                  <!-- Instruction -->
+                  <p class="text-xs text-gray-400 leading-relaxed">{{ polarInstructionText }}</p>
+                  <!-- Controls -->
+                  <div class="flex gap-2">
+                    <button
+                      @click="handlePolarStart"
+                      class="px-3 py-1.5 text-xs rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                    >
+                      {{ executionStore.polarAlignment.status === 'paused' ? 'Resume' : 'Measure Again' }}
+                    </button>
+                    <button @click="handlePolarStop" class="px-3 py-1.5 text-xs rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white transition-colors">Stop</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
           </div>
         </section>
       </div>
@@ -379,7 +437,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { XIcon } from 'lucide-vue-next'
 import axios from 'axios'
 import { useExecutionStore } from '@/stores/execution'
@@ -470,6 +528,10 @@ watch(activeTab, (tab) => {
     stopLevelingPoll()
     stopCompassPoll()
     stopPolarPoll()
+  } else if (executionStore.connected) {
+    // Quick snapshot so status indicators are populated immediately
+    executionStore.fetchBalance()
+    executionStore.fetchCompassState()
   }
 })
 watch(() => props.isOpen, (open) => {
@@ -514,15 +576,30 @@ const handleStopCompass = async () => {
 
 // ── Polar alignment poll ───────────────────────────────────────────────────────
 let polarTimer = null
+let polarElapsedTimer = null
+const polarElapsedSec = ref(0)
+
+const stopPolarElapsed = () => {
+  clearInterval(polarElapsedTimer)
+  polarElapsedTimer = null
+}
+
+const startPolarElapsed = () => {
+  polarElapsedSec.value = 0
+  stopPolarElapsed()
+  polarElapsedTimer = setInterval(() => polarElapsedSec.value++, 1000)
+}
 
 const stopPolarPoll = () => {
   clearInterval(polarTimer)
   polarTimer = null
+  stopPolarElapsed()
 }
 
 const handlePolarStart = async () => {
   try {
     await executionStore.startPolarAlign()
+    startPolarElapsed()
     if (!polarTimer) {
       polarTimer = setInterval(() => executionStore.fetchPolarAlignStatus(), 2000)
     }
@@ -530,7 +607,10 @@ const handlePolarStart = async () => {
 }
 
 const handlePolarPause = async () => {
-  try { await executionStore.pausePolarAlign() } catch { /* ignore */ }
+  try {
+    await executionStore.pausePolarAlign()
+    stopPolarElapsed()
+  } catch { /* ignore */ }
 }
 
 const handlePolarStop = async () => {
@@ -540,10 +620,13 @@ const handlePolarStop = async () => {
   } catch { /* ignore */ }
 }
 
+onUnmounted(() => { stopPolarElapsed() })
+
 // ── Polar alignment helpers ────────────────────────────────────────────────────
 const polarStatusLabel = computed(() => {
   const s = executionStore.polarAlignment.status
-  if (s === 'active') return 'Measuring alignment…'
+  if (s === 'active') return 'Measuring…'
+  if (s === 'complete') return 'Measurement complete'
   if (s === 'paused') return 'Paused'
   return 'Idle'
 })
@@ -567,8 +650,91 @@ const polarQualityLabel = computed(() => {
 
 const polarInstructionText = computed(() => {
   const s = executionStore.polarAlignment.status
-  if (s === 'active') return "Analyzing polar axis. Adjust the mount's altitude and azimuth bolts to minimize the error shown."
-  if (s === 'paused') return 'Paused — resume when ready to continue adjustments.'
-  return 'Start polar alignment to measure and guide polar axis correction. Telescope must be in equatorial mode.'
+  const e = executionStore.polarAlignment.errorArcmin
+  if (s === 'active') return 'Analyzing polar axis — this takes 30–90 seconds. Hold the scope steady.'
+  if (s === 'complete') {
+    if (e !== null && e < 5) return 'Excellent alignment! No adjustment needed.'
+    if (e !== null && e < 15) return "Good alignment. Fine-tune the mount's altitude and azimuth bolts."
+    if (e !== null) return "Significant error. Adjust the mount's altitude and azimuth bolts, then measure again."
+    return 'Measurement complete.'
+  }
+  if (s === 'paused') return 'Paused — resume when ready to continue.'
+  return 'Aim the scope at the elevation shown, pointed toward North, then start alignment.'
 })
+
+// ── Polar alignment setup guide SVGs ──────────────────────────────────────────
+// Elevation diagram: scope line at |latitude|° from horizon
+// SVG viewBox "0 0 100 80", horizon at y=65, origin at (15, 65), line length 55px
+const latRad = computed(() => Math.abs(localSettings.value.latitude || 0) * Math.PI / 180)
+
+const scopeEndX = computed(() => (15 + 55 * Math.cos(latRad.value)).toFixed(1))
+const scopeEndY = computed(() => (65 - 55 * Math.sin(latRad.value)).toFixed(1))
+
+const elevArcPath = computed(() => {
+  const r = 18
+  const ax = (15 + r * Math.cos(latRad.value)).toFixed(1)
+  const ay = (65 - r * Math.sin(latRad.value)).toFixed(1)
+  return `M ${15 + r},65 A ${r},${r} 0 0,0 ${ax},${ay}`
+})
+
+const arcLabelX = computed(() => {
+  const mid = latRad.value / 2
+  return (15 + 28 * Math.cos(mid)).toFixed(1)
+})
+
+const arcLabelY = computed(() => {
+  const mid = latRad.value / 2
+  return (65 - 28 * Math.sin(mid) + 4).toFixed(1)
+})
+
+// Compass diagram: heading arrow in SVG "0 0 80 80", center (40,40), r=22 for line end
+const headingX = computed(() => {
+  if (executionStore.compass.heading === null) return 40
+  const h = executionStore.compass.heading * Math.PI / 180
+  return (40 + 22 * Math.sin(h)).toFixed(1)
+})
+
+const headingY = computed(() => {
+  if (executionStore.compass.heading === null) return 40
+  const h = executionStore.compass.heading * Math.PI / 180
+  return (40 - 22 * Math.cos(h)).toFixed(1)
+})
+
+const headingArrowPoints = computed(() => {
+  if (executionStore.compass.heading === null) return ''
+  const h = executionStore.compass.heading * Math.PI / 180
+  const sin = Math.sin(h), cos = Math.cos(h)
+  const tx = (40 + 26 * sin).toFixed(1), ty = (40 - 26 * cos).toFixed(1)
+  const bx = 40 + 19 * sin, by = 40 - 19 * cos
+  const w1x = (bx + 3.5 * cos).toFixed(1), w1y = (by + 3.5 * sin).toFixed(1)
+  const w2x = (bx - 3.5 * cos).toFixed(1), w2y = (by - 3.5 * sin).toFixed(1)
+  return `${tx},${ty} ${w1x},${w1y} ${w2x},${w2y}`
+})
+
+const headingDelta = computed(() => {
+  if (executionStore.compass.heading === null) return null
+  const h = executionStore.compass.heading
+  return h <= 180 ? h : 360 - h
+})
+
+const headingDeltaClass = computed(() => {
+  if (headingDelta.value === null) return 'text-gray-400'
+  if (headingDelta.value < 15) return 'text-green-400'
+  if (headingDelta.value < 45) return 'text-yellow-400'
+  return 'text-red-400'
+})
+
+const headingGuideText = computed(() => {
+  if (executionStore.compass.heading === null) return 'No heading — calibrate compass first'
+  const h = executionStore.compass.heading
+  const delta = headingDelta.value
+  if (delta < 10) return `Facing North (${h}°) ✓`
+  const dir = h <= 180 ? 'left' : 'right'
+  return `Rotate ${dir} ${Math.round(delta)}° to face N (now ${h}°)`
+})
+
+// Leveling / compass snapshot helpers
+const hasBalanceData = computed(() =>
+  executionStore.balance.x !== 0 || executionStore.balance.y !== 0 || executionStore.balance.angle !== 0
+)
 </script>
