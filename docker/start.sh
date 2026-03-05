@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Read credentials from environment (docker-compose passes these in)
+PG_PASSWORD="${POSTGRES_PASSWORD:-buffalo-jump}"
+REDIS_PASS="${REDIS_PASSWORD:-buffalo-jump}"
+
 # Set up log directory permissions
 mkdir -p /var/log/postgresql
 chown -R postgres:postgres /var/log/postgresql
@@ -41,7 +45,7 @@ done
 
 # Create user and database if they don't exist
 echo "Setting up database..."
-su - postgres -c "psql -U postgres -tc \"SELECT 1 FROM pg_user WHERE usename = 'pg'\" | grep -q 1 || psql -U postgres -c \"CREATE USER pg WITH SUPERUSER PASSWORD 'buffalo-jump';\""
+su - postgres -c "psql -U postgres -tc \"SELECT 1 FROM pg_user WHERE usename = 'pg'\" | grep -q 1 || psql -U postgres -c \"CREATE USER pg WITH SUPERUSER PASSWORD '${PG_PASSWORD}';\""
 su - postgres -c "psql -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'astronomus'\" | grep -q 1 || psql -U postgres -c \"CREATE DATABASE astronomus OWNER pg ENCODING 'UTF8';\""
 su - postgres -c "psql -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'test_astronomus'\" | grep -q 1 || psql -U postgres -c \"CREATE DATABASE test_astronomus OWNER pg ENCODING 'UTF8';\""
 
@@ -49,21 +53,25 @@ echo "PostgreSQL is ready"
 
 # Start Redis
 echo "Starting Redis..."
-redis-server --daemonize yes --port 6379 --requirepass buffalo-jump
+redis-server --daemonize yes --port 6379 --requirepass "${REDIS_PASS}"
 echo "Redis started"
 
 # Set database URL for alembic and services
-export DATABASE_URL="postgresql://pg:buffalo-jump@localhost:5432/astronomus"
+export DATABASE_URL="postgresql://pg:${PG_PASSWORD}@localhost:5432/astronomus"
 
 # Run database migrations if needed
 cd /app
 echo "Running database migrations..."
 alembic upgrade head || echo "Warning: Migration failed or no migrations to run"
 
+# Seed catalog on first deployment (no-op if already populated)
+echo "Checking catalog..."
+python3 scripts/init_catalog.py || echo "Warning: Catalog seeding failed or skipped"
+
 # Start Celery worker in background (with GPU access)
 echo "Starting Celery worker..."
-export REDIS_URL="redis://:buffalo-jump@localhost:6379/1"
-export CELERY_BROKER_URL="redis://:buffalo-jump@localhost:6379/1"
+export REDIS_URL="redis://:${REDIS_PASS}@localhost:6379/1"
+export CELERY_BROKER_URL="redis://:${REDIS_PASS}@localhost:6379/1"
 celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4 &
 CELERY_WORKER_PID=$!
 echo "Celery worker started with PID: $CELERY_WORKER_PID"
