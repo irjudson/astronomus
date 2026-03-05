@@ -107,6 +107,42 @@ async def list_captures(
         raise HTTPException(status_code=500, detail=f"Error listing captures: {str(e)}")
 
 
+class CaptureStatusUpdate(BaseModel):
+    status: Optional[str] = None  # "complete" | "needs_more" | null to clear
+
+
+@router.put("/{catalog_id}", response_model=CaptureHistoryResponse)
+async def update_capture_status(
+    catalog_id: str, update: CaptureStatusUpdate, db: Session = Depends(get_db)
+):
+    """
+    Update (or create) the user-controlled capture status for a target.
+
+    Args:
+        catalog_id: Target catalog ID (e.g., M31, NGC7000)
+        update: Status update with optional status string
+
+    Returns:
+        Updated capture history record
+    """
+    try:
+        record = db.query(CaptureHistory).filter(CaptureHistory.catalog_id == catalog_id).first()
+        if not record:
+            record = CaptureHistory(
+                catalog_id=catalog_id,
+                total_exposure_seconds=0,
+                total_frames=0,
+                total_sessions=0,
+            )
+            db.add(record)
+        record.status = update.status
+        db.commit()
+        db.refresh(record)
+        return CaptureHistoryResponse.from_orm(record)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating capture status: {str(e)}")
+
+
 @router.get("/{catalog_id}", response_model=CaptureHistoryResponse)
 async def get_capture_by_catalog_id(catalog_id: str, db: Session = Depends(get_db)):
     """

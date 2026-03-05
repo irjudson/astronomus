@@ -17,9 +17,12 @@
             <img :src="getImageUrl(item)" :alt="item.name" loading="lazy" @error="hideParentOnError">
           </div>
           <div class="catalog-card-content">
-            <div class="catalog-card-header">
+            <div class="catalog-card-header cursor-pointer" @click="toggleCard(item)">
               <h4 class="catalog-card-title" v-html="formatTitle(item)"></h4>
-              <span class="catalog-card-type">{{ item.type || 'unknown' }}</span>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <span class="catalog-card-type">{{ item.type || 'unknown' }}</span>
+                <span class="text-gray-500 text-xs">{{ expandedCardId === cardKey(item) ? '▲' : '▼' }}</span>
+              </div>
             </div>
             <div class="catalog-card-body">
               <div class="catalog-card-detail">
@@ -50,6 +53,53 @@
                   <span>Weather: {{ (item.score.weather_score * 100).toFixed(0) }}%</span>
                   <span>Object: {{ (item.score.object_score * 100).toFixed(0) }}%</span>
                 </div>
+              </div>
+              <!-- Capture History -->
+              <div v-if="item.capture_history" class="border-t border-gray-700 pt-2 mt-2">
+                <div class="flex items-center justify-between">
+                  <span :class="captureStatusClass(item.capture_history.status)" class="text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ formatCaptureStatus(item.capture_history.status) }}
+                  </span>
+                  <span class="catalog-card-value text-xs">
+                    {{ formatExposure(item.capture_history.total_exposure_seconds) }}
+                  </span>
+                </div>
+                <div class="flex gap-3 text-xs text-gray-500 mt-1">
+                  <span v-if="item.capture_history.total_sessions">
+                    {{ item.capture_history.total_sessions }} session{{ item.capture_history.total_sessions !== 1 ? 's' : '' }}
+                  </span>
+                  <span v-if="item.capture_history.best_fwhm">
+                    FWHM {{ item.capture_history.best_fwhm.toFixed(2) }}"
+                  </span>
+                  <span v-if="item.capture_history.total_frames">
+                    {{ item.capture_history.total_frames }} frames
+                  </span>
+                </div>
+              </div>
+              <!-- Viewing Months (shown when card expanded) -->
+              <div v-if="expandedCardId === cardKey(item)" class="border-t border-gray-700 pt-2 mt-2">
+                <p class="text-xs text-gray-500 mb-1">Viewing months</p>
+                <div v-if="monthsLoading === cardKey(item)" class="text-xs text-gray-600">Loading…</div>
+                <div v-else-if="viewingMonthsCache[cardKey(item)]" class="flex gap-1">
+                  <div
+                    v-for="(m, i) in viewingMonthsCache[cardKey(item)]"
+                    :key="m.month"
+                    :title="`${m.month_name}: ${m.rating} (${m.visibility_hours.toFixed(1)}h)`"
+                    class="flex flex-col items-center gap-0.5"
+                  >
+                    <div :class="[RATING_COLOR[m.rating], 'w-4 h-4 rounded-full']"></div>
+                    <span class="text-gray-600 text-[9px]">{{ MONTH_ABBR[i] }}</span>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-600">No data</div>
+              </div>
+              <!-- Capture Review (shown when card expanded) -->
+              <div v-if="expandedCardId === cardKey(item)" class="border-t border-gray-700 pt-2 mt-2">
+                <p class="text-xs text-gray-500 mb-1">Capture status</p>
+                <CaptureReviewPanel
+                  :capture="item.capture_history ?? catalogStore.captureMap[cardKey(item)] ?? null"
+                  @set-status="s => updateCardStatus(item, s)"
+                />
               </div>
             </div>
             <div class="catalog-card-actions">
@@ -96,9 +146,59 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useCatalogStore } from '@/stores/catalog';
+import { useSettingsStore } from '@/stores/settings';
+import CaptureReviewPanel from '@/components/shared/CaptureReviewPanel.vue';
+import axios from 'axios';
 
 const catalogStore = useCatalogStore();
+const settingsStore = useSettingsStore();
 const gridEl = ref(null);
+
+// --- Card expand / viewing months ---
+const expandedCardId = ref(null);
+const viewingMonthsCache = ref({});
+const monthsLoading = ref(null);
+
+const MONTH_ABBR = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+const RATING_COLOR = {
+  excellent: 'bg-green-500',
+  good: 'bg-green-400',
+  fair: 'bg-amber-400',
+  poor: 'bg-red-400',
+  not_visible: 'bg-gray-700',
+};
+
+function cardKey(item) {
+  return item.catalog_id ?? item.id ?? item.name;
+}
+
+function toggleCard(item) {
+  const key = cardKey(item);
+  if (expandedCardId.value === key) {
+    expandedCardId.value = null;
+    return;
+  }
+  expandedCardId.value = key;
+  if (!viewingMonthsCache.value[key] && item.ra != null && item.dec != null) {
+    fetchViewingMonths(item);
+  }
+}
+
+async function fetchViewingMonths(item) {
+  const key = cardKey(item);
+  monthsLoading.value = key;
+  try {
+    const lat = settingsStore.settings.latitude ?? 0;
+    const res = await axios.get('/api/viewing-months', {
+      params: { ra_hours: item.ra, dec_degrees: item.dec, latitude: lat }
+    });
+    viewingMonthsCache.value[key] = res.data.months;
+  } catch (e) {
+    console.error('Viewing months fetch failed', e);
+  } finally {
+    monthsLoading.value = null;
+  }
+}
 
 // --- Computed Properties ---
 const activeFiltersDisplay = computed(() => {
@@ -138,12 +238,37 @@ const toggleWishlist = (item) => {
   }
 };
 
+async function updateCardStatus(item, status) {
+  await catalogStore.updateCaptureStatus(cardKey(item), status);
+  if (item.capture_history) item.capture_history.status = status;
+}
+
 const getScoreColor = (score) => {
   if (score >= 0.8) return 'text-green-400';
   if (score >= 0.6) return 'text-blue-400';
   if (score >= 0.4) return 'text-yellow-400';
   return 'text-orange-400';
 };
+
+function formatExposure(seconds) {
+  if (!seconds) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function formatCaptureStatus(status) {
+  return { new: 'New', needs_more: 'Needs More', complete: 'Complete' }[status] ?? status;
+}
+
+function captureStatusClass(status) {
+  return {
+    new: 'bg-gray-700 text-gray-300',
+    needs_more: 'bg-amber-900/50 text-amber-400',
+    complete: 'bg-green-900/50 text-green-400',
+  }[status] ?? 'bg-gray-700 text-gray-300';
+}
 
 // --- Dynamic Page Size based on visible grid area ---
 let resizeObserver = null;

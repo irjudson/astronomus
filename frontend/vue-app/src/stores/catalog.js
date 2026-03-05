@@ -25,6 +25,7 @@ export const useCatalogStore = defineStore('catalog', {
     prefetchCache: new Map(),
     selectedTargets: [], // For "Add to Plan" functionality (session)
     wishlist: [], // Persistent wishlist saved to backend
+    captureMap: {}, // { [catalog_id]: CaptureHistoryResponse }
     }
   },
   getters: {
@@ -208,6 +209,20 @@ export const useCatalogStore = defineStore('catalog', {
       } catch (err) {
         console.error('Failed to fetch wishlist:', err)
       }
+      await this.fetchCaptures()
+    },
+
+    async fetchCaptures() {
+      try {
+        const res = await axios.get('/api/captures/')
+        this.captureMap = Object.fromEntries(res.data.map(c => [c.catalog_id, c]))
+      } catch (e) { /* silent */ }
+    },
+
+    async updateCaptureStatus(catalogId, status) {
+      const res = await axios.put(`/api/captures/${encodeURIComponent(catalogId)}`, { status })
+      this.captureMap[catalogId] = res.data
+      return res.data
     },
 
     isInWishlist(name) {

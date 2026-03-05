@@ -189,10 +189,13 @@ export const usePlanningStore = defineStore('planning', {
         this.currentPlan = response.data.plan
         this.planName = response.data.name
         // Restore constraints that were active when the plan was generated
+        // Backend uses min_altitude/max_altitude; frontend state uses min_altitude_degrees/max_altitude_degrees
         const c = response.data.plan?.constraints
         if (c) {
-          if (c.min_altitude_degrees != null) this.constraints.min_altitude_degrees = c.min_altitude_degrees
-          if (c.max_altitude_degrees != null) this.constraints.max_altitude_degrees = c.max_altitude_degrees
+          const minAlt = c.min_altitude_degrees ?? c.min_altitude
+          const maxAlt = c.max_altitude_degrees ?? c.max_altitude
+          if (minAlt != null) this.constraints.min_altitude_degrees = minAlt
+          if (maxAlt != null) this.constraints.max_altitude_degrees = maxAlt
           if (c.avoid_moon != null) this.constraints.avoid_moon = c.avoid_moon
           if (c.setup_time_minutes != null) this.constraints.setup_time_minutes = c.setup_time_minutes
           if (c.object_types?.length) this.constraints.object_types = c.object_types

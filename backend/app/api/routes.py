@@ -1291,6 +1291,31 @@ async def get_telescope_status():
         status = seestar_client.status
         print(f"[STATUS ENDPOINT] internal state: {status.state.value if status.state else 'unknown'}")
 
+        # Extract compass heading from device_state (direction field confirmed in firmware)
+        compass_data = device_state.get("compass_sensor", {}).get("data", {})
+        compass_heading = compass_data.get("direction") or compass_data.get("heading") or compass_data.get("yaw")
+
+        # Extract level/balance angle from device_state
+        level_angle = None
+        for key in ("balance_sensor", "balance", "imu", "gsensor", "accelerometer"):
+            sensor = device_state.get(key, {})
+            if sensor:
+                data = sensor.get("data", sensor)
+                level_angle = data.get("angle")
+                if level_angle is not None:
+                    break
+
+        # Alt/Az via scope_get_horiz_coord (returns {result: [alt, az]} per firmware)
+        alt_degrees = None
+        az_degrees = None
+        try:
+            horiz_resp = await seestar_client._send_command("scope_get_horiz_coord", {})
+            horiz = horiz_resp.get("result") if isinstance(horiz_resp, dict) else horiz_resp
+            if isinstance(horiz, list) and len(horiz) == 2:
+                alt_degrees, az_degrees = horiz[0], horiz[1]
+        except Exception:
+            pass
+
         return {
             "connected": status.connected,
             "state": status.state.value if status.state else "unknown",
@@ -1300,6 +1325,11 @@ async def get_telescope_status():
             "current_ra_hours": status.current_ra_hours,
             "current_dec_degrees": status.current_dec_degrees,
             "last_error": status.last_error,
+            "mount_mode": status.mount_mode.value if status.mount_mode else "altaz",
+            "compass_heading": round(compass_heading) if compass_heading is not None else None,
+            "level_angle": round(level_angle, 1) if level_angle is not None else None,
+            "alt_degrees": round(alt_degrees, 2) if alt_degrees is not None else None,
+            "az_degrees": round(az_degrees, 2) if az_degrees is not None else None,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")

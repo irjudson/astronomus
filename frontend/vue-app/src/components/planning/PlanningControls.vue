@@ -157,28 +157,63 @@
       </div>
 
       <!-- Wishlist tab -->
-      <div v-if="bottomTab === 'wishlist'" class="flex-1 min-h-0 overflow-y-auto px-4 py-3">
-        <div v-if="wishlistCount > 0" class="space-y-2">
-          <div
-            v-for="target in catalogStore.wishlist"
-            :key="target.name"
-            class="flex items-center justify-between p-2 bg-gray-800 rounded"
-          >
-            <div class="flex-1 min-w-0">
-              <div class="text-sm text-gray-200 truncate">{{ target.name }}</div>
-              <div class="text-xs text-gray-500 capitalize">{{ target.type }}</div>
-            </div>
-            <button
-              @click="catalogStore.removeFromWishlist(target.name)"
-              class="ml-2 text-red-500 hover:text-red-400 text-xs px-2 py-1 flex-shrink-0"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-        <div v-else class="text-sm text-gray-400 p-3 bg-gray-800/50 rounded">
+      <div v-if="bottomTab === 'wishlist'" class="flex-1 min-h-0 overflow-y-auto px-2 py-2">
+        <div v-if="wishlistCount === 0" class="text-sm text-gray-400 p-3 bg-gray-800/50 rounded mx-2">
           No targets in wishlist. Add targets from Discovery view.
         </div>
+        <template v-else>
+          <!-- Needs Imaging section -->
+          <div class="text-xs text-gray-500 px-2 py-1 uppercase tracking-wide font-medium">
+            Needs Imaging ({{ needsImagingTargets.length }})
+          </div>
+          <div v-if="needsImagingTargets.length === 0" class="px-2 py-3 text-xs text-gray-600 text-center">
+            All targets complete! Add more from Discovery.
+          </div>
+          <div v-for="target in needsImagingTargets" :key="target.name">
+            <div class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-800 rounded cursor-pointer"
+                 @click="toggleWishlistExpand(target.name)">
+              <span class="flex-1 text-sm text-gray-200 truncate">{{ target.name }}</span>
+              <span class="text-xs text-gray-500 capitalize flex-shrink-0">{{ target.type }}</span>
+              <span v-if="catalogStore.captureMap[target.name]"
+                    class="w-2 h-2 rounded-full flex-shrink-0"
+                    :class="statusDotClass(effectiveStatus(target))"></span>
+              <span class="text-gray-600 text-xs flex-shrink-0">
+                {{ expandedWishlistItem === target.name ? '▲' : '▼' }}
+              </span>
+              <button @click.stop="catalogStore.removeFromWishlist(target.name)"
+                      class="text-red-500 hover:text-red-400 text-xs px-1 flex-shrink-0">×</button>
+            </div>
+            <div v-if="expandedWishlistItem === target.name" class="px-2 pb-2">
+              <CaptureReviewPanel
+                :capture="catalogStore.captureMap[target.name] ?? null"
+                @set-status="s => setWishlistStatus(target, s)"
+              />
+            </div>
+          </div>
+
+          <!-- Completed section -->
+          <div v-if="completedTargets.length" class="mt-2 border-t border-gray-700 pt-2">
+            <div class="text-xs text-gray-500 px-2 py-1 uppercase tracking-wide font-medium">
+              Completed ({{ completedTargets.length }})
+            </div>
+            <div v-for="target in completedTargets" :key="target.name">
+              <div class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-800 rounded cursor-pointer opacity-60"
+                   @click="toggleWishlistExpand(target.name)">
+                <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                <span class="flex-1 text-sm text-gray-400 truncate line-through">{{ target.name }}</span>
+                <span class="text-xs text-gray-600 capitalize flex-shrink-0">{{ target.type }}</span>
+                <button @click.stop="catalogStore.removeFromWishlist(target.name)"
+                        class="text-red-500 hover:text-red-400 text-xs px-1 flex-shrink-0">×</button>
+              </div>
+              <div v-if="expandedWishlistItem === target.name" class="px-2 pb-2">
+                <CaptureReviewPanel
+                  :capture="catalogStore.captureMap[target.name] ?? null"
+                  @set-status="s => setWishlistStatus(target, s)"
+                />
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Saved Plans tab -->
@@ -229,6 +264,7 @@ import { usePlanningStore } from '@/stores/planning'
 import { useCatalogStore } from '@/stores/catalog'
 import { useWeatherStore } from '@/stores/weather'
 import { useSettingsStore } from '@/stores/settings'
+import CaptureReviewPanel from '@/components/shared/CaptureReviewPanel.vue'
 
 const planningStore = usePlanningStore()
 const catalogStore = useCatalogStore()
@@ -297,6 +333,34 @@ const deletePlan = async (id, name) => {
   } catch (err) {
     console.error('Failed to delete plan:', err)
   }
+}
+
+// --- Wishlist capture tracking ---
+
+function effectiveStatus(target) {
+  const c = catalogStore.captureMap[target.name]
+  if (!c) return null
+  const s = c.status ?? c.suggested_status
+  return s === 'needs_more_data' ? 'needs_more' : s
+}
+
+function statusDotClass(status) {
+  return { complete: 'bg-green-500', needs_more: 'bg-amber-500' }[status] ?? 'bg-gray-500'
+}
+
+const needsImagingTargets = computed(() =>
+  catalogStore.wishlist.filter(t => effectiveStatus(t) !== 'complete')
+)
+const completedTargets = computed(() =>
+  catalogStore.wishlist.filter(t => effectiveStatus(t) === 'complete')
+)
+
+const expandedWishlistItem = ref(null)
+function toggleWishlistExpand(name) {
+  expandedWishlistItem.value = expandedWishlistItem.value === name ? null : name
+}
+async function setWishlistStatus(target, status) {
+  await catalogStore.updateCaptureStatus(target.name, status)
 }
 
 onMounted(() => {

@@ -14,10 +14,10 @@ export const useExecutionStore = defineStore('execution', {
 
     // Telescope position
     position: {
-      ra: 0,
-      dec: 0,
-      alt: 0,
-      az: 0
+      ra: null,
+      dec: null,
+      alt: null,
+      az: null
     },
 
     // Imaging state
@@ -52,6 +52,10 @@ export const useExecutionStore = defineStore('execution', {
     // Hardware state
     hardware: {
       sensorTemp: null,
+      batteryTemp: null,
+      batteryCapacity: null,
+      chargerStatus: null,
+      isOvertemp: false,
       dewHeaterStatus: 'Off',
       dewHeaterPower: 50,
       trackingStatus: 'Inactive',
@@ -155,10 +159,10 @@ export const useExecutionStore = defineStore('execution', {
 
     updatePosition(positionData) {
       this.position = {
-        ra: positionData.ra || this.position.ra,
-        dec: positionData.dec || this.position.dec,
-        alt: positionData.alt || this.position.alt,
-        az: positionData.az || this.position.az
+        ra: positionData.ra ?? this.position.ra,
+        dec: positionData.dec ?? this.position.dec,
+        alt: positionData.alt ?? this.position.alt,
+        az: positionData.az ?? this.position.az,
       }
     },
 
@@ -168,33 +172,38 @@ export const useExecutionStore = defineStore('execution', {
       try {
         const response = await axios.get('/api/telescope/status')
 
-        // Parse telescope status response
         if (response.data) {
-          // Convert RA hours to degrees (15 degrees per hour)
-          const raDeg = (response.data.current_ra_hours || 0) * 15
-          const decDeg = response.data.current_dec_degrees || 0
+          const d = response.data
+
+          // RA/Dec: convert hours → degrees
+          const raDeg = d.current_ra_hours != null ? d.current_ra_hours * 15 : null
+          const decDeg = d.current_dec_degrees ?? null
 
           this.updatePosition({
             ra: raDeg,
             dec: decDeg,
-            alt: 0, // Not provided by API
-            az: 0   // Not provided by API
+            alt: d.alt_degrees ?? null,
+            az: d.az_degrees ?? null,
           })
 
-          // Update tracking status from state field (not just is_tracking boolean)
-          if (response.data.state) {
-            const state = response.data.state.toLowerCase()
+          // Tracking status
+          if (d.state) {
+            const state = d.state.toLowerCase()
             if (state === 'parked' || state === 'parking') {
               this.hardware.trackingStatus = 'Parked'
-            } else if (state === 'tracking' || response.data.is_tracking) {
+            } else if (state === 'tracking' || d.is_tracking) {
               this.hardware.trackingStatus = 'Active'
             } else {
               this.hardware.trackingStatus = 'Inactive'
             }
-          } else if (response.data.is_tracking !== undefined) {
-            // Fallback to is_tracking if state not available
-            this.hardware.trackingStatus = response.data.is_tracking ? 'Active' : 'Inactive'
+          } else if (d.is_tracking !== undefined) {
+            this.hardware.trackingStatus = d.is_tracking ? 'Active' : 'Inactive'
           }
+
+          // Mount mode, compass heading, level angle
+          if (d.mount_mode) this.hardware.mountMode = d.mount_mode
+          if (d.compass_heading != null) this.compass.heading = d.compass_heading
+          if (d.level_angle != null) this.balance.angle = d.level_angle
         }
       } catch (err) {
         console.error('Failed to fetch position:', err)
@@ -691,9 +700,13 @@ export const useExecutionStore = defineStore('execution', {
       try {
         const response = await axios.get('/api/telescope/features/system/info')
         if (response.data) {
-          this.hardware.sensorTemp = response.data.temperature || null
-          this.hardware.firmwareVersion = response.data.firmware || null
-          this.hardware.model = response.data.model || null
+          const pi = response.data.pi_info || {}
+          this.hardware.sensorTemp = pi.temp ?? null
+          this.hardware.batteryTemp = pi.battery_temp ?? null
+          this.hardware.batteryCapacity = pi.battery_capacity ?? null
+          this.hardware.chargerStatus = pi.charger_status ?? null
+          this.hardware.isOvertemp = pi.is_overtemp ?? false
+          this.hardware.model = pi.model || null
         }
       } catch (err) {
         console.error('Failed to fetch system info:', err)

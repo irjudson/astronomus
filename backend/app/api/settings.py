@@ -558,6 +558,52 @@ async def get_user_settings(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/planning")
+async def get_planning_settings(db: Session = Depends(get_db)):
+    """Get daily plan scheduler settings."""
+    keys = ["planning.daily_enabled", "planning.daily_time_hour",
+            "planning.daily_target_count", "planning.webhook_url"]
+    rows = db.query(AppSetting).filter(AppSetting.key.in_(keys)).all()
+    defaults = {
+        "daily_enabled": False,
+        "daily_time_hour": 12,
+        "daily_target_count": 5,
+        "webhook_url": "",
+    }
+    result = dict(defaults)
+    for row in rows:
+        short = row.key.split(".", 1)[1]
+        if row.value_type == "bool":
+            result[short] = row.value.lower() == "true"
+        elif row.value_type == "int":
+            result[short] = int(row.value)
+        else:
+            result[short] = row.value
+    return result
+
+
+@router.put("/planning")
+async def update_planning_settings(data: dict, db: Session = Depends(get_db)):
+    """Update daily plan scheduler settings."""
+    mapping = {
+        "daily_enabled": ("planning.daily_enabled", "bool"),
+        "daily_time_hour": ("planning.daily_time_hour", "int"),
+        "daily_target_count": ("planning.daily_target_count", "int"),
+        "webhook_url": ("planning.webhook_url", "string"),
+    }
+    for frontend_key, (db_key, value_type) in mapping.items():
+        if frontend_key in data:
+            val = data[frontend_key]
+            str_val = str(val).lower() if isinstance(val, bool) else str(val)
+            row = db.query(AppSetting).filter(AppSetting.key == db_key).first()
+            if row:
+                row.value = str_val
+            else:
+                db.add(AppSetting(key=db_key, value=str_val, value_type=value_type, category="planning"))
+    db.commit()
+    return {"status": "ok"}
+
+
 @router.put("/user", response_model=UserSettings)
 async def update_user_settings(settings: UserSettings, db: Session = Depends(get_db)):
     """Save user settings (upserts default observing location + UI preferences)."""
