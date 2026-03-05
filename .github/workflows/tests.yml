@@ -94,10 +94,10 @@ jobs:
         pip install -r backend/requirements.txt
         pip install -r backend/requirements-test.txt
 
-    - name: Create minimal static dir for Vue app tests
+    - name: Create minimal Vue dist for tests
       run: |
-        mkdir -p backend/static
-        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > backend/static/index.html
+        mkdir -p frontend/vue-app/dist/assets
+        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > frontend/vue-app/dist/index.html
 
     - name: Run tests with coverage
       run: |
@@ -184,10 +184,10 @@ jobs:
         # Migrate test database
         DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astronomus alembic upgrade head
 
-    - name: Create minimal static dir for Vue app tests
+    - name: Create minimal Vue dist for tests
       run: |
-        mkdir -p backend/static
-        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > backend/static/index.html
+        mkdir -p frontend/vue-app/dist/assets
+        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > frontend/vue-app/dist/index.html
 
     - name: Run integration tests
       env:
