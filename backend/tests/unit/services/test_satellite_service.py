@@ -107,6 +107,7 @@ class TestSatelliteService:
         assert hasattr(service, "get_iss_passes")
         assert hasattr(service, "get_satellite_passes")
 
+    @patch.dict("os.environ", {"N2YO_API_KEY": "test-key"})
     @patch("requests.get")
     def test_get_iss_passes_success(self, mock_get, service):
         """Test successfully fetching ISS passes."""

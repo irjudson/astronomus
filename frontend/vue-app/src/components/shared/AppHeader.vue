@@ -42,7 +42,7 @@
 
     <!-- Right: Weather, Settings -->
     <div class="flex items-center space-x-3">
-      <WeatherWidget />
+      <WeatherWidget @open-weather="weatherModalRef?.openModal()" />
       <button
         @click="showSettings = true"
         class="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800 transition-colors"
@@ -58,6 +58,9 @@
       @close="showSettings = false"
       @save="handleSaveSettings"
     />
+
+    <!-- Weather Modal -->
+    <WeatherModal ref="weatherModalRef" />
   </header>
 </template>
 
@@ -66,12 +69,12 @@ import { ref } from 'vue'
 import { SettingsIcon } from 'lucide-vue-next'
 import WeatherWidget from './WeatherWidget.vue'
 import SettingsModal from './SettingsModal.vue'
+import WeatherModal from '../WeatherModal.vue'
 
 const showSettings = ref(false)
+const weatherModalRef = ref(null)
 
-const handleSaveSettings = (settings) => {
-  console.log('Settings saved:', settings)
-  // Settings are already saved to localStorage by the modal
-  // Could also dispatch to a Pinia store if needed
+const handleSaveSettings = () => {
+  // Settings are already saved to backend + localStorage by the modal
 }
 </script>
