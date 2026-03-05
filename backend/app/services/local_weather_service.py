@@ -1,7 +1,7 @@
 """Local weather station integration (Ambient Weather WS-2902 via wx-service)."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 import requests
