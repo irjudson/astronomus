@@ -136,52 +136,62 @@ class ViewingMonthsService:
         return max(0, min(90, altitude))
 
     def _calculate_visibility_hours(self, dec_degrees: float, latitude: float, month: int) -> float:
-        """Calculate hours object is above horizon and visible."""
-        # Simplified calculation based on hour angle
-        # More sophisticated would account for twilight, moon phase, etc.
+        """
+        Calculate hours object is above 20° altitude during astronomical darkness.
 
+        Computes the intersection of:
+        - Hours object is above 20° altitude (from hour-angle geometry)
+        - Hours of astronomical night (sun below -18°) for the latitude/month
+        """
         lat_rad = math.radians(latitude)
         dec_rad = math.radians(dec_degrees)
-
-        # Calculate hour angle when object is at 20° altitude
-        min_alt_rad = math.radians(20)  # Minimum useful altitude
+        min_alt_rad = math.radians(20)
 
         try:
             cos_ha = (math.sin(min_alt_rad) - math.sin(lat_rad) * math.sin(dec_rad)) / (
                 math.cos(lat_rad) * math.cos(dec_rad)
             )
-
-            # Clamp to valid range
-            cos_ha = max(-1, min(1, cos_ha))
-
+            cos_ha = max(-1.0, min(1.0, cos_ha))
             hour_angle = math.degrees(math.acos(cos_ha))
-            hours = (hour_angle / 15.0) * 2  # Convert to hours, both sides of meridian
-
-            # Adjust for season (longer nights in winter)
-            season_factor = self._get_season_night_length_factor(month, latitude)
-            hours = hours * season_factor
-
-            return max(0, min(12, hours))
-
+            hours_above_alt = (hour_angle / 15.0) * 2  # both sides of meridian
         except (ValueError, ZeroDivisionError):
             return 0.0
 
-    def _get_season_night_length_factor(self, month: int, latitude: float) -> float:
-        """Get night length factor for season."""
-        # Northern hemisphere
-        if latitude > 0:
-            if month in [12, 1, 2]:  # Winter - longer nights
-                return 1.2
-            elif month in [6, 7, 8]:  # Summer - shorter nights
-                return 0.8
-        # Southern hemisphere
-        else:
-            if month in [6, 7, 8]:  # Winter - longer nights
-                return 1.2
-            elif month in [12, 1, 2]:  # Summer - shorter nights
-                return 0.8
+        # Cap by actual astronomical night length for this latitude/month
+        dark_hours = self._astronomical_night_length(latitude, month)
+        return max(0.0, min(hours_above_alt, dark_hours))
 
-        return 1.0  # Spring/Fall
+    def _astronomical_night_length(self, latitude: float, month: int) -> float:
+        """
+        Calculate length of astronomical night (sun below -18°) in hours.
+
+        Uses the standard solar hour-angle formula for the middle of each month.
+        Returns 0 for polar summer (midnight sun) and 24 for polar winter.
+        """
+        # Day-of-year for the 15th of each month
+        month_doy = [15, 46, 75, 106, 136, 167, 197, 228, 259, 289, 320, 350]
+        doy = month_doy[month - 1]
+
+        # Solar declination (degrees)
+        decl_deg = -23.45 * math.cos(math.radians(360.0 * (doy + 10) / 365.0))
+        decl_rad = math.radians(decl_deg)
+        lat_rad = math.radians(latitude)
+
+        # Hour angle when sun reaches -18° depression
+        sin_dep = math.sin(math.radians(-18.0))
+        denom = math.cos(lat_rad) * math.cos(decl_rad)
+        if abs(denom) < 1e-9:
+            return 12.0  # degenerate — return half night
+
+        cos_ha = (sin_dep - math.sin(lat_rad) * math.sin(decl_rad)) / denom
+
+        if cos_ha > 1.0:
+            return 0.0   # sun never gets to -18°: perpetual twilight (polar summer)
+        elif cos_ha < -1.0:
+            return 24.0  # sun always below -18°: polar night
+
+        ha_deg = math.degrees(math.acos(cos_ha))
+        return 2.0 * ha_deg / 15.0  # hours
 
     def _is_evening_object(self, ra_hours: float, month: int) -> bool:
         """Check if object transits during evening hours (7pm-midnight)."""
