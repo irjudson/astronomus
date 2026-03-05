@@ -186,6 +186,15 @@ export const usePlanningStore = defineStore('planning', {
         const response = await axios.get(`/api/plans/${id}`)
         this.currentPlan = response.data.plan
         this.planName = response.data.name
+        // Restore constraints that were active when the plan was generated
+        const c = response.data.plan?.constraints
+        if (c) {
+          if (c.min_altitude_degrees != null) this.constraints.min_altitude_degrees = c.min_altitude_degrees
+          if (c.max_altitude_degrees != null) this.constraints.max_altitude_degrees = c.max_altitude_degrees
+          if (c.avoid_moon != null) this.constraints.avoid_moon = c.avoid_moon
+          if (c.setup_time_minutes != null) this.constraints.setup_time_minutes = c.setup_time_minutes
+          if (c.object_types?.length) this.constraints.object_types = c.object_types
+        }
         return response.data
       } catch (err) {
         this.error = 'Failed to load plan: ' + (err.response?.data?.detail || err.message)

@@ -564,6 +564,7 @@ class SchedulerService:
         constraints: ObservingConstraints,
         weather_forecasts: List,
         observed_targets: set,
+        scheduled_types: Optional[set] = None,
     ) -> List[ScheduledTarget]:
         """
         Fill schedule gaps with suitable targets.
@@ -578,6 +579,7 @@ class SchedulerService:
             constraints: Observing constraints
             weather_forecasts: Weather forecasts
             observed_targets: Set of already-scheduled target IDs
+            scheduled_types: Set of object_type strings already in the schedule
 
         Returns:
             List of gap-filler ScheduledTarget objects
@@ -585,6 +587,7 @@ class SchedulerService:
         gap_fillers = []
         relaxed_min_score = 0.5  # Relaxed from normal 0.6
         max_gaps_to_fill = 20  # Prevent excessive computation
+        current_scheduled_types = set(scheduled_types or [])
 
         for gap in gaps[:max_gaps_to_fill]:
             # Find best target for this gap
@@ -595,6 +598,7 @@ class SchedulerService:
                 constraints=constraints,
                 weather_forecasts=weather_forecasts,
                 observed_targets=observed_targets,
+                scheduled_types=current_scheduled_types,
                 min_score=relaxed_min_score,
             )
 
@@ -648,6 +652,7 @@ class SchedulerService:
 
                 gap_fillers.append(gap_filler)
                 observed_targets.add(target.catalog_id)
+                current_scheduled_types.add(target.object_type)
 
         return gap_fillers
 
@@ -660,6 +665,7 @@ class SchedulerService:
         weather_forecasts: List,
         observed_targets: set,
         min_score: float,
+        scheduled_types: Optional[set] = None,
     ) -> Optional[Tuple[DSOTarget, timedelta, TargetScore, List[GapAlternative]]]:
         """
         Find the best target to fill a specific gap.
@@ -672,6 +678,7 @@ class SchedulerService:
             weather_forecasts: Weather forecasts
             observed_targets: Set of already-scheduled target IDs
             min_score: Minimum acceptable score
+            scheduled_types: Set of object_type strings already scheduled (for diversity)
 
         Returns:
             Tuple of (target, duration, score, alternatives) or None if no suitable target
@@ -711,9 +718,8 @@ class SchedulerService:
             fit_ratio = duration.total_seconds() / gap_duration.total_seconds()
             fit_bonus = 0.1 if fit_ratio >= 0.9 else 0.0
 
-            # Diversity bonus: prefer different object types
-            # (This would require passing current plan object types - simplified for now)
-            diversity_bonus = 0.05 if target.object_type not in ["galaxy"] else 0.0  # Placeholder
+            # Diversity bonus: prefer object types not already in the schedule
+            diversity_bonus = 0.05 if (scheduled_types and target.object_type not in scheduled_types) else 0.0
 
             total_score = base_score + fit_bonus + diversity_bonus
 

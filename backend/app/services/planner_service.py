@@ -240,6 +240,7 @@ class PlannerService:
 
             # Fill gaps with candidate pool
             t5 = time.time()
+            scheduled_types = {st.target.object_type for st in scheduled_targets if st.target.object_type}
             gap_fillers = self.scheduler.fill_gaps(
                 gaps=gaps,
                 targets=gap_filler_candidates,
@@ -248,6 +249,7 @@ class PlannerService:
                 constraints=request.constraints,
                 weather_forecasts=weather_forecast,
                 observed_targets=observed_targets,
+                scheduled_types=scheduled_types,
             )
             print(f"[TIMING] Gap filling: {time.time() - t5:.2f}s ({len(gap_fillers)} gap fillers added)")
 
@@ -268,6 +270,7 @@ class PlannerService:
         plan = ObservingPlan(
             session=session,
             location=request.location,
+            constraints=request.constraints,
             scheduled_targets=all_scheduled,
             weather_forecast=weather_forecast,
             total_targets=len(all_scheduled),
