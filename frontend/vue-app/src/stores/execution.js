@@ -291,29 +291,31 @@ export const useExecutionStore = defineStore('execution', {
       }
     },
 
-    async moveDirection(direction, speed) {
+    async moveDirection(direction, { percent, dur_sec } = {}) {
       if (!this.connected) {
         this.error = 'Telescope not connected'
         throw new Error('Telescope not connected')
       }
 
       try {
-        // Convert speed string to numeric multiplier
-        const speedMap = {
-          slow: 0.5,
-          fast: 2.0
-        }
-
-        // API expects 'action' (up/down/left/right) and numeric 'speed'
         await axios.post('/api/telescope/move', {
           action: direction,
-          speed: speedMap[speed] || 1.0
+          ...(percent != null && { percent }),
+          ...(dur_sec != null && { dur_sec }),
         })
-
-        this.addMessage(`Moving ${direction} (${speed})`)
       } catch (err) {
         this.error = 'Failed to move telescope: ' + err.message
         console.error('Move error:', err)
+        throw err
+      }
+    },
+
+    async moveJoystick(angle, percent, dur_sec = 2) {
+      if (!this.connected) throw new Error('Telescope not connected')
+      try {
+        await axios.post('/api/telescope/move-joystick', { angle, percent, dur_sec })
+      } catch (err) {
+        console.error('Joystick move error:', err)
         throw err
       }
     },

@@ -1634,7 +1634,13 @@ class SeestarClient:
             return False
 
     async def move_scope(
-        self, action: str, ra: Optional[float] = None, dec: Optional[float] = None, speed: Optional[float] = None
+        self,
+        action: str,
+        ra: Optional[float] = None,
+        dec: Optional[float] = None,
+        speed: Optional[float] = None,
+        dur_sec: Optional[int] = None,
+        percent: Optional[int] = None,
     ) -> bool:
         """Direct mount movement control.
 
@@ -1683,16 +1689,18 @@ class SeestarClient:
             }
             angle = direction_angles[action]
 
-            # percent maps joystick distance to 1-100; level is always 1; dur_sec=3
-            # Source: ScopeSpeedMoveCmd.java — params are {angle, percent, level, dur_sec}
-            speed_multiplier = speed if speed is not None else 1.0
-            percent = int(min(100, max(1, speed_multiplier * 100)))
+            # percent maps joystick distance to 1-100; level is always 1
+            # percent and dur_sec can be provided directly by caller, or derived from speed multiplier
+            if percent is None:
+                speed_multiplier = speed if speed is not None else 1.0
+                percent = int(min(100, max(1, speed_multiplier * 100)))
+            else:
+                percent = int(min(100, max(1, percent)))
+            effective_dur = dur_sec if dur_sec is not None else 3
 
-            self.logger.info(
-                f"Directional move {action}: angle={angle}°, percent={percent}, speed_multiplier={speed_multiplier:.1f}x"
-            )
+            self.logger.info(f"Directional move {action}: angle={angle}°, percent={percent}, dur_sec={effective_dur}")
 
-            params = {"angle": angle, "percent": percent, "level": 1, "dur_sec": 3}
+            params = {"angle": angle, "percent": percent, "level": 1, "dur_sec": effective_dur}
 
             response = await self._send_command("scope_speed_move", params)
             return response.get("result") == 0

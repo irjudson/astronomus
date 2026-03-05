@@ -1633,6 +1633,8 @@ async def move_telescope(request: dict):
 
         action = request.get("action")
         speed = request.get("speed")
+        dur_sec = request.get("dur_sec")  # override default duration
+        percent = request.get("percent")  # override default percent (1-100)
 
         if not action:
             raise HTTPException(status_code=400, detail="Missing action parameter")
@@ -1641,7 +1643,7 @@ async def move_telescope(request: dict):
         if action not in valid_actions:
             raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of: {valid_actions}")
 
-        success = await seestar_client.move_scope(action=action, speed=speed)
+        success = await seestar_client.move_scope(action=action, speed=speed, dur_sec=dur_sec, percent=percent)
 
         if success:
             return {"status": "moving" if action not in ["stop", "abort"] else "stopped", "action": action}
@@ -1651,6 +1653,38 @@ async def move_telescope(request: dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Move failed: {str(e)}")
+
+
+@router.post("/telescope/move-joystick")
+async def move_telescope_joystick(request: dict):
+    """
+    Joystick-style movement: raw angle (0-360°) + percent (1-100) + dur_sec.
+    Maps directly to scope_speed_move without converting direction strings.
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        angle = request.get("angle")
+        percent = request.get("percent", 50)
+        dur_sec = request.get("dur_sec", 2)
+
+        if angle is None:
+            raise HTTPException(status_code=400, detail="angle required (0-360 degrees)")
+
+        params = {
+            "angle": int(angle % 360),
+            "percent": int(min(100, max(1, percent))),
+            "level": 1,
+            "dur_sec": int(dur_sec),
+        }
+        response = await seestar_client._send_command("scope_speed_move", params)
+        success = response.get("result") == 0
+        return {"status": "moving" if success else "error", "angle": angle, "percent": percent}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Joystick move failed: {str(e)}")
 
 
 @router.post("/telescope/goto")
