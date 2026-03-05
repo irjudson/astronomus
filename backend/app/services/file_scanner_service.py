@@ -138,6 +138,7 @@ class FileScannerService:
 
             try:
                 from photutils.detection import DAOStarFinder
+
                 _has_photutils = True
             except ImportError:
                 _has_photutils = False
@@ -197,6 +198,7 @@ class FileScannerService:
 
         except Exception as exc:
             import logging
+
             logging.getLogger(__name__).debug(f"Quality metrics failed for {file_path}: {exc}")
             return {"fwhm": None, "star_count": None}
 

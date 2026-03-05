@@ -43,8 +43,7 @@ class LocalWeatherReading:
     def wind_direction_compass(self) -> Optional[str]:
         if self.wind_direction_deg is None:
             return None
-        dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-                "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+        dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
         idx = round(self.wind_direction_deg / 22.5) % 16
         return dirs[idx]
 

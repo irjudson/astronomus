@@ -23,6 +23,7 @@ try:
 except ImportError as e:
     print(f"Error: pyongc not installed. Details: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -32,7 +33,8 @@ def create_database_schema(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
     # Main DSO catalog table
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS dso_catalog (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             catalog_name VARCHAR(20),        -- 'NGC', 'IC', 'Messier'
@@ -60,41 +62,54 @@ def create_database_schema(conn: sqlite3.Connection) -> None:
             -- Ensure uniqueness
             UNIQUE(catalog_name, catalog_number)
         )
-    """)
+    """
+    )
 
     # Create indexes for fast queries
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_object_type
         ON dso_catalog(object_type)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_magnitude
         ON dso_catalog(magnitude)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_coords
         ON dso_catalog(ra_hours, dec_degrees)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_constellation
         ON dso_catalog(constellation)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_catalog_lookup
         ON dso_catalog(catalog_name, catalog_number)
-    """)
+    """
+    )
 
     # Constellation names lookup table
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS constellation_names (
             abbreviation VARCHAR(10) PRIMARY KEY,
             full_name VARCHAR(50) NOT NULL
         )
-    """)
+    """
+    )
 
     conn.commit()
     print("✅ Database schema created successfully")
@@ -105,36 +120,104 @@ def populate_constellation_names(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
     constellations = {
-        "And": "Andromeda", "Ant": "Antlia", "Aps": "Apus", "Aqr": "Aquarius",
-        "Aql": "Aquila", "Ara": "Ara", "Ari": "Aries", "Aur": "Auriga",
-        "Boo": "Boötes", "Cae": "Caelum", "Cam": "Camelopardalis", "Cnc": "Cancer",
-        "CVn": "Canes Venatici", "CMa": "Canis Major", "CMi": "Canis Minor",
-        "Cap": "Capricornus", "Car": "Carina", "Cas": "Cassiopeia", "Cen": "Centaurus",
-        "Cep": "Cepheus", "Cet": "Cetus", "Cha": "Chamaeleon", "Cir": "Circinus",
-        "Col": "Columba", "Com": "Coma Berenices", "CrA": "Corona Australis",
-        "CrB": "Corona Borealis", "Crv": "Corvus", "Crt": "Crater", "Cru": "Crux",
-        "Cyg": "Cygnus", "Del": "Delphinus", "Dor": "Dorado", "Dra": "Draco",
-        "Equ": "Equuleus", "Eri": "Eridanus", "For": "Fornax", "Gem": "Gemini",
-        "Gru": "Grus", "Her": "Hercules", "Hor": "Horologium", "Hya": "Hydra",
-        "Hyi": "Hydrus", "Ind": "Indus", "Lac": "Lacerta", "Leo": "Leo",
-        "LMi": "Leo Minor", "Lep": "Lepus", "Lib": "Libra", "Lup": "Lupus",
-        "Lyn": "Lynx", "Lyr": "Lyra", "Men": "Mensa", "Mic": "Microscopium",
-        "Mon": "Monoceros", "Mus": "Musca", "Nor": "Norma", "Oct": "Octans",
-        "Oph": "Ophiuchus", "Ori": "Orion", "Pav": "Pavo", "Peg": "Pegasus",
-        "Per": "Perseus", "Phe": "Phoenix", "Pic": "Pictor", "Psc": "Pisces",
-        "PsA": "Piscis Austrinus", "Pup": "Puppis", "Pyx": "Pyxis", "Ret": "Reticulum",
-        "Sge": "Sagitta", "Sgr": "Sagittarius", "Sco": "Scorpius", "Scl": "Sculptor",
-        "Sct": "Scutum", "Ser": "Serpens", "Sex": "Sextans", "Tau": "Taurus",
-        "Tel": "Telescopium", "Tri": "Triangulum", "TrA": "Triangulum Australe",
-        "Tuc": "Tucana", "UMa": "Ursa Major", "UMi": "Ursa Minor", "Vel": "Vela",
-        "Vir": "Virgo", "Vol": "Volans", "Vul": "Vulpecula"
+        "And": "Andromeda",
+        "Ant": "Antlia",
+        "Aps": "Apus",
+        "Aqr": "Aquarius",
+        "Aql": "Aquila",
+        "Ara": "Ara",
+        "Ari": "Aries",
+        "Aur": "Auriga",
+        "Boo": "Boötes",
+        "Cae": "Caelum",
+        "Cam": "Camelopardalis",
+        "Cnc": "Cancer",
+        "CVn": "Canes Venatici",
+        "CMa": "Canis Major",
+        "CMi": "Canis Minor",
+        "Cap": "Capricornus",
+        "Car": "Carina",
+        "Cas": "Cassiopeia",
+        "Cen": "Centaurus",
+        "Cep": "Cepheus",
+        "Cet": "Cetus",
+        "Cha": "Chamaeleon",
+        "Cir": "Circinus",
+        "Col": "Columba",
+        "Com": "Coma Berenices",
+        "CrA": "Corona Australis",
+        "CrB": "Corona Borealis",
+        "Crv": "Corvus",
+        "Crt": "Crater",
+        "Cru": "Crux",
+        "Cyg": "Cygnus",
+        "Del": "Delphinus",
+        "Dor": "Dorado",
+        "Dra": "Draco",
+        "Equ": "Equuleus",
+        "Eri": "Eridanus",
+        "For": "Fornax",
+        "Gem": "Gemini",
+        "Gru": "Grus",
+        "Her": "Hercules",
+        "Hor": "Horologium",
+        "Hya": "Hydra",
+        "Hyi": "Hydrus",
+        "Ind": "Indus",
+        "Lac": "Lacerta",
+        "Leo": "Leo",
+        "LMi": "Leo Minor",
+        "Lep": "Lepus",
+        "Lib": "Libra",
+        "Lup": "Lupus",
+        "Lyn": "Lynx",
+        "Lyr": "Lyra",
+        "Men": "Mensa",
+        "Mic": "Microscopium",
+        "Mon": "Monoceros",
+        "Mus": "Musca",
+        "Nor": "Norma",
+        "Oct": "Octans",
+        "Oph": "Ophiuchus",
+        "Ori": "Orion",
+        "Pav": "Pavo",
+        "Peg": "Pegasus",
+        "Per": "Perseus",
+        "Phe": "Phoenix",
+        "Pic": "Pictor",
+        "Psc": "Pisces",
+        "PsA": "Piscis Austrinus",
+        "Pup": "Puppis",
+        "Pyx": "Pyxis",
+        "Ret": "Reticulum",
+        "Sge": "Sagitta",
+        "Sgr": "Sagittarius",
+        "Sco": "Scorpius",
+        "Scl": "Sculptor",
+        "Sct": "Scutum",
+        "Ser": "Serpens",
+        "Sex": "Sextans",
+        "Tau": "Taurus",
+        "Tel": "Telescopium",
+        "Tri": "Triangulum",
+        "TrA": "Triangulum Australe",
+        "Tuc": "Tucana",
+        "UMa": "Ursa Major",
+        "UMi": "Ursa Minor",
+        "Vel": "Vela",
+        "Vir": "Virgo",
+        "Vol": "Volans",
+        "Vul": "Vulpecula",
     }
 
     for abbr, full in constellations.items():
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR IGNORE INTO constellation_names (abbreviation, full_name)
             VALUES (?, ?)
-        """, (abbr, full))
+        """,
+            (abbr, full),
+        )
 
     conn.commit()
     print(f"✅ Populated {len(constellations)} constellation names")
@@ -145,29 +228,29 @@ def map_object_type(ongc_type: str) -> str:
     # pyongc returns nice type strings like "Galaxy", "Nebula", etc.
     # Just normalize to lowercase
     if not ongc_type:
-        return 'other'
+        return "other"
 
     type_lower = ongc_type.lower().strip()
 
     # Map variations to standard types
     type_mapping = {
-        'galaxy': 'galaxy',
-        'open cluster': 'cluster',
-        'globular cluster': 'cluster',
-        'cluster': 'cluster',
-        'planetary nebula': 'planetary_nebula',
-        'nebula': 'nebula',
-        'emission nebula': 'nebula',
-        'reflection nebula': 'nebula',
-        'supernova remnant': 'nebula',
-        'h ii region': 'nebula',
-        'star': 'star',
-        'double star': 'star',
-        'nonexistent': 'nonexistent',
-        'duplicate': 'duplicate',
+        "galaxy": "galaxy",
+        "open cluster": "cluster",
+        "globular cluster": "cluster",
+        "cluster": "cluster",
+        "planetary nebula": "planetary_nebula",
+        "nebula": "nebula",
+        "emission nebula": "nebula",
+        "reflection nebula": "nebula",
+        "supernova remnant": "nebula",
+        "h ii region": "nebula",
+        "star": "star",
+        "double star": "star",
+        "nonexistent": "nonexistent",
+        "duplicate": "duplicate",
     }
 
-    return type_mapping.get(type_lower, 'other')
+    return type_mapping.get(type_lower, "other")
 
 
 def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> int:
@@ -188,7 +271,7 @@ def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) ->
 
             # Skip nonexistent and duplicate entries
             obj_type = map_object_type(obj.type)
-            if obj_type in ['nonexistent', 'duplicate', 'star']:
+            if obj_type in ["nonexistent", "duplicate", "star"]:
                 skipped += 1
                 continue
 
@@ -220,16 +303,20 @@ def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) ->
             if identifiers:
                 # Look for common names (not just catalog IDs)
                 for ident in identifiers:
-                    if ident and isinstance(ident, str) and not any(x in ident for x in ['NGC', 'IC', 'UGC', 'PGC', 'ESO']):
+                    if (
+                        ident
+                        and isinstance(ident, str)
+                        and not any(x in ident for x in ["NGC", "IC", "UGC", "PGC", "ESO"])
+                    ):
                         common_name = ident
                         break
 
             # Check if it's a Messier object
-            is_messier = 'M' in identifiers if identifiers else False
+            is_messier = "M" in identifiers if identifiers else False
             messier_num = None
             if is_messier:
                 for ident in identifiers:
-                    if ident.startswith('M') and ident[1:].isdigit():
+                    if ident.startswith("M") and ident[1:].isdigit():
                         messier_num = ident[1:]
                         break
 
@@ -238,7 +325,7 @@ def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) ->
             try:
                 if obj.magnitudes:
                     if isinstance(obj.magnitudes, dict):
-                        magnitude = obj.magnitudes.get('V') or obj.magnitudes.get('B')
+                        magnitude = obj.magnitudes.get("V") or obj.magnitudes.get("B")
                     elif isinstance(obj.magnitudes, (tuple, list)):
                         # Sometimes magnitudes is a tuple, take first value
                         magnitude = float(obj.magnitudes[0]) if obj.magnitudes[0] is not None else None
@@ -247,7 +334,8 @@ def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) ->
             except (TypeError, ValueError, IndexError):
                 magnitude = None
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO dso_catalog (
                     catalog_name, catalog_number, common_name,
                     ra_hours, dec_degrees,
@@ -255,19 +343,21 @@ def import_ngc_objects(conn: sqlite3.Connection, limit: Optional[int] = None) ->
                     size_major_arcmin, size_minor_arcmin,
                     constellation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'Messier' if is_messier else 'NGC',
-                messier_num if is_messier else str(ngc_num),
-                common_name,
-                ra,  # RA in hours
-                dec,  # Dec in degrees
-                obj_type,
-                magnitude,
-                float(obj.surface_brightness) if obj.surface_brightness else None,
-                size_major,
-                size_minor,
-                obj.constellation if obj.constellation else None
-            ))
+            """,
+                (
+                    "Messier" if is_messier else "NGC",
+                    messier_num if is_messier else str(ngc_num),
+                    common_name,
+                    ra,  # RA in hours
+                    dec,  # Dec in degrees
+                    obj_type,
+                    magnitude,
+                    float(obj.surface_brightness) if obj.surface_brightness else None,
+                    size_major,
+                    size_minor,
+                    obj.constellation if obj.constellation else None,
+                ),
+            )
 
             imported += 1
 
@@ -308,7 +398,7 @@ def import_ic_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> 
 
             # Skip nonexistent and duplicate entries
             obj_type = map_object_type(obj.type)
-            if obj_type in ['nonexistent', 'duplicate', 'star']:
+            if obj_type in ["nonexistent", "duplicate", "star"]:
                 skipped += 1
                 continue
 
@@ -339,7 +429,11 @@ def import_ic_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> 
                 identifiers = []
             if identifiers:
                 for ident in identifiers:
-                    if ident and isinstance(ident, str) and not any(x in ident for x in ['NGC', 'IC', 'UGC', 'PGC', 'ESO']):
+                    if (
+                        ident
+                        and isinstance(ident, str)
+                        and not any(x in ident for x in ["NGC", "IC", "UGC", "PGC", "ESO"])
+                    ):
                         common_name = ident
                         break
 
@@ -348,7 +442,7 @@ def import_ic_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> 
             try:
                 if obj.magnitudes:
                     if isinstance(obj.magnitudes, dict):
-                        magnitude = obj.magnitudes.get('V') or obj.magnitudes.get('B')
+                        magnitude = obj.magnitudes.get("V") or obj.magnitudes.get("B")
                     elif isinstance(obj.magnitudes, (tuple, list)):
                         # Sometimes magnitudes is a tuple, take first value
                         magnitude = float(obj.magnitudes[0]) if obj.magnitudes[0] is not None else None
@@ -357,7 +451,8 @@ def import_ic_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> 
             except (TypeError, ValueError, IndexError):
                 magnitude = None
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO dso_catalog (
                     catalog_name, catalog_number, common_name,
                     ra_hours, dec_degrees,
@@ -365,19 +460,21 @@ def import_ic_objects(conn: sqlite3.Connection, limit: Optional[int] = None) -> 
                     size_major_arcmin, size_minor_arcmin,
                     constellation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'IC',
-                str(ic_num),
-                common_name,
-                ra,  # RA in hours
-                dec,  # Dec in degrees
-                obj_type,
-                magnitude,
-                float(obj.surface_brightness) if obj.surface_brightness else None,
-                size_major,
-                size_minor,
-                obj.constellation if obj.constellation else None
-            ))
+            """,
+                (
+                    "IC",
+                    str(ic_num),
+                    common_name,
+                    ra,  # RA in hours
+                    dec,  # Dec in degrees
+                    obj_type,
+                    magnitude,
+                    float(obj.surface_brightness) if obj.surface_brightness else None,
+                    size_major,
+                    size_minor,
+                    obj.constellation if obj.constellation else None,
+                ),
+            )
 
             imported += 1
 
@@ -407,26 +504,30 @@ def print_statistics(conn: sqlite3.Connection) -> None:
     total = cursor.fetchone()[0]
 
     # Count by catalog
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT catalog_name, COUNT(*)
         FROM dso_catalog
         GROUP BY catalog_name
         ORDER BY COUNT(*) DESC
-    """)
+    """
+    )
     by_catalog = cursor.fetchall()
 
     # Count by object type
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT object_type, COUNT(*)
         FROM dso_catalog
         GROUP BY object_type
         ORDER BY COUNT(*) DESC
-    """)
+    """
+    )
     by_type = cursor.fetchall()
 
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("DATABASE STATISTICS")
-    print("="*50)
+    print("=" * 50)
     print(f"Total objects: {total}")
     print("\nBy catalog:")
     for catalog, count in by_catalog:
@@ -434,30 +535,21 @@ def print_statistics(conn: sqlite3.Connection) -> None:
     print("\nBy object type:")
     for obj_type, count in by_type:
         print(f"  {obj_type}: {count}")
-    print("="*50)
+    print("=" * 50)
 
 
 def main():
     """Main import function."""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Import OpenNGC catalog to SQLite')
+    parser = argparse.ArgumentParser(description="Import OpenNGC catalog to SQLite")
     parser.add_argument(
-        '--database',
-        default='backend/data/catalogs.db',
-        help='Path to SQLite database file (default: backend/data/catalogs.db)'
+        "--database",
+        default="backend/data/catalogs.db",
+        help="Path to SQLite database file (default: backend/data/catalogs.db)",
     )
-    parser.add_argument(
-        '--limit',
-        type=int,
-        default=None,
-        help='Limit number of objects to import (for testing)'
-    )
-    parser.add_argument(
-        '--rebuild',
-        action='store_true',
-        help='Drop existing tables and rebuild from scratch'
-    )
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of objects to import (for testing)")
+    parser.add_argument("--rebuild", action="store_true", help="Drop existing tables and rebuild from scratch")
 
     args = parser.parse_args()
 
@@ -501,5 +593,5 @@ def main():
     print(f"   Database: {db_path}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

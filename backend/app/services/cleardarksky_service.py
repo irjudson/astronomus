@@ -121,6 +121,7 @@ class ClearDarkSkyService:
             resp.raise_for_status()
         except Exception as exc:
             import logging
+
             logging.getLogger(__name__).warning(f"Open-Meteo request failed: {exc}")
             return []
 

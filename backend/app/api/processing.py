@@ -340,10 +340,11 @@ async def analyze_comparison(request: ComparisonRequest):
 
         # Map /processing/outputs/<name> → PROCESSING_DIR/<name>
         if p.startswith("processing/outputs/"):
-            local = PROCESSING_DIR / p[len("processing/outputs/"):]
+            local = PROCESSING_DIR / p[len("processing/outputs/") :]
         # Map /fits/<path> or /telescope/preview/download?path=<path>
         elif "path=" in p:
             from urllib.parse import parse_qs, urlparse
+
             qs = parse_qs(urlparse(url_path).query)
             path_val = qs.get("path", [None])[0]
             if not path_val:
@@ -365,6 +366,7 @@ async def analyze_comparison(request: ComparisonRequest):
     # Resize ref to match our dimensions if needed
     if our.shape != ref.shape:
         from PIL import Image as _PIL
+
         ref_img = _PIL.fromarray(ref.astype(np.uint8))
         ref_img = ref_img.resize((our.shape[1], our.shape[0]), _PIL.LANCZOS)
         ref = np.array(ref_img, dtype=np.float32)
@@ -378,17 +380,19 @@ async def analyze_comparison(request: ComparisonRequest):
         our_ch = our[:, :, i]
         ref_ch = ref[:, :, i]
         d_ch = diff[:, :, i]
-        differences.append({
-            "aspect": f"{ch} channel",
-            "our_mean": round(float(our_ch.mean()), 1),
-            "ref_mean": round(float(ref_ch.mean()), 1),
-            "our_std": round(float(our_ch.std()), 1),
-            "ref_std": round(float(ref_ch.std()), 1),
-            "mean_delta": round(float(d_ch.mean()), 1),
-            "mae": round(float(np.abs(d_ch).mean()), 1),
-        })
+        differences.append(
+            {
+                "aspect": f"{ch} channel",
+                "our_mean": round(float(our_ch.mean()), 1),
+                "ref_mean": round(float(ref_ch.mean()), 1),
+                "our_std": round(float(our_ch.std()), 1),
+                "ref_std": round(float(ref_ch.std()), 1),
+                "mean_delta": round(float(d_ch.mean()), 1),
+                "mae": round(float(np.abs(d_ch).mean()), 1),
+            }
+        )
 
-    rmse = float(np.sqrt((diff ** 2).mean()))
+    rmse = float(np.sqrt((diff**2).mean()))
     max_diff = float(abs_diff.max())
     pct_identical = float(np.mean(abs_diff < 1.0) * 100)
 

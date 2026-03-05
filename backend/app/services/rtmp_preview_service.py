@@ -104,9 +104,7 @@ class RTMPPreviewService:
                         break
 
                     # Encode JPEG once here; use cv2 (faster than PIL round-trip)
-                    ok, jpeg_buf = cv2.imencode(
-                        ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80]
-                    )
+                    ok, jpeg_buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
                     if not ok:
                         continue
 
@@ -154,9 +152,7 @@ class RTMPPreviewService:
         with self._frame_cond:
             return self.latest_frame_jpeg
 
-    def wait_for_new_frame(
-        self, after_seq: int, timeout: float = 1.0
-    ) -> Tuple[Optional[bytes], int]:
+    def wait_for_new_frame(self, after_seq: int, timeout: float = 1.0) -> Tuple[Optional[bytes], int]:
         """Block until a frame newer than *after_seq* is available, or timeout.
 
         Returns (jpeg_bytes, new_seq).  If the service stops or times out,

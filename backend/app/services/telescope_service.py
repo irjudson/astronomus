@@ -441,9 +441,7 @@ class TelescopeService:
                 progress.imaging_started = True
 
                 def on_frame(frame: int, total: int, pct: float) -> None:
-                    self._update_progress(
-                        current_phase=f"Stacking: {frame}/{total} frames ({pct:.0f}%)"
-                    )
+                    self._update_progress(current_phase=f"Stacking: {frame}/{total} frames ({pct:.0f}%)")
                     if self._progress:
                         self._progress.target_progress[progress.index].actual_exposures = frame
 
@@ -505,9 +503,7 @@ class TelescopeService:
 
                 # Start AVI recording
                 await self.client.start_record_avi(filename=filename)
-                self.logger.info(
-                    f"Recording {target.target.name} ({preview_mode}) for {duration_seconds:.0f}s"
-                )
+                self.logger.info(f"Recording {target.target.name} ({preview_mode}) for {duration_seconds:.0f}s")
 
                 # Timed wait with periodic progress updates
                 elapsed = 0.0

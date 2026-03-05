@@ -601,8 +601,7 @@ async def update_user_settings(settings: UserSettings, db: Session = Depends(get
         _PREF_KEYS["annotationsEnabled"]: str(settings.annotationsEnabled).lower(),
     }
     existing_prefs = {
-        row.key: row
-        for row in db.query(AppSetting).filter(AppSetting.key.in_(list(pref_values.keys()))).all()
+        row.key: row for row in db.query(AppSetting).filter(AppSetting.key.in_(list(pref_values.keys()))).all()
     }
     for key, value in pref_values.items():
         if key in existing_prefs:

@@ -520,6 +520,7 @@ async def get_raw_device_state(telescope: SeestarClient = Depends(get_current_te
     """Return raw get_device_state({}) response — for diagnosing balance sensor key name."""
     try:
         from app.clients.seestar_client import CommandError
+
         response = await telescope._send_command("get_device_state", {})
         return response
     except Exception as e:

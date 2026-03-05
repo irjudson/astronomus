@@ -18,6 +18,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
@@ -76,22 +77,18 @@ def run_migrations_online() -> None:
     )
 
     # Check if we should run without transaction wrapper (used by test fixtures)
-    use_transaction = config.attributes.get('use_transaction', True)
+    use_transaction = config.attributes.get("use_transaction", True)
 
     if use_transaction:
         with connectable.connect() as connection:
-            context.configure(
-                connection=connection, target_metadata=target_metadata
-            )
+            context.configure(connection=connection, target_metadata=target_metadata)
             with context.begin_transaction():
                 context.run_migrations()
     else:
         # Use AUTOCOMMIT isolation so DDL changes persist immediately
         # Required for pytest fixtures where test sessions need to see schema changes
         with connectable.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
-            context.configure(
-                connection=connection, target_metadata=target_metadata
-            )
+            context.configure(connection=connection, target_metadata=target_metadata)
             context.run_migrations()
 
 

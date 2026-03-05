@@ -784,6 +784,7 @@ async def search_catalog(
             else:
                 # Fall back to app settings default location
                 from app.core import get_settings as _get_settings
+
                 _settings = _get_settings()
                 location = Location(
                     name=_settings.default_location_name,
@@ -2838,6 +2839,7 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
     # Prevent network calls to IERS servers that can block or fail
     try:
         from astropy.utils.iers import conf as iers_conf
+
         iers_conf.auto_download = False
         iers_conf.auto_max_age = None  # don't raise on stale data
     except Exception:
@@ -2857,8 +2859,15 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
 
     MAIN_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon", "Sun"]
     MOON_PARENTS = {
-        "Io": "Jupiter", "Europa": "Jupiter", "Ganymede": "Jupiter", "Callisto": "Jupiter",
-        "Titan": "Saturn", "Rhea": "Saturn", "Tethys": "Saturn", "Dione": "Saturn", "Enceladus": "Saturn",
+        "Io": "Jupiter",
+        "Europa": "Jupiter",
+        "Ganymede": "Jupiter",
+        "Callisto": "Jupiter",
+        "Titan": "Saturn",
+        "Rhea": "Saturn",
+        "Tethys": "Saturn",
+        "Dione": "Saturn",
+        "Enceladus": "Saturn",
     }
 
     results = []
@@ -2875,33 +2884,37 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
             parent_visible[name] = is_visible
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
             planet = planet_service.get_planet_by_name(name)
-            results.append({
-                "name": name,
-                "type": obj_type,
-                "magnitude": round(eph.magnitude, 1),
-                "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
-                "altitude_deg": round(altitude_deg, 1),
-                "is_visible": is_visible,
-                "constellation": eph.constellation,
-                "notes": planet.notes if planet else None,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "type": obj_type,
+                    "magnitude": round(eph.magnitude, 1),
+                    "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
+                    "altitude_deg": round(altitude_deg, 1),
+                    "is_visible": is_visible,
+                    "constellation": eph.constellation,
+                    "notes": planet.notes if planet else None,
+                }
+            )
         except Exception as exc:
             logger.warning("solar-system: failed to compute %s: %s", name, exc)
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
             results.append({"name": name, "type": obj_type, "is_visible": False})
 
     for moon, parent in MOON_PARENTS.items():
-        results.append({
-            "name": moon,
-            "type": "moon",
-            "parent": parent,
-            "is_visible": parent_visible.get(parent, False),
-            "magnitude": None,
-            "altitude_deg": None,
-            "angular_diameter_arcsec": None,
-            "constellation": None,
-            "notes": None,
-        })
+        results.append(
+            {
+                "name": moon,
+                "type": "moon",
+                "parent": parent,
+                "is_visible": parent_visible.get(parent, False),
+                "magnitude": None,
+                "altitude_deg": None,
+                "angular_diameter_arcsec": None,
+                "constellation": None,
+                "notes": None,
+            }
+        )
 
     return results
 
@@ -2910,8 +2923,7 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
 async def get_solar_system_objects(lat: Optional[float] = Query(None), lon: Optional[float] = Query(None)):
     """All solar system targets with current ephemeris, computed in a thread pool."""
     import asyncio
+
     loop = asyncio.get_running_loop()
-    objects = await loop.run_in_executor(
-        None, _compute_solar_system_objects_sync, lat or 0.0, lon or 0.0
-    )
+    objects = await loop.run_in_executor(None, _compute_solar_system_objects_sync, lat or 0.0, lon or 0.0)
     return {"objects": objects}
