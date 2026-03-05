@@ -23,17 +23,24 @@
       <div class="flex flex-col h-full">
         <!-- View Header -->
         <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-200">Observation Plan</h2>
-              <p class="text-sm text-gray-500">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <!-- Editable plan name when plan exists, static title otherwise -->
+              <input
+                v-if="planningStore.currentPlan"
+                v-model="planningStore.planName"
+                class="text-lg font-semibold text-gray-200 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none w-full transition-colors"
+                placeholder="Name this plan..."
+              />
+              <h2 v-else class="text-lg font-semibold text-gray-200">Observation Plan</h2>
+              <p class="text-sm text-gray-500 mt-0.5">
                 <span v-if="planningStore.currentPlan">
                   {{ planningStore.currentPlan.total_targets }} targets • {{ Math.round(planningStore.currentPlan.coverage_percent) }}% coverage
                 </span>
                 <span v-else>No plan generated</span>
               </p>
             </div>
-            <div v-if="planningStore.currentPlan" class="flex gap-2">
+            <div v-if="planningStore.currentPlan" class="flex gap-2 flex-shrink-0">
               <button
                 @click="executePlan"
                 :disabled="planningStore.loading || !executionStore.connected"
@@ -129,6 +136,54 @@
                 </div>
               </div>
             </div>
+
+            <!-- Solar System Targets from Wishlist -->
+            <div v-if="planningStore.currentPlan.solar_system_targets?.length" class="space-y-3 mt-6">
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Solar System Targets (from Wishlist)</h3>
+              <div
+                v-for="obj in planningStore.currentPlan.solar_system_targets"
+                :key="obj.name"
+                class="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="text-gray-200 font-medium">{{ obj.name }}</span>
+                      <span class="px-2 py-0.5 bg-purple-600/20 text-purple-400 text-xs rounded capitalize">{{ obj.type }}</span>
+                      <span
+                        v-if="obj.is_visible"
+                        class="px-2 py-0.5 bg-green-600/20 text-green-400 text-xs rounded"
+                      >Visible Tonight</span>
+                      <span
+                        v-else
+                        class="px-2 py-0.5 bg-gray-600/20 text-gray-500 text-xs rounded"
+                      >Below Horizon</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                      <div v-if="obj.altitude_deg != null">
+                        <span class="text-gray-500">Altitude:</span>
+                        <span class="text-gray-300 ml-2">{{ obj.altitude_deg }}°</span>
+                      </div>
+                      <div v-if="obj.magnitude != null">
+                        <span class="text-gray-500">Magnitude:</span>
+                        <span class="text-gray-300 ml-2">{{ obj.magnitude }}</span>
+                      </div>
+                      <div v-if="obj.constellation">
+                        <span class="text-gray-500">Constellation:</span>
+                        <span class="text-gray-300 ml-2">{{ obj.constellation }}</span>
+                      </div>
+                      <div v-if="obj.angular_diameter_arcsec">
+                        <span class="text-gray-500">Angular size:</span>
+                        <span class="text-gray-300 ml-2">{{ obj.angular_diameter_arcsec }}″</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right ml-4">
+                    <span class="text-xs text-gray-500 uppercase tracking-wide">Planetary</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-else class="flex-1 flex items-center justify-center">
@@ -181,9 +236,13 @@ const formatTime = (dateTimeStr) => {
 }
 
 const savePlan = async () => {
+  if (!planningStore.planName?.trim()) {
+    alert('Please give the plan a name before saving.')
+    return
+  }
   try {
     await planningStore.savePlan()
-    alert('Plan saved successfully!')
+    alert(`Plan saved as "${planningStore.planName}"`)
   } catch (err) {
     alert('Failed to save plan: ' + err.message)
   }

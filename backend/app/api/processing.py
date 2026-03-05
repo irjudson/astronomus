@@ -323,53 +323,88 @@ async def get_seestar_comparison(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/analyze-comparison")
 async def analyze_comparison(request: ComparisonRequest):
-    """
-    Analyze differences between our processed image and Seestar's output.
+    """Compare two images by computing real pixel-level statistics.
 
-    This endpoint provides AI-assisted analysis comparing processing results.
+    Loads both images from local file paths (URL paths are mapped to the
+    filesystem), then computes per-channel histogram and difference metrics.
     """
-    # This is a placeholder for AI analysis
-    # In production, you could use computer vision to analyze the images
+    import numpy as np
+    from PIL import Image
 
-    analysis = {
-        "summary": "Comparison Analysis",
-        "differences": [
-            {
-                "aspect": "Histogram Stretch",
-                "observation": "Both images show similar overall brightness and contrast distribution. Your processing pipeline appears to preserve the dynamic range effectively.",
-                "rating": "Excellent",
-            },
-            {
-                "aspect": "Noise Levels",
-                "observation": "Seestar applies aggressive noise reduction which can smooth fine details. Your processing may show more granular structure in nebulae and galaxies.",
-                "rating": "Good",
-            },
-            {
-                "aspect": "Color Balance",
-                "observation": "Seestar tends to boost color saturation for visual appeal. Your processing maintains more natural color balance suitable for further editing.",
-                "rating": "Good",
-            },
-            {
-                "aspect": "Star Definition",
-                "observation": "Star profiles appear similar in both versions. No significant bloating or compression detected.",
-                "rating": "Excellent",
-            },
-            {
-                "aspect": "Background Calibration",
-                "observation": "Background levels are well-balanced in both images. Neither shows significant gradients or artifacts.",
-                "rating": "Excellent",
-            },
-        ],
-        "recommendations": [
-            "Your processing pipeline successfully reproduces Seestar's quality",
-            "Consider adjusting color saturation if you prefer Seestar's more vibrant look",
-            "Your output is well-suited for further editing in PixInsight or similar tools",
-            "The preservation of fine detail makes your version better for scientific analysis",
-        ],
-        "overall_assessment": "Your processing pipeline achieves excellent results comparable to Seestar's built-in processing. The main differences are stylistic rather than quality-based, with your version preserving more natural colors and fine detail while Seestar optimizes for immediate visual impact.",
+    def _load(url_path: str) -> np.ndarray:
+        """Resolve a URL-style path to a filesystem path and load as numpy array."""
+        # Strip leading /api prefix and map to known directories
+        p = url_path.lstrip("/")
+        if p.startswith("api/"):
+            p = p[4:]
+
+        # Map /processing/outputs/<name> → PROCESSING_DIR/<name>
+        if p.startswith("processing/outputs/"):
+            local = PROCESSING_DIR / p[len("processing/outputs/"):]
+        # Map /fits/<path> or /telescope/preview/download?path=<path>
+        elif "path=" in p:
+            from urllib.parse import parse_qs, urlparse
+            qs = parse_qs(urlparse(url_path).query)
+            path_val = qs.get("path", [None])[0]
+            if not path_val:
+                raise ValueError(f"Cannot resolve path from URL: {url_path}")
+            local = Path("/fits") / path_val
+        else:
+            local = Path("/") / p
+
+        if not local.exists():
+            raise FileNotFoundError(f"Image not found: {local}")
+        return np.array(Image.open(local).convert("RGB"), dtype=np.float32)
+
+    try:
+        our = _load(request.our_image_url)
+        ref = _load(request.seestar_image_url)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not load images: {exc}")
+
+    # Resize ref to match our dimensions if needed
+    if our.shape != ref.shape:
+        from PIL import Image as _PIL
+        ref_img = _PIL.fromarray(ref.astype(np.uint8))
+        ref_img = ref_img.resize((our.shape[1], our.shape[0]), _PIL.LANCZOS)
+        ref = np.array(ref_img, dtype=np.float32)
+
+    diff = our - ref
+    abs_diff = np.abs(diff)
+    channel_names = ["Red", "Green", "Blue"]
+
+    differences = []
+    for i, ch in enumerate(channel_names):
+        our_ch = our[:, :, i]
+        ref_ch = ref[:, :, i]
+        d_ch = diff[:, :, i]
+        differences.append({
+            "aspect": f"{ch} channel",
+            "our_mean": round(float(our_ch.mean()), 1),
+            "ref_mean": round(float(ref_ch.mean()), 1),
+            "our_std": round(float(our_ch.std()), 1),
+            "ref_std": round(float(ref_ch.std()), 1),
+            "mean_delta": round(float(d_ch.mean()), 1),
+            "mae": round(float(np.abs(d_ch).mean()), 1),
+        })
+
+    rmse = float(np.sqrt((diff ** 2).mean()))
+    max_diff = float(abs_diff.max())
+    pct_identical = float(np.mean(abs_diff < 1.0) * 100)
+
+    return {
+        "summary": "Pixel-level comparison",
+        "dimensions": {
+            "our": {"width": int(our.shape[1]), "height": int(our.shape[0])},
+            "ref": {"width": int(ref.shape[1]), "height": int(ref.shape[0])},
+        },
+        "differences": differences,
+        "overall": {
+            "rmse": round(rmse, 2),
+            "max_pixel_delta": round(max_diff, 1),
+            "pct_pixels_identical": round(pct_identical, 1),
+        },
     }
-
-    return analysis
 
 
 @router.get("/jobs", response_model=List[JobResponse])

@@ -230,6 +230,14 @@ class PlannerService:
                     f"[TIMING] Gap filler candidate loading: {time.time() - t_gap_candidates:.2f}s ({len(gap_filler_candidates)} candidates)"
                 )
 
+            # Prioritize wishlist items at the front of the gap filler pool
+            if request.preferred_gap_fillers:
+                preferred_set = set(request.preferred_gap_fillers)
+                gap_filler_candidates = sorted(
+                    gap_filler_candidates,
+                    key=lambda t: (0 if t.name in preferred_set or t.catalog_id in preferred_set else 1),
+                )
+
             # Fill gaps with candidate pool
             t5 = time.time()
             gap_fillers = self.scheduler.fill_gaps(

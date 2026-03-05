@@ -64,7 +64,7 @@
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto overflow-x-hidden">
+        <div class="flex-1 overflow-hidden">
           <template v-if="activeDiscoveryTab === 'deep-sky'">
             <CatalogGrid />
           </template>

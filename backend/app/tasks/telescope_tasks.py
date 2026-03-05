@@ -251,8 +251,8 @@ def execute_observation_plan_task(
             execution.completed_at = datetime.utcnow()
             execution.error_log = [{"error": str(e), "timestamp": datetime.utcnow().isoformat()}]
             db.commit()
-        except:
-            pass
+        except Exception as db_err:
+            logger.error(f"Failed to write error state to DB for execution {execution_id}: {db_err}")
 
         # Update Celery state
         self.update_state(

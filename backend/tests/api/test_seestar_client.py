@@ -230,11 +230,11 @@ async def test_start_polar_align():
     client = SeestarClient()
 
     with patch.object(client, "_send_command", new_callable=AsyncMock) as mock_send:
-        mock_send.return_value = {"result": 0}
+        mock_send.return_value = {"code": 0}
 
         result = await client.start_polar_align()
         assert result is True
-        mock_send.assert_called_with("iscope_start_polar_align", {})
+        mock_send.assert_called_with("start_polar_align")
 
 
 @pytest.mark.asyncio
@@ -243,11 +243,11 @@ async def test_stop_polar_align():
     client = SeestarClient()
 
     with patch.object(client, "_send_command", new_callable=AsyncMock) as mock_send:
-        mock_send.return_value = {"result": 0}
+        mock_send.return_value = {"code": 0}
 
         result = await client.stop_polar_align()
         assert result is True
-        mock_send.assert_called_with("iscope_stop_polar_align", {})
+        mock_send.assert_called_with("stop_polar_align")
 
 
 @pytest.mark.asyncio
@@ -256,11 +256,11 @@ async def test_pause_polar_align():
     client = SeestarClient()
 
     with patch.object(client, "_send_command", new_callable=AsyncMock) as mock_send:
-        mock_send.return_value = {"result": 0}
+        mock_send.return_value = {"code": 0}
 
         result = await client.pause_polar_align()
         assert result is True
-        mock_send.assert_called_with("iscope_pause_polar_align", {})
+        mock_send.assert_called_with("pause_polar_align")
 
 
 @pytest.mark.asyncio

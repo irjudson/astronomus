@@ -93,6 +93,9 @@ class TelescopeService:
     GOTO_TIMEOUT = 180.0  # 3 minutes
     SETTLE_TIME = 2.0  # seconds to settle after operations
 
+    # Object types that require video recording instead of stacking
+    PLANETARY_TYPES = frozenset({"planet", "moon", "sun"})
+
     def __init__(self, client: SeestarClient, logger: Optional[logging.Logger] = None):
         """Initialize telescope service.
 
@@ -275,12 +278,8 @@ class TelescopeService:
         self._update_progress(current_phase="Configuring telescope")
 
         try:
-            # Set exposure time (10 seconds for stacking)
-            await self.client.set_exposure(stack_exposure_ms=10000)
-
-            # Configure dithering
+            # Enable dithering for DSO stacking (no-op for planetary sessions)
             await self.client.configure_dither(enabled=True, pixels=50, interval=10)
-
             self.logger.info("Telescope configuration complete")
 
         except Exception as e:
@@ -348,9 +347,12 @@ class TelescopeService:
                     target_name=target.target.name,
                 )
 
-                # Wait for goto to complete (simplified - would monitor state in production)
-                await asyncio.sleep(self.SETTLE_TIME)
+                # Wait for slew to complete via firmware state events
+                success = await self.client.wait_for_goto_complete(timeout=self.GOTO_TIMEOUT)
+                if not success:
+                    raise SeestarTimeoutError(f"Goto timed out after {self.GOTO_TIMEOUT}s")
 
+                await asyncio.sleep(self.SETTLE_TIME)
                 progress.goto_completed = True
                 self.logger.info(f"Goto completed for {target.target.name}")
                 return True
@@ -382,9 +384,12 @@ class TelescopeService:
             try:
                 await self.client.auto_focus()
 
-                # Wait for focus to complete (simplified)
-                await asyncio.sleep(self.SETTLE_TIME)
+                # Wait for autofocus to complete via firmware events
+                success, _ = await self.client.wait_for_focus_complete(timeout=self.FOCUS_TIMEOUT)
+                if not success:
+                    raise SeestarTimeoutError(f"Autofocus timed out after {self.FOCUS_TIMEOUT}s")
 
+                await asyncio.sleep(self.SETTLE_TIME)
                 progress.focus_completed = True
                 self.logger.info("Auto focus completed")
                 return True
@@ -411,31 +416,59 @@ class TelescopeService:
         return False
 
     async def _image_target_with_retry(self, progress: TargetProgress, target: ScheduledTarget) -> bool:
-        """Image target with retry logic."""
+        """Dispatch to DSO stacking or planetary video based on object type."""
+        object_type = (getattr(target.target, "object_type", "") or "").lower()
+        if object_type in self.PLANETARY_TYPES:
+            return await self._image_planetary_with_retry(progress, target)
+        return await self._image_dso_with_retry(progress, target)
+
+    async def _image_dso_with_retry(self, progress: TargetProgress, target: ScheduledTarget) -> bool:
+        """Stack a DSO target using iscope_start_stack, waiting for frame count."""
+        frames = target.recommended_frames or 50
+        exposure_ms = int((target.recommended_exposure or 10) * 1000)
+        # Generous timeout: 2× theoretical capture time + 5 min buffer
+        imaging_timeout = float(frames * (exposure_ms / 1000) * 2 + 300)
+
         for attempt in range(self.MAX_RETRIES):
             try:
-                # Start imaging
+                # Set per-target exposure before stacking
+                try:
+                    await self.client.set_exposure(stack_exposure_ms=exposure_ms)
+                except Exception as e:
+                    self.logger.warning(f"Could not set exposure to {exposure_ms}ms: {e}")
+
                 await self.client.start_imaging(restart=True)
                 progress.imaging_started = True
 
-                # Image for specified duration
-                duration_seconds = target.duration_minutes * 60
-                self.logger.info(f"Imaging for {duration_seconds}s")
+                def on_frame(frame: int, total: int, pct: float) -> None:
+                    self._update_progress(
+                        current_phase=f"Stacking: {frame}/{total} frames ({pct:.0f}%)"
+                    )
+                    if self._progress:
+                        self._progress.target_progress[progress.index].actual_exposures = frame
 
-                # Wait for imaging duration
-                # In production, would monitor state and count exposures
-                await asyncio.sleep(duration_seconds)
+                success = await self.client.wait_for_imaging_complete(
+                    expected_frames=frames,
+                    progress_callback=on_frame,
+                    timeout=imaging_timeout,
+                )
 
-                # Stop imaging
                 await self.client.stop_imaging()
 
+                if not success:
+                    raise SeestarTimeoutError(f"Stacking timed out waiting for {frames} frames")
+
                 progress.imaging_completed = True
-                progress.actual_exposures = target.recommended_frames
-                self.logger.info("Imaging completed")
+                progress.actual_exposures = frames
+                self.logger.info(f"DSO stacking completed: {frames} frames of {target.target.name}")
                 return True
 
             except (CommandError, SeestarTimeoutError) as e:
-                self.logger.warning(f"Imaging attempt {attempt + 1} failed: {e}")
+                self.logger.warning(f"DSO imaging attempt {attempt + 1} failed: {e}")
+                try:
+                    await self.client.stop_imaging()
+                except Exception:
+                    pass
 
                 error = ExecutionError(
                     timestamp=datetime.now(),
@@ -448,12 +481,74 @@ class TelescopeService:
                 progress.errors.append(error)
 
                 if attempt < self.MAX_RETRIES - 1:
-                    # Try to stop imaging before retry
+                    await asyncio.sleep(self.RETRY_DELAY)
+                else:
+                    self._progress.errors.append(error)
+                    return False
+
+        return False
+
+    async def _image_planetary_with_retry(self, progress: TargetProgress, target: ScheduledTarget) -> bool:
+        """Record a planetary/lunar target as AVI video for post-processing."""
+        object_type = (getattr(target.target, "object_type", "") or "").lower()
+        preview_mode = "moon" if object_type == "moon" else "planet"
+        duration_seconds = target.duration_minutes * 60
+        filename = f"{target.target.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                # Start live preview in appropriate mode so scope locks on the body
+                await self.client.start_preview(mode=preview_mode)
+                await asyncio.sleep(2.0)  # let preview stabilise
+
+                progress.imaging_started = True
+
+                # Start AVI recording
+                await self.client.start_record_avi(filename=filename)
+                self.logger.info(
+                    f"Recording {target.target.name} ({preview_mode}) for {duration_seconds:.0f}s"
+                )
+
+                # Timed wait with periodic progress updates
+                elapsed = 0.0
+                update_interval = 5.0
+                while elapsed < duration_seconds:
+                    if self._abort_requested:
+                        break
+                    sleep_time = min(update_interval, duration_seconds - elapsed)
+                    await asyncio.sleep(sleep_time)
+                    elapsed += sleep_time
+                    pct = (elapsed / duration_seconds) * 100
+                    self._update_progress(
+                        current_phase=f"Recording: {elapsed:.0f}/{duration_seconds:.0f}s ({pct:.0f}%)"
+                    )
+
+                await self.client.stop_record_avi()
+                await self.client.stop_imaging()
+
+                progress.imaging_completed = True
+                self.logger.info(f"Planetary recording completed: {target.target.name}")
+                return True
+
+            except (CommandError, SeestarTimeoutError) as e:
+                self.logger.warning(f"Planetary imaging attempt {attempt + 1} failed: {e}")
+                for stop_fn in (self.client.stop_record_avi, self.client.stop_imaging):
                     try:
-                        await self.client.stop_imaging()
-                    except:
+                        await stop_fn()
+                    except Exception:
                         pass
 
+                error = ExecutionError(
+                    timestamp=datetime.now(),
+                    target_index=progress.index,
+                    target_name=progress.target.target.name,
+                    phase="imaging",
+                    error_message=str(e),
+                    retry_count=attempt,
+                )
+                progress.errors.append(error)
+
+                if attempt < self.MAX_RETRIES - 1:
                     await asyncio.sleep(self.RETRY_DELAY)
                 else:
                     self._progress.errors.append(error)
@@ -473,8 +568,8 @@ class TelescopeService:
         # Stop current imaging if running
         try:
             await self.client.stop_imaging()
-        except:
-            pass
+        except Exception as e:
+            self.logger.warning(f"Could not stop imaging during abort: {e}")
 
         self._execution_state = ExecutionState.ABORTED
         self._update_progress(state=ExecutionState.ABORTED)

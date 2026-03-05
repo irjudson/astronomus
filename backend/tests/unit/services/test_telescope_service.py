@@ -193,6 +193,10 @@ class TestTelescopeServiceExecutePlan:
         client.park = AsyncMock(return_value=True)
         client.set_exposure = AsyncMock(return_value=True)
         client.configure_dither = AsyncMock(return_value=True)
+        # Wait methods added to support real execution flow
+        client.wait_for_goto_complete = AsyncMock(return_value=True)
+        client.wait_for_focus_complete = AsyncMock(return_value=(True, None))
+        client.wait_for_imaging_complete = AsyncMock(return_value=True)
         return client
 
     @pytest.fixture
@@ -276,8 +280,10 @@ class TestTelescopeServiceExecutePlan:
         with patch("asyncio.sleep", new_callable=AsyncMock):
             await service.execute_plan("test-config", [sample_target], configure_settings=True, park_when_done=False)
 
-        mock_client.set_exposure.assert_called_once()
+        # configure_dither called during _configure_telescope
         mock_client.configure_dither.assert_called_once()
+        # set_exposure called per-target in _image_dso_with_retry
+        mock_client.set_exposure.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_execute_plan_goto_failure(self, service, mock_client, sample_target):

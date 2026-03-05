@@ -1,17 +1,19 @@
-"""ClearDarkSky weather service integration for astronomy."""
+"""Astronomy weather forecast service using Open-Meteo (free, no API key required).
 
-import math
-from datetime import datetime
+Replaces the former ClearDarkSky stub whose chart-image parser always returned [].
+Open-Meteo provides cloud cover, visibility, wind speed, and temperature at hourly
+resolution for any lat/lon on Earth.
+"""
+
+from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import List
 
 import requests
 from pydantic import BaseModel
 
 
 class CloudCover(Enum):
-    """Cloud cover categories (percentage ranges)."""
-
     CLEAR = (0, 10)
     MOSTLY_CLEAR = (10, 30)
     PARTLY_CLOUDY = (30, 70)
@@ -20,8 +22,6 @@ class CloudCover(Enum):
 
 
 class Transparency(Enum):
-    """Atmospheric transparency levels (1-5 scale)."""
-
     EXCELLENT = 5
     ABOVE_AVERAGE = 4
     AVERAGE = 3
@@ -30,8 +30,6 @@ class Transparency(Enum):
 
 
 class Seeing(Enum):
-    """Astronomical seeing conditions (1-5 scale)."""
-
     EXCELLENT = 5
     GOOD = 4
     AVERAGE = 3
@@ -40,8 +38,6 @@ class Seeing(Enum):
 
 
 class ClearDarkSkyForecast(BaseModel):
-    """Single forecast entry from ClearDarkSky."""
-
     time: datetime
     cloud_cover: CloudCover
     transparency: Transparency
@@ -50,142 +46,124 @@ class ClearDarkSkyForecast(BaseModel):
     wind_speed_kmh: float
 
     def astronomy_score(self) -> float:
-        """
-        Calculate overall astronomy quality score (0-1).
-
-        Weights:
-        - Cloud cover: 40%
-        - Transparency: 35%
-        - Seeing: 25%
-        """
-        # Cloud cover score (invert - less is better)
         cloud_min, cloud_max = self.cloud_cover.value
         cloud_avg = (cloud_min + cloud_max) / 2
         cloud_score = 1.0 - (cloud_avg / 100.0)
-
-        # Transparency score (normalized to 0-1)
         transp_score = self.transparency.value / 5.0
-
-        # Seeing score (normalized to 0-1)
         seeing_score = self.seeing.value / 5.0
+        return cloud_score * 0.4 + transp_score * 0.35 + seeing_score * 0.25
 
-        # Weighted average
-        total_score = cloud_score * 0.4 + transp_score * 0.35 + seeing_score * 0.25
 
-        return total_score
+def _cloud_cover_enum(pct: float) -> CloudCover:
+    if pct <= 10:
+        return CloudCover.CLEAR
+    elif pct <= 30:
+        return CloudCover.MOSTLY_CLEAR
+    elif pct <= 70:
+        return CloudCover.PARTLY_CLOUDY
+    elif pct <= 90:
+        return CloudCover.MOSTLY_CLOUDY
+    return CloudCover.OVERCAST
+
+
+def _transparency_from_visibility(vis_m: float) -> Transparency:
+    """Map visibility in metres to atmospheric transparency."""
+    if vis_m >= 24000:
+        return Transparency.EXCELLENT
+    elif vis_m >= 16000:
+        return Transparency.ABOVE_AVERAGE
+    elif vis_m >= 8000:
+        return Transparency.AVERAGE
+    elif vis_m >= 4000:
+        return Transparency.BELOW_AVERAGE
+    return Transparency.POOR
+
+
+def _seeing_from_wind(wind_kmh: float) -> Seeing:
+    """Estimate astronomical seeing from surface wind speed."""
+    if wind_kmh < 5:
+        return Seeing.EXCELLENT
+    elif wind_kmh < 15:
+        return Seeing.GOOD
+    elif wind_kmh < 25:
+        return Seeing.AVERAGE
+    elif wind_kmh < 40:
+        return Seeing.BELOW_AVERAGE
+    return Seeing.POOR
 
 
 class ClearDarkSkyService:
-    """Service for fetching ClearDarkSky astronomy forecasts."""
+    """Astronomy weather forecast using Open-Meteo API."""
 
-    def __init__(self):
-        """Initialize service."""
-        self.base_url = "https://www.cleardarksky.com"
-        self.timeout = 10
-        self._chart_cache = {}  # Cache chart lookups
-
-    def find_nearest_chart(self, latitude: float, longitude: float) -> Optional[str]:
-        """
-        Find nearest ClearDarkSky chart for coordinates.
-
-        Returns chart ID or None if not found.
-        Note: This is simplified - actual implementation would need
-        ClearDarkSky's chart database.
-        """
-        # Cache key
-        cache_key = f"{latitude:.2f},{longitude:.2f}"
-        if cache_key in self._chart_cache:
-            return self._chart_cache[cache_key]
-
-        # Simplified: estimate based on known locations
-        # In production, would query ClearDarkSky's chart database
-        chart_id = self._estimate_chart_id(latitude, longitude)
-
-        if chart_id:
-            self._chart_cache[cache_key] = chart_id
-
-        return chart_id
-
-    def _estimate_chart_id(self, latitude: float, longitude: float) -> Optional[str]:
-        """
-        Estimate chart ID based on coordinates.
-
-        This is a simplified placeholder. Real implementation would
-        need ClearDarkSky's actual chart database.
-        """
-        # Known chart locations (subset for demonstration)
-        known_charts = [
-            ("NYC", 40.7, -74.0),
-            ("LA", 34.0, -118.2),
-            ("Chicago", 41.9, -87.6),
-            ("Denver", 39.7, -105.0),
-        ]
-
-        # Find nearest
-        min_dist = float("inf")
-        nearest_id = None
-
-        for chart_id, lat, lon in known_charts:
-            dist = math.sqrt((latitude - lat) ** 2 + (longitude - lon) ** 2)
-            if dist < min_dist:
-                min_dist = dist
-                nearest_id = chart_id
-
-        # Return if within reasonable distance (5 degrees)
-        return nearest_id if min_dist < 5.0 else None
-
-    def fetch_forecast(self, chart_id: str) -> List[ClearDarkSkyForecast]:
-        """
-        Fetch forecast for a specific chart.
-
-        Note: ClearDarkSky provides forecasts as images, which requires
-        image processing to extract data. This is a simplified version.
-        """
-        try:
-            # In production, would fetch and parse chart image
-            url = f"{self.base_url}/c/{chart_id}csk.gif"
-            response = requests.get(url, timeout=self.timeout)
-            response.raise_for_status()
-
-            # Parse chart data
-            return self._parse_chart_data(response.content)
-
-        except Exception:
-            # Return empty list on error
-            return []
-
-    def _parse_chart_data(self, chart_data: bytes) -> List[ClearDarkSkyForecast]:
-        """
-        Parse ClearDarkSky chart image into forecast data.
-
-        Note: This is a placeholder. Real implementation would use
-        image processing (PIL/OpenCV) to read the chart colors/patterns.
-        """
-        # Placeholder: return empty list
-        # Real implementation would:
-        # 1. Load image with PIL
-        # 2. Extract color bands for each forecast period
-        # 3. Map colors to conditions based on ClearDarkSky's color scheme
-        # 4. Create forecast objects
-
-        return []
+    _API = "https://api.open-meteo.com/v1/forecast"
+    _TIMEOUT = 10
 
     def get_forecast(self, latitude: float, longitude: float, hours: int = 48) -> List[ClearDarkSkyForecast]:
-        """
-        Get astronomy forecast for coordinates.
+        """Return hourly astronomy forecast for the given coordinates.
 
-        Args:
-            latitude: Location latitude
-            longitude: Location longitude
-            hours: Forecast period (default 48 hours)
-
-        Returns:
-            List of forecast entries
+        Uses Open-Meteo (https://open-meteo.com) — free, no API key.
+        Returns up to `hours` entries starting from the current hour.
+        Returns [] on network error rather than raising.
         """
-        # Find nearest chart
-        chart_id = self.find_nearest_chart(latitude, longitude)
-        if not chart_id:
+        try:
+            resp = requests.get(
+                self._API,
+                params={
+                    "latitude": round(latitude, 4),
+                    "longitude": round(longitude, 4),
+                    "hourly": "cloud_cover,visibility,wind_speed_10m,temperature_2m",
+                    "wind_speed_unit": "kmh",
+                    "forecast_days": min(7, max(1, (hours // 24) + 1)),
+                    "timezone": "UTC",
+                },
+                timeout=self._TIMEOUT,
+            )
+            resp.raise_for_status()
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(f"Open-Meteo request failed: {exc}")
             return []
 
-        # Fetch forecast
-        return self.fetch_forecast(chart_id)
+        data = resp.json().get("hourly", {})
+        times = data.get("time", [])
+        clouds = data.get("cloud_cover", [])
+        vis = data.get("visibility", [])
+        wind = data.get("wind_speed_10m", [])
+        temp = data.get("temperature_2m", [])
+
+        now_utc = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        results: List[ClearDarkSkyForecast] = []
+
+        for i, t_str in enumerate(times):
+            if len(results) >= hours:
+                break
+            try:
+                t = datetime.fromisoformat(t_str).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+            if t < now_utc:
+                continue
+
+            results.append(
+                ClearDarkSkyForecast(
+                    time=t,
+                    cloud_cover=_cloud_cover_enum(float(clouds[i] or 0)),
+                    transparency=_transparency_from_visibility(float(vis[i] or 0)),
+                    seeing=_seeing_from_wind(float(wind[i] or 0)),
+                    temperature_c=float(temp[i] or 0),
+                    wind_speed_kmh=float(wind[i] or 0),
+                )
+            )
+
+        return results
+
+    # Keep old method names for any callers that used them
+    def find_nearest_chart(self, latitude: float, longitude: float):
+        return f"{latitude:.2f},{longitude:.2f}"
+
+    def fetch_forecast(self, chart_id: str) -> List[ClearDarkSkyForecast]:
+        try:
+            lat, lon = (float(x) for x in chart_id.split(","))
+        except ValueError:
+            return []
+        return self.get_forecast(lat, lon)

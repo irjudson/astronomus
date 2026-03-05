@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 space-y-6">
+  <div class="h-full overflow-y-auto p-4 space-y-6">
     <!-- Loading state -->
     <div v-if="loading" class="text-center text-gray-400 py-8">
       Loading solar system data...

@@ -58,6 +58,11 @@ services:
       # Mount MPS directories for GPU sharing
       - /tmp/nvidia-mps:/tmp/nvidia-mps
       - /tmp/nvidia-log:/tmp/nvidia-log
+    networks:
+      default:
+      shared-infra:
+        aliases:
+          - astronomus
     restart: unless-stopped
     deploy:
       resources:
@@ -83,6 +88,10 @@ services:
     profiles:
       - monitoring
     network_mode: "service:astronomus"
+
+networks:
+  shared-infra:
+    external: true
 
 volumes:
   astronomus-pgdata:

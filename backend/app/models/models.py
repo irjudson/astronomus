@@ -48,6 +48,7 @@ class PlanRequest(BaseModel):
     observing_date: str = Field(description="ISO date for observing session (YYYY-MM-DD)")
     constraints: ObservingConstraints = Field(default_factory=ObservingConstraints)
     custom_targets: Optional[List[str]] = Field(None, description="Custom list of catalog IDs to schedule")
+    preferred_gap_fillers: Optional[List[str]] = Field(None, description="Catalog IDs (wishlist) to prioritize when filling schedule gaps")
 
     @field_validator("observing_date")
     @classmethod

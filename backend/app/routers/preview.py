@@ -32,9 +32,12 @@ async def get_preview_frame(
     """
     service = _get_rtsp_service(client)
 
-    # Allow up to 3s for the RTSP service to grab its first frame
+    # Poll up to 5s (50 × 100ms) for the RTSP service to deliver its first frame
     if service.latest_frame is None:
-        await asyncio.sleep(3.0)
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            if service.latest_frame is not None:
+                break
 
     frame_bytes = service.get_latest_frame_jpeg(quality=85)
 

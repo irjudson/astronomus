@@ -65,11 +65,14 @@ export const useExecutionStore = defineStore('execution', {
 
     // Plan execution
     currentPlan: null,
+    scheduledTargets: [],       // original ScheduledTarget list for backend submission
     currentTargetIndex: 0,
-    executionStatus: 'idle', // idle, running, paused, completed
+    resumeOffset: 0,            // index offset when resuming a paused plan
+    executionStatus: 'idle',    // idle, running, paused, completed
 
     // Position polling
-    positionInterval: null
+    positionInterval: null,
+    progressPollInterval: null, // for polling /api/telescope/progress
     }
   },
 
@@ -344,82 +347,115 @@ export const useExecutionStore = defineStore('execution', {
       this.imaging.totalExposure = data.totalExposure || this.imaging.totalExposure
     },
 
-    async executePlan(plan) {
-      if (!this.connected) {
-        this.error = 'Telescope not connected'
-        return
-      }
-
+    setPlan(plan, scheduledTargets = []) {
       this.currentPlan = plan
+      this.scheduledTargets = scheduledTargets
       this.currentTargetIndex = 0
+      this.resumeOffset = 0
+      this.executionStatus = 'idle'
+      this.addMessage(`Plan loaded: ${plan.name} (${plan.targets.length} targets)`)
+    },
+
+    async executePlan() {
+      if (!this.currentPlan || !this.connected) return
+      this.currentTargetIndex = 0
+      this.resumeOffset = 0
       this.executionStatus = 'running'
-      this.addMessage(`Starting plan execution: ${plan.name}`)
-
-      await this.executeNextTarget()
-    },
-
-    async executeNextTarget() {
-      const target = this.currentTarget
-
-      if (!target) {
-        this.executionStatus = 'completed'
-        this.addMessage('Plan execution completed')
-        return
-      }
-
-      // Slew to target
-      const slewed = await this.slewToTarget(target)
-      if (!slewed) {
-        this.pauseExecution()
-        return
-      }
-
-      // Wait for slew to complete (simplified - in reality would poll until settled)
-      await new Promise(resolve => setTimeout(resolve, 3000))
-
-      // Start imaging
-      await this.startImaging({
-        exposure: target.exposure || 10,
-        frames: target.frames || 50,
-        gain: target.gain || 80
-      })
-
-      // Wait for imaging to complete (simplified)
-      await new Promise(resolve => setTimeout(resolve, 5000))
-
-      // Move to next target
-      if (this.executionStatus === 'running') {
-        this.currentTargetIndex++
-        await this.executeNextTarget()
+      this.addMessage(`Starting plan execution: ${this.currentPlan.name}`)
+      try {
+        await axios.post('/api/telescope/execute', {
+          scheduled_targets: this.scheduledTargets,
+          park_when_done: true,
+        })
+        this.startProgressPolling()
+      } catch (err) {
+        this.executionStatus = 'idle'
+        this.error = 'Failed to start execution: ' + (err.response?.data?.detail || err.message)
+        this.addMessage('Plan execution failed to start')
       }
     },
 
-    pauseExecution() {
+    startProgressPolling() {
+      if (this.progressPollInterval) clearInterval(this.progressPollInterval)
+      this.progressPollInterval = setInterval(async () => {
+        try {
+          const resp = await axios.get('/api/telescope/progress')
+          const p = resp.data
+          if (!p || p.state === 'idle') {
+            this.stopProgressPolling()
+            return
+          }
+          // Map backend index (0-based within current execution) back to plan index
+          const backendIndex = p.current_target_index ?? -1
+          if (backendIndex >= 0) {
+            this.currentTargetIndex = this.resumeOffset + backendIndex
+          }
+          if (p.state === 'completed') {
+            this.executionStatus = 'completed'
+            this.addMessage('Plan execution completed')
+            this.stopProgressPolling()
+          } else if (p.state === 'aborted' || p.state === 'error') {
+            if (p.state === 'error') this.addMessage('Plan execution encountered an error')
+            this.executionStatus = 'idle'
+            this.stopProgressPolling()
+          }
+          // Add phase messages as they change
+          if (p.current_phase && p.current_target_name) {
+            // Avoid flooding messages; the phase appears in the progress display
+          }
+        } catch (e) { /* silent — polling failures shouldn't break UI */ }
+      }, 3000)
+    },
+
+    stopProgressPolling() {
+      if (this.progressPollInterval) {
+        clearInterval(this.progressPollInterval)
+        this.progressPollInterval = null
+      }
+    },
+
+    async pausePlan() {
+      // No server-side pause endpoint; abort execution and keep plan staged so
+      // the user can resume from the current target.
+      try {
+        await axios.post('/api/telescope/abort')
+      } catch (e) { /* best-effort */ }
+      this.stopProgressPolling()
       this.executionStatus = 'paused'
-      this.stopImaging()
-      this.addMessage('Plan execution paused')
+      this.addMessage(`Plan paused at target ${this.currentTargetIndex + 1} — click Resume to continue`)
     },
 
-    pausePlan() {
-      this.pauseExecution()
-    },
-
-    resumeExecution() {
+    async resumeExecution() {
+      if (!this.currentPlan || !this.connected) return
+      // Re-submit remaining targets from where we paused
+      const remaining = this.scheduledTargets.slice(this.currentTargetIndex)
+      if (!remaining.length) return
+      this.resumeOffset = this.currentTargetIndex
       this.executionStatus = 'running'
-      this.addMessage('Plan execution resumed')
-      this.executeNextTarget()
+      this.addMessage(`Resuming from target ${this.currentTargetIndex + 1}`)
+      try {
+        await axios.post('/api/telescope/execute', {
+          scheduled_targets: remaining,
+          park_when_done: true,
+        })
+        this.startProgressPolling()
+      } catch (err) {
+        this.executionStatus = 'paused'
+        this.error = 'Failed to resume: ' + (err.response?.data?.detail || err.message)
+      }
     },
 
-    cancelExecution() {
+    async stopPlan() {
+      try {
+        await axios.post('/api/telescope/abort')
+      } catch (e) { /* best-effort */ }
+      this.stopProgressPolling()
       this.executionStatus = 'idle'
       this.currentPlan = null
+      this.scheduledTargets = []
       this.currentTargetIndex = 0
-      this.stopImaging()
-      this.addMessage('Plan execution cancelled')
-    },
-
-    stopPlan() {
-      this.cancelExecution()
+      this.resumeOffset = 0
+      this.addMessage('Plan stopped')
     },
 
     addMessage(text) {

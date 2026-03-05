@@ -1,13 +1,13 @@
 <template>
   <div class="catalog-view">
     <!-- Catalog Stats Banner -->
-    <div class="catalog-stats">
+    <div class="catalog-stats" ref="statsEl">
       <span class="stats-count">{{ catalogStore.totalItems }} object{{ catalogStore.totalItems !== 1 ? 's' : '' }}</span>
       <span class="stats-filters">{{ activeFiltersDisplay }}</span>
     </div>
 
     <!-- Catalog Grid -->
-    <div class="catalog-grid" id="catalog-grid">
+    <div class="catalog-grid" ref="gridEl">
       <div v-if="catalogStore.loading" class="empty-state">Loading catalog data...</div>
       <div v-else-if="catalogStore.error" class="empty-state error-message">{{ catalogStore.error }}</div>
       <div v-else-if="catalogStore.items.length === 0" class="empty-state">No objects found. Try adjusting your search or filters.</div>
@@ -94,11 +94,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useCatalogStore } from '@/stores/catalog';
-// import Masonry from 'masonry-layout'; // Will integrate later if needed
 
 const catalogStore = useCatalogStore();
+const gridEl = ref(null);
 
 // --- Computed Properties ---
 const activeFiltersDisplay = computed(() => {
@@ -111,9 +111,7 @@ const activeFiltersDisplay = computed(() => {
   return active.length > 0 ? active.join(' • ') : '';
 });
 
-const showPagination = computed(() => {
-  return catalogStore.totalItems > catalogStore.pageSize;
-});
+const showPagination = computed(() => catalogStore.totalItems > catalogStore.pageSize);
 
 // --- Methods ---
 const getImageUrl = (item) => {
@@ -134,11 +132,11 @@ const formatTitle = (item) => {
 
 const toggleWishlist = (item) => {
   if (catalogStore.isInWishlist(item.name)) {
-    catalogStore.removeFromWishlist(item.name)
+    catalogStore.removeFromWishlist(item.name);
   } else {
-    catalogStore.addToWishlist(item)
+    catalogStore.addToWishlist(item);
   }
-}
+};
 
 const getScoreColor = (score) => {
   if (score >= 0.8) return 'text-green-400';
@@ -147,75 +145,48 @@ const getScoreColor = (score) => {
   return 'text-orange-400';
 };
 
-// --- Dynamic Page Size Calculation (Ported from old JS) ---
+// --- Dynamic Page Size based on visible grid area ---
 let resizeObserver = null;
 let resizeTimeout = null;
 
+const CARD_MIN_WIDTH = 260;
+const CARD_MIN_WIDTH_MOBILE = 220;
+const CARD_ROW_HEIGHT = 346; // card height + 16px gap
+const GAP = 16;
+const PAGINATION_HEIGHT = 52; // pagination bar reserved height
+
 const calculatePageSize = () => {
-  const mainContent = document.getElementById('main-content'); // Assuming main-content is the parent
-  const catalogGrid = document.getElementById('catalog-grid');
-  const catalogPagination = document.querySelector('.catalog-pagination');
+  if (!gridEl.value) return 20;
 
-  if (!mainContent || !catalogGrid) {
-    return 20; // Default if elements not found
-  }
+  // gridEl is flex:1 in the column — its clientHeight is exactly the space available
+  // for cards before we add items (measured before render fills it)
+  const availableHeight = gridEl.value.clientHeight - PAGINATION_HEIGHT;
+  const gridWidth = gridEl.value.clientWidth;
 
-  const mainHeight = mainContent.clientHeight;
-  const paginationHeight = catalogPagination ? catalogPagination.offsetHeight : 50; // Estimate if hidden
+  const cardMinWidth = window.innerWidth > 768 ? CARD_MIN_WIDTH : CARD_MIN_WIDTH_MOBILE;
+  const cardsPerRow = Math.max(1, Math.floor((gridWidth + GAP) / (cardMinWidth + GAP)));
+  const rowsThatFit = Math.max(1, Math.floor(availableHeight / CARD_ROW_HEIGHT));
 
-  const mainPadding = 48; // 24px top + 24px bottom from .main-content padding
-  const availableHeight = mainHeight - paginationHeight - mainPadding;
-
-  const gridWidth = catalogGrid.clientWidth;
-
-  // These values should ideally come from CSS variables or a utility for consistency
-  const screenWidth = window.innerWidth;
-  const cardMinWidth = screenWidth > 768 ? 260 : 220;
-  const gap = 16;
-
-  const exactCardsPerRow = (gridWidth + gap) / (cardMinWidth + gap);
-  const cardsPerRow = Math.max(1, exactCardsPerRow % 1 >= 0.8 ? Math.ceil(exactCardsPerRow) : Math.floor(exactCardsPerRow));
-
-  const rowHeight = 326; // Approx. card height (310px) + gap (16px)
-
-  const exactRowsThatFit = availableHeight / rowHeight;
-  const rowsThatFit = Math.max(1, exactRowsThatFit % 1 >= 0.8 ? Math.ceil(exactRowsThatFit) : Math.floor(exactRowsThatFit));
-  const itemsThatFit = rowsThatFit * cardsPerRow;
-
-  const newSize = Math.max(cardsPerRow, Math.min(50, itemsThatFit));
-  // console.log(`📊 Page size: ${newSize} items (${rowsThatFit} rows × ${cardsPerRow} per row)`);
-  // console.log(`   Grid: ${gridWidth}px wide, ${availableHeight}px available height`);
-  return newSize;
+  return Math.min(50, rowsThatFit * cardsPerRow);
 };
 
 const updatePageSize = () => {
-  const newSize = calculatePageSize();
-  catalogStore.setPageSize(newSize);
+  catalogStore.setPageSize(calculatePageSize());
 };
 
 onMounted(() => {
-  // Note: Initial data fetch is handled by DiscoveryView
-
-  // Setup ResizeObserver
-  const mainContent = document.getElementById('main-content');
-  if (mainContent) {
+  if (gridEl.value) {
     resizeObserver = new ResizeObserver(() => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        updatePageSize();
-      }, 250); // Debounce
+      resizeTimeout = setTimeout(updatePageSize, 200);
     });
-    resizeObserver.observe(mainContent);
+    resizeObserver.observe(gridEl.value);
   }
-
-  // Initial page size calculation
   updatePageSize();
 });
 
 onUnmounted(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-  }
+  if (resizeObserver) resizeObserver.disconnect();
 });
 
 // Watch for changes in pageSize from store to re-evaluate grid if Masonry was used
@@ -259,6 +230,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full-height flex column — no scroll at this level */
+.catalog-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Catalog Stats Banner */
 .catalog-stats {
   display: flex;
@@ -267,7 +246,7 @@ onUnmounted(() => {
   padding: 0.75rem 1rem;
   background: rgb(17, 24, 39);
   border-bottom: 1px solid rgb(31, 41, 55);
-  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .stats-count {
@@ -280,13 +259,19 @@ onUnmounted(() => {
   font-size: 0.875rem;
 }
 
-/* Basic grid container for cards - can be replaced by Masonry setup */
+/* Grid area fills remaining space — no overflow scroll */
+.catalog-grid {
+  flex: 1;
+  overflow: hidden;
+  padding: 1rem 1rem 0;
+}
+
+/* Basic grid container for cards */
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); /* Adapts to available width */
-  gap: 16px; /* Gap between cards */
-  padding-bottom: 16px; /* Ensure space below last row */
-  align-items: start; /* Align items to the top */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 /* Catalog Card styles (ported from unified-layout.css) */
@@ -312,6 +297,11 @@ onUnmounted(() => {
   .grid-container {
     grid-template-columns: 1fr;
   }
+}
+
+/* Ensure catalog-grid has no scroll, even on older browsers */
+.catalog-grid {
+  overflow: hidden;
 }
 
 .catalog-card:hover {
@@ -406,15 +396,14 @@ onUnmounted(() => {
   color: rgb(107, 114, 128);
 }
 
-/* Pagination */
+/* Pagination — fixed at bottom of the flex column */
 .catalog-pagination {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px 0 16px;
+  padding: 10px 16px;
   flex-shrink: 0;
-  margin-top: auto;
 }
 
 .page-info {

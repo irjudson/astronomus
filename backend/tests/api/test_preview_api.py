@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -9,17 +9,26 @@ from app.main import app
 client = TestClient(app)
 
 
+def _make_mock_service(frame_bytes=None):
+    """Create a mock RTMPPreviewService."""
+    svc = MagicMock()
+    svc.is_running = True
+    svc.latest_frame = frame_bytes  # None triggers the poll loop
+    svc.get_latest_frame_jpeg.return_value = frame_bytes
+    return svc
+
+
 def test_get_preview_frame_returns_jpeg():
     """Test GET /api/telescope/preview/frame returns JPEG image."""
-    # Mock telescope client with frame available
-    mock_client = AsyncMock()
     mock_frame = b"\xff\xd8\xff\xe0" + b"fake jpeg data"
-    mock_client.get_latest_preview_frame = AsyncMock(return_value=mock_frame)
+    mock_svc = _make_mock_service(frame_bytes=mock_frame)
 
+    mock_client = MagicMock()
     app.dependency_overrides[get_current_telescope] = lambda: mock_client
 
     try:
-        response = client.get("/api/telescope/preview/frame")
+        with patch("app.services.rtmp_preview_service.get_preview_service", return_value=mock_svc):
+            response = client.get("/api/telescope/preview/frame")
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/jpeg"
@@ -32,7 +41,6 @@ def test_get_preview_frame_returns_jpeg():
 def test_get_preview_frame_when_not_connected():
     """Test endpoint returns 400 when telescope not connected."""
 
-    # The get_current_telescope dependency raises HTTPException 400 when not connected
     def mock_no_telescope():
         raise HTTPException(status_code=400, detail="No telescope connected")
 
@@ -50,14 +58,14 @@ def test_get_preview_frame_when_not_connected():
 
 def test_get_preview_frame_when_no_frames():
     """Test endpoint returns 503 when no preview frames available."""
-    # Mock telescope connected but no frames available
-    mock_client = AsyncMock()
-    mock_client.get_latest_preview_frame = AsyncMock(return_value=None)
+    mock_svc = _make_mock_service(frame_bytes=None)
 
+    mock_client = MagicMock()
     app.dependency_overrides[get_current_telescope] = lambda: mock_client
 
     try:
-        response = client.get("/api/telescope/preview/frame")
+        with patch("app.services.rtmp_preview_service.get_preview_service", return_value=mock_svc):
+            response = client.get("/api/telescope/preview/frame")
 
         assert response.status_code == 503
         assert "no preview frames" in response.json()["detail"].lower()
