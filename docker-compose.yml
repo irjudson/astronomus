@@ -19,14 +19,15 @@ services:
       - POSTGRES_HOST=localhost
       - POSTGRES_PORT=5432
       - POSTGRES_USER=pg
-      - POSTGRES_PASSWORD=buffalo-jump
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-buffalo-jump}
       - POSTGRES_DB=astronomus
       # Database URLs for application
-      - DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus
-      - TEST_DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astronomus
+      - DATABASE_URL=postgresql://pg:${POSTGRES_PASSWORD:-buffalo-jump}@localhost:5432/astronomus
+      - TEST_DATABASE_URL=postgresql://pg:${POSTGRES_PASSWORD:-buffalo-jump}@localhost:5432/test_astronomus
       # Redis and Celery configuration
-      - REDIS_URL=redis://:buffalo-jump@localhost:6379/1
-      - CELERY_BROKER_URL=redis://:buffalo-jump@localhost:6379/1
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-buffalo-jump}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-buffalo-jump}@localhost:6379/1
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-buffalo-jump}@localhost:6379/1
       # Application configuration
       - HOST=0.0.0.0
       - PORT=9247
@@ -47,8 +48,8 @@ services:
     volumes:
       # Mount PostgreSQL data for persistence
       - astronomus-pgdata:/var/lib/postgresql/14/main
-      # Mount FITS files
-      - /mnt/seestar-s50:/fits:rw
+      # Mount FITS files — set SEESTAR_FITS_PATH in .env to your storage location
+      - ${SEESTAR_FITS_PATH:-/mnt/seestar-s50}:/fits:rw
       # Mount application data
       - ./data:/app/data
       - ./backend/secrets:/app/secrets:ro
@@ -78,12 +79,12 @@ services:
   flower:
     image: astronomus:latest
     container_name: astronomus-flower
-    command: celery -A app.tasks.celery_app flower --port=5555 --broker=redis://:buffalo-jump@localhost:6379/1
+    command: celery -A app.tasks.celery_app flower --port=5555 --broker=redis://:${REDIS_PASSWORD:-buffalo-jump}@localhost:6379/1
     ports:
       - "5555:5555"
     environment:
-      - REDIS_URL=redis://:buffalo-jump@localhost:6379/1
-      - DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-buffalo-jump}@localhost:6379/1
+      - DATABASE_URL=postgresql://pg:${POSTGRES_PASSWORD:-buffalo-jump}@localhost:5432/astronomus
     restart: unless-stopped
     profiles:
       - monitoring
