@@ -7,6 +7,9 @@
     <main class="flex-1 overflow-hidden">
       <RouterView />
     </main>
+
+    <!-- Global Toast Notifications -->
+    <ToastContainer />
   </div>
 </template>
 
@@ -14,6 +17,7 @@
 import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from '@/components/shared/AppHeader.vue'
+import ToastContainer from '@/components/shared/ToastContainer.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useCatalogStore } from '@/stores/catalog'
 import { usePlanningStore } from '@/stores/planning'

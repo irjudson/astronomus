@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings';
+import { useToastStore } from './toast';
 
 export const useCatalogStore = defineStore('catalog', {
   state: () => {
@@ -192,10 +193,9 @@ export const useCatalogStore = defineStore('catalog', {
       const exists = this.selectedTargets.some(t => t.id === item.id || t.name === item.name);
       if (!exists) {
         this.selectedTargets.push(item);
-        // TODO: Implement a global notification system instead of console log
-        console.log(`Added ${item.name} to plan. Total selected: ${this.selectedTargets.length}`);
+        useToastStore().success(`${item.name} added to plan`);
       } else {
-        console.log(`${item.name} is already in your plan.`);
+        useToastStore().info(`${item.name} is already in your plan`);
       }
     },
 
@@ -220,9 +220,10 @@ export const useCatalogStore = defineStore('catalog', {
       this.wishlist = [...this.wishlist, entry]
       try {
         await axios.put('/api/settings/wishlist', this.wishlist)
+        useToastStore().success(`${item.name} added to wishlist`)
       } catch (err) {
         this.wishlist = this.wishlist.filter(t => t.name !== item.name)
-        console.error('Failed to add to wishlist:', err)
+        useToastStore().error('Failed to add to wishlist')
       }
     },
 
@@ -233,7 +234,7 @@ export const useCatalogStore = defineStore('catalog', {
         await axios.put('/api/settings/wishlist', this.wishlist)
       } catch (err) {
         this.wishlist = prev
-        console.error('Failed to remove from wishlist:', err)
+        useToastStore().error('Failed to remove from wishlist')
       }
     },
 
@@ -242,7 +243,7 @@ export const useCatalogStore = defineStore('catalog', {
      */
     removeSelectedTarget(itemName) {
       this.selectedTargets = this.selectedTargets.filter(t => t.name !== itemName);
-      console.log(`Removed ${itemName} from plan. Total selected: ${this.selectedTargets.length}`);
+      useToastStore().info(`${itemName} removed from plan`);
     },
 
     /**

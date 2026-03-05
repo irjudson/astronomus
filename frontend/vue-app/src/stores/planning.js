@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
 import { useCatalogStore } from './catalog'
+import { useToastStore } from './toast'
 
 export const usePlanningStore = defineStore('planning', {
   state: () => {
@@ -150,7 +151,7 @@ export const usePlanningStore = defineStore('planning', {
         }
       } catch (err) {
         this.error = 'Failed to generate plan: ' + (err.response?.data?.detail || err.message)
-        console.error('Plan generation error:', err)
+        useToastStore().error('Failed to generate plan: ' + (err.response?.data?.detail || err.message))
         throw err
       } finally {
         this.loading = false
@@ -160,14 +161,15 @@ export const usePlanningStore = defineStore('planning', {
     async savePlan(name) {
       const planName = name || this.planName
       if (!this.currentPlan || !planName) return
-      // shadow the parameter so the rest of the function uses planName
       name = planName
       try {
         const response = await axios.post('/api/plans/', { name, plan: this.currentPlan })
         this.savedPlans = [response.data, ...this.savedPlans]
+        useToastStore().success(`Plan "${planName}" saved`)
         return response.data
       } catch (err) {
         this.error = 'Failed to save plan: ' + (err.response?.data?.detail || err.message)
+        useToastStore().error('Failed to save plan')
         throw err
       }
     },
@@ -177,7 +179,7 @@ export const usePlanningStore = defineStore('planning', {
         const response = await axios.get('/api/plans/')
         this.savedPlans = response.data
       } catch (err) {
-        console.error('Load plans error:', err)
+        useToastStore().error('Failed to load saved plans')
       }
     },
 
@@ -195,9 +197,11 @@ export const usePlanningStore = defineStore('planning', {
           if (c.setup_time_minutes != null) this.constraints.setup_time_minutes = c.setup_time_minutes
           if (c.object_types?.length) this.constraints.object_types = c.object_types
         }
+        useToastStore().success(`Loaded plan: ${response.data.name}`)
         return response.data
       } catch (err) {
         this.error = 'Failed to load plan: ' + (err.response?.data?.detail || err.message)
+        useToastStore().error('Failed to load plan')
         throw err
       }
     },

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useToastStore } from './toast'
 
 export const DEFAULT_SETTINGS = {
   // Location
@@ -64,7 +65,13 @@ export const useSettingsStore = defineStore('settings', {
     async save(newSettings) {
       this.settings = { ...this.settings, ...newSettings }
       localStorage.setItem(LS_KEY, JSON.stringify(this.settings))
-      await axios.put('/api/settings/user', this.settings)
+      try {
+        await axios.put('/api/settings/user', this.settings)
+        useToastStore().success('Settings saved')
+      } catch (err) {
+        useToastStore().error('Failed to save settings')
+        throw err
+      }
     },
   },
 })

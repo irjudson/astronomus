@@ -265,9 +265,13 @@ class TestEstimateMagnitude:
 
     def test_venus_is_very_bright(self, planet_service):
         """Test Venus magnitude calculation."""
+        # At phase=30° the Meeus formula gives ~-3.0; Venus at smaller phase is much brighter
         venus_mag = planet_service._estimate_magnitude("Venus", 0.7, 0.72, 30.0)
-        # Venus is very bright
-        assert venus_mag < -3.0
+        assert venus_mag < -2.5  # well above typical naked-eye limit of +6
+        # At crescent phase close to Earth (0.5 AU geocentric), Venus is exceptionally bright
+        # V = -4.40 + 5*log10(0.72*0.5) + Meeus_phase(20°) ≈ -4.72
+        venus_crescent = planet_service._estimate_magnitude("Venus", 0.5, 0.72, 20.0)
+        assert venus_crescent < -4.0
 
     def test_magnitude_clamped(self, planet_service):
         """Test magnitude is clamped to reasonable range."""

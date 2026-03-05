@@ -225,7 +225,7 @@ class PlanetService:
             phase_percent = 100.0 * (1.0 + np.cos(np.radians(phase_angle_deg))) / 2.0
 
             # Estimate visual magnitude
-            magnitude = self._estimate_magnitude(planet_name, distance_au, helio_distance_au, phase_angle_deg)
+            magnitude = self._estimate_magnitude(planet_name, distance_au, helio_distance_au, phase_angle_deg, time_utc)
 
         # Calculate angular diameter
         # Angular diameter = 2 * arctan(radius / distance)
@@ -282,58 +282,88 @@ class PlanetService:
         return semi_major_axis_au
 
     def _estimate_magnitude(
-        self, planet_name: str, geo_dist_au: float, helio_dist_au: float, phase_angle_deg: float
+        self, planet_name: str, geo_dist_au: float, helio_dist_au: float, phase_angle_deg: float,
+        time_utc: Optional[datetime] = None
     ) -> float:
         """
-        Estimate visual magnitude of a planet.
+        Estimate visual magnitude of a planet using Meeus (Astronomical Algorithms) formulas.
 
-        Uses simplified magnitude formulas for each planet.
+        Implements the standard V-band magnitude formula:
+            V = V0 + 5*log10(r*Δ) + phase_correction
+        For Saturn, adds ring-plane inclination correction.
 
         Args:
             planet_name: Planet name
-            geo_dist_au: Geocentric distance in AU
-            helio_dist_au: Heliocentric distance in AU
-            phase_angle_deg: Phase angle in degrees
+            geo_dist_au: Geocentric distance in AU (Δ)
+            helio_dist_au: Heliocentric distance in AU (r)
+            phase_angle_deg: Phase angle Sun-planet-Earth in degrees (i)
+            time_utc: UTC time for Saturn ring inclination calculation
 
         Returns:
             Estimated visual magnitude
         """
-        # Simplified magnitude formulas (Astronomical Algorithms, Meeus)
-        # V = V0 + 5*log10(r*delta) + corrections
+        i = phase_angle_deg
 
-        # Base magnitude parameters (V0) for each planet
-        # These are approximate values
-        mag_params = {
-            "Mercury": -0.60,
-            "Venus": -4.40,
-            "Mars": -1.52,
-            "Jupiter": -9.40,
-            "Saturn": -8.88,  # Without rings, rings add ~+0.6
-            "Uranus": -7.19,
-            "Neptune": -6.87,
+        # Meeus Table 33.a: V0 and phase coefficients (a1, a2, a3)
+        # V = V0 + 5*log10(r*Δ) + a1*i + a2*i² + a3*i³  (i in degrees)
+        mag_coeffs = {
+            "Mercury": (-0.36, +3.80e-2, -2.73e-4, +2.00e-6),
+            "Venus":   (-4.40, +0.09,    +2.39e-4, -6.51e-7),
+            "Mars":    (-1.52, +1.60e-2,  0.0,      0.0),
+            "Jupiter": (-9.40, +5.00e-4,  0.0,      0.0),
+            "Saturn":  (-8.88,  0.0,       0.0,      0.0),  # ring correction applied separately
+            "Uranus":  (-7.19,  0.0,       0.0,      0.0),
+            "Neptune": (-6.87,  0.0,       0.0,      0.0),
         }
 
-        v0 = mag_params.get(planet_name, 0.0)
+        if planet_name not in mag_coeffs:
+            return 0.0
 
-        # Distance term: 5 * log10(r * delta)
-        # where r = heliocentric distance, delta = geocentric distance
+        v0, a1, a2, a3 = mag_coeffs[planet_name]
         dist_term = 5.0 * np.log10(helio_dist_au * geo_dist_au)
-
-        # Phase angle correction (simplified)
-        # Most planets use a quadratic phase function
-        np.radians(phase_angle_deg)
-        phase_correction = 0.0
-
-        if planet_name in ["Mercury", "Venus"]:
-            # Inner planets have significant phase effects
-            phase_correction = 0.0384 * phase_angle_deg - 0.000125 * phase_angle_deg**2
-        elif planet_name == "Mars":
-            phase_correction = 0.016 * phase_angle_deg
+        phase_correction = a1 * i + a2 * i**2 + a3 * i**3
 
         magnitude = v0 + dist_term + phase_correction
 
-        # Clamp to reasonable range
-        return np.clip(magnitude, -10.0, 20.0)
+        # Saturn ring inclination correction (Meeus Ch. 45 / Müller)
+        # ΔM = -2.60*sin|B| + 1.25*sin²B  where B = ring tilt toward Earth
+        if planet_name == "Saturn" and time_utc is not None:
+            try:
+                b_deg = self._saturn_ring_tilt_deg(time_utc)
+                b_rad = np.radians(abs(b_deg))
+                magnitude += -2.60 * np.sin(b_rad) + 1.25 * np.sin(b_rad) ** 2
+            except Exception:
+                magnitude += 0.6  # average ring contribution when calculation fails
+
+        return float(np.clip(magnitude, -10.0, 20.0))
+
+    def _saturn_ring_tilt_deg(self, time_utc: datetime) -> float:
+        """
+        Calculate Saturn ring tilt angle B toward Earth (degrees).
+
+        B is the sub-Earth ecliptic latitude of Saturn's ring plane,
+        ranging from -26.7° to +26.7° over the 29.4-year orbit.
+
+        Uses the approximate formula based on Saturn's ecliptic longitude
+        and the fixed ring pole direction (Ω=169.5°, i=26.73°).
+        """
+        from astropy.coordinates import get_body_barycentric_posvel, HeliocentricMeanEcliptic
+        import astropy.units as u_
+
+        t = Time(time_utc)
+        # Get Saturn's ecliptic longitude using Astropy
+        saturn = get_body("saturn", t)
+        # Transform to heliocentric ecliptic
+        ecliptic = saturn.geocentricmeanecliptic
+        saturn_lon_deg = float(ecliptic.lon.deg)
+
+        # Ring pole ascending node and inclination (J2000)
+        omega = 169.5  # degrees
+        incl = 26.73   # degrees
+
+        # Sub-Earth latitude of ring plane
+        b_rad = np.arcsin(np.sin(np.radians(incl)) * np.sin(np.radians(saturn_lon_deg - omega)))
+        return float(np.degrees(b_rad))
 
     def compute_visibility(self, planet_name: str, location: Location, time_utc: datetime) -> PlanetVisibility:
         """
