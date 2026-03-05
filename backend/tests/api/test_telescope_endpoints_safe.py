@@ -246,7 +246,7 @@ class TestSafetyDocumentation:
         """Verify VIEW-PLAN-CONFIGURATION.md exists."""
         import os
 
-        plan_doc_path = os.path.join(os.path.dirname(__file__), "../../docs/seestar/VIEW-PLAN-CONFIGURATION.md")
+        plan_doc_path = os.path.join(os.path.dirname(__file__), "../../../docs/seestar/VIEW-PLAN-CONFIGURATION.md")
         assert os.path.exists(
             plan_doc_path
         ), "VIEW-PLAN-CONFIGURATION.md must exist with complete plan_config documentation"
