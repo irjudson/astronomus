@@ -63,10 +63,10 @@
                 <div class="text-xs text-gray-500">
                   Status: {{ processingStore.activeJob.status }}
                 </div>
-                <div v-if="processingStore.activeJob.progress !== undefined" class="w-full bg-gray-800 rounded-full h-2">
+                <div v-if="processingStore.activeJob.progress_percent !== undefined" class="w-full bg-gray-800 rounded-full h-2">
                   <div
                     class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    :style="{ width: `${processingStore.activeJob.progress}%` }"
+                    :style="{ width: `${processingStore.activeJob.progress_percent}%` }"
                   ></div>
                 </div>
               </div>
