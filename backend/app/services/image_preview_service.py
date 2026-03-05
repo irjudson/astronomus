@@ -145,18 +145,30 @@ class ImagePreviewService:
 
     def _get_ordered_sources(self) -> list[dict]:
         """Get sources ordered by priority score (highest first)."""
+        # Default sources to use if no stats exist
+        default_sources = [
+            {"name": "sdss", "priority": 100.0},
+            {"name": "panstarrs", "priority": 90.0},
+            {"name": "eso", "priority": 85.0},
+            {"name": "skyview_dss", "priority": 80.0},
+        ]
+
         if not self.db:
-            # Fallback to default order if no DB
-            return [
-                {"name": "sdss", "priority": 100.0},
-                {"name": "panstarrs", "priority": 90.0},
-                {"name": "eso", "priority": 85.0},
-                {"name": "skyview_dss", "priority": 80.0},
-            ]
+            # No database session - use defaults
+            return default_sources
 
-        sources = self.db.query(ImageSourceStats).order_by(ImageSourceStats.priority_score.desc().nullslast()).all()
+        try:
+            sources = self.db.query(ImageSourceStats).order_by(ImageSourceStats.priority_score.desc().nullslast()).all()
 
-        return [{"name": s.source_name, "priority": s.priority_score or 50.0} for s in sources]
+            if not sources:
+                # No stats in database yet - use defaults
+                logger.debug("No ImageSourceStats in database, using defaults")
+                return default_sources
+
+            return [{"name": s.source_name, "priority": s.priority_score or 50.0} for s in sources]
+        except Exception as e:
+            logger.warning("Error loading sources from database: %s, using defaults", e)
+            return default_sources
 
     def _fetch_single(
         self, source_name: str, ra_deg: float, dec_deg: float, fov_arcmin: float, catalog_id: str

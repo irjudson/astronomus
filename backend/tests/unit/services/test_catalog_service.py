@@ -125,9 +125,6 @@ class TestCatalogServiceComprehensive:
         assert len(targets) > 0
         assert all(t.object_type in ["galaxy", "nebula"] for t in targets)
 
-    @pytest.mark.skip(
-        reason="Known bug: pagination with magnitude ordering can produce overlapping pages when magnitudes are equal"
-    )
     def test_filter_targets_with_pagination(self, override_get_db):
         """Test pagination with limit and offset."""
 

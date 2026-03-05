@@ -255,9 +255,12 @@ If you need assistance obtaining the key:
 - Skyfield for astronomical calculations
 
 **Frontend**
-- Vue.js for reactive UI
-- Chart.js for visualizations
-- Vanilla JavaScript (no build step)
+- Vue.js 3 (new, in migration)
+- Vite for build tooling
+- Pinia for state management
+- Vue Router for SPA navigation
+- Tailwind CSS for styling
+- Vanilla JavaScript (legacy, being phased out)
 
 **Deployment**
 - Docker and Docker Compose

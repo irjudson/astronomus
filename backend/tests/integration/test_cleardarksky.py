@@ -127,12 +127,13 @@ class TestClearDarkSkyService:
         forecasts = service.fetch_forecast(chart_id="test_chart")
         assert forecasts == []  # Returns empty list on error
 
-    def test_parse_chart_data(self, service):
-        """Test parsing chart image data."""
-        # This would need actual ClearDarkSky chart data
-        # For now, test that method exists and handles errors
-        result = service._parse_chart_data(b"invalid data")
+    @patch("requests.get")
+    def test_get_forecast_returns_list(self, mock_get, service):
+        """Test that get_forecast returns a list (Open-Meteo path)."""
+        mock_get.side_effect = Exception("Network unavailable")
+        result = service.get_forecast(latitude=40.7, longitude=-74.0)
         assert isinstance(result, list)
+        assert result == []  # Returns empty list on error, never raises
 
     def test_get_forecast_for_location(self, service):
         """Test getting forecast for coordinates."""

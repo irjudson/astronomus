@@ -1,7 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
@@ -18,15 +17,18 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import Base
-from app.models import processing_models, catalog_models, telescope_models, plan_models, settings_models, capture_models
 from app.core.config import get_settings
+from app.database import Base
+from app.models import capture_models, catalog_models, plan_models, processing_models, settings_models, telescope_models
 
 target_metadata = Base.metadata
 
-# Get database URL from settings (respects .env file)
+# Get database URL from settings (respects DATABASE_URL env var and .env file)
+# This overrides the hardcoded URL in alembic.ini, allowing tests and deployment
+# environments to use DATABASE_URL env var to point to the correct database.
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
@@ -73,22 +75,19 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+    # Check if we should run without transaction wrapper (used by test fixtures)
+    use_transaction = config.attributes.get("use_transaction", True)
 
-        # Check if we should run without transaction wrapper
-        # This is needed for pytest where we want DDL changes to persist
-        # outside of any transaction context
-        use_transaction = config.attributes.get('use_transaction', True)
-
-        if use_transaction:
+    if use_transaction:
+        with connectable.connect() as connection:
+            context.configure(connection=connection, target_metadata=target_metadata)
             with context.begin_transaction():
                 context.run_migrations()
-        else:
-            # Run migrations without transaction wrapper
-            # DDL will auto-commit in PostgreSQL
+    else:
+        # Use AUTOCOMMIT isolation so DDL changes persist immediately
+        # Required for pytest fixtures where test sessions need to see schema changes
+        with connectable.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            context.configure(connection=connection, target_metadata=target_metadata)
             context.run_migrations()
 
 

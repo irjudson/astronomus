@@ -4,6 +4,7 @@
 import sqlite3
 from pathlib import Path
 
+
 def create_asteroid_tables():
     """Create tables for asteroid catalog."""
     # Auto-detect database path
@@ -22,7 +23,8 @@ def create_asteroid_tables():
     cursor = conn.cursor()
 
     # Create asteroid_catalog table
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS asteroid_catalog (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             designation VARCHAR(50) NOT NULL UNIQUE,
@@ -50,10 +52,12 @@ def create_asteroid_tables():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """
+    )
 
     # Create asteroid_ephemeris table for caching computed positions
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS asteroid_ephemeris (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             asteroid_id INTEGER NOT NULL,
@@ -69,48 +73,62 @@ def create_asteroid_tables():
             FOREIGN KEY (asteroid_id) REFERENCES asteroid_catalog(id),
             UNIQUE(asteroid_id, date_jd)
         )
-    """)
+    """
+    )
 
     # Create indexes for better query performance
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_asteroid_magnitude
         ON asteroid_catalog(current_magnitude)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_asteroid_type
         ON asteroid_catalog(asteroid_type)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_asteroid_number
         ON asteroid_catalog(number)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_asteroid_ephemeris_date
         ON asteroid_ephemeris(date_jd)
-    """)
+    """
+    )
 
     conn.commit()
 
     # Check table creation
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) FROM asteroid_catalog
-    """)
+    """
+    )
     count = cursor.fetchone()[0]
 
     print(f"✓ Created asteroid_catalog table ({count} asteroids)")
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) FROM asteroid_ephemeris
-    """)
+    """
+    )
     count = cursor.fetchone()[0]
 
     print(f"✓ Created asteroid_ephemeris table ({count} cached ephemerides)")
 
     conn.close()
     print("\n✓ Asteroid tables created successfully!")
+
 
 if __name__ == "__main__":
     create_asteroid_tables()

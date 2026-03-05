@@ -123,6 +123,8 @@ def setup_test_db_schema():
     This fixture is NOT autouse - it only runs for tests that need database access
     (via the client or override_get_db fixtures).
     """
+    import os
+
     from alembic import command
     from alembic.config import Config
     from app.core.config import get_settings
@@ -137,8 +139,20 @@ def setup_test_db_schema():
     # This allows DDL to auto-commit in PostgreSQL
     alembic_cfg.attributes["use_transaction"] = False
 
-    # Ensure database is at head revision (idempotent - won't re-run if already at head)
-    command.upgrade(alembic_cfg, "head")
+    # Set DATABASE_URL env var so env.py's get_settings() picks up the test URL
+    # (env.py always calls get_settings() which reads DATABASE_URL)
+    original_db_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
+    try:
+        # Ensure database is at head revision (idempotent - won't re-run if already at head)
+        command.upgrade(alembic_cfg, "head")
+    finally:
+        # Restore original DATABASE_URL
+        if original_db_url is not None:
+            os.environ["DATABASE_URL"] = original_db_url
+        else:
+            os.environ.pop("DATABASE_URL", None)
 
     # Load catalog data into test database (skips if already loaded)
     _load_test_catalog_data()

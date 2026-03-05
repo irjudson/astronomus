@@ -10,6 +10,10 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "9247:9247"
+    # For telescope connectivity on local network, you have two options:
+    # 1. Run this container on a machine that's on the same network as the telescope
+    # 2. Use network_mode: "host" (but you'll need to stop any PostgreSQL on port 5432)
+    # 3. Use docker with --network=host flag instead of docker-compose
     environment:
       # PostgreSQL configuration for local database
       - POSTGRES_HOST=localhost
@@ -54,6 +58,11 @@ services:
       # Mount MPS directories for GPU sharing
       - /tmp/nvidia-mps:/tmp/nvidia-mps
       - /tmp/nvidia-log:/tmp/nvidia-log
+    networks:
+      default:
+      shared-infra:
+        aliases:
+          - astronomus
     restart: unless-stopped
     deploy:
       resources:
@@ -79,6 +88,10 @@ services:
     profiles:
       - monitoring
     network_mode: "service:astronomus"
+
+networks:
+  shared-infra:
+    external: true
 
 volumes:
   astronomus-pgdata:

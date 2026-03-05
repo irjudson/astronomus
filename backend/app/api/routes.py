@@ -50,6 +50,23 @@ router.include_router(user_preferences_router, prefix="/user", tags=["user"])
 # Telescope control (singleton seestar client instance)
 seestar_client: Optional[SeestarClient] = None
 
+
+# Dependency injection for telescope client
+def get_current_telescope() -> Optional[SeestarClient]:
+    """
+    Dependency function to get the current telescope client.
+
+    Returns:
+        The current SeestarClient instance if connected, None otherwise
+
+    Raises:
+        HTTPException: If no telescope is connected
+    """
+    if seestar_client is None:
+        raise HTTPException(status_code=503, detail="Telescope not connected")
+    return seestar_client
+
+
 # In-memory storage for shared plans (in production, use Redis or database)
 shared_plans: Dict[str, ObservingPlan] = {}
 
@@ -69,6 +86,15 @@ class ExecutePlanRequest(BaseModel):
     scheduled_targets: List[ScheduledTarget]
     park_when_done: bool = True  # Default to True (park telescope when complete)
     saved_plan_id: Optional[int] = None  # Optional: link execution to saved plan
+
+
+class AnnotationRequest(BaseModel):
+    enabled: bool
+
+
+class StartTrackingRequest(BaseModel):
+    object_type: str  # "satellite", "comet", or "asteroid"
+    object_id: str
 
 
 @router.post("/plan", response_model=ObservingPlan)
@@ -627,7 +653,10 @@ async def search_catalog(
     constellation: Optional[str] = Query(None, description="Filter by constellation"),
     max_magnitude: Optional[float] = Query(None, description="Maximum magnitude (fainter limit)"),
     visible_now: bool = Query(False, description="Only show targets visible now (altitude > 30°)"),
-    sort_by: str = Query("name", description="Sort by: name, magnitude, or type"),
+    sort_by: str = Query("name", description="Sort by: name, magnitude, type, or score"),
+    use_scoring: bool = Query(
+        False, description="Use comprehensive scoring algorithm (location, coverage, brightness)"
+    ),
     page: int = Query(1, description="Page number (1-indexed)", ge=1),
     page_size: int = Query(20, description="Items per page", ge=1, le=100),
 ):
@@ -643,12 +672,13 @@ async def search_catalog(
         constellation: Constellation filter (3-letter abbreviation)
         max_magnitude: Maximum magnitude filter
         visible_now: Only show targets visible now (altitude > 30°)
-        sort_by: Sort field (name, magnitude, type)
+        sort_by: Sort field (name, magnitude, type, or score)
+        use_scoring: Use comprehensive scoring algorithm including location, coverage, brightness, size, and field rotation
         page: Page number (1-indexed)
         page_size: Number of items per page
 
     Returns:
-        Paginated catalog search results
+        Paginated catalog search results with optional scoring
     """
     try:
         import time
@@ -721,6 +751,9 @@ async def search_catalog(
         else:  # name (default)
             query = query.order_by(DSOCatalog.catalog_name.asc(), DSOCatalog.catalog_number.asc())
 
+        # Initialize score details map (used when comprehensive scoring is enabled)
+        score_details = {}
+
         # Handle visibility filtering
         if visible_now:
             # Optimization: Sort by brightness and size first (using DB indexes),
@@ -738,17 +771,28 @@ async def search_catalog(
 
             # Get default location for visibility calculations
             default_location_db = db.query(ObservingLocation).filter(ObservingLocation.is_default == True).first()
-            if not default_location_db:
-                raise HTTPException(status_code=400, detail="No default location configured for visibility filtering")
 
             # Create Location object for ephemeris calculations
-            location = Location(
-                name=default_location_db.name,
-                latitude=default_location_db.latitude,
-                longitude=default_location_db.longitude,
-                elevation=default_location_db.elevation,
-                timezone=default_location_db.timezone,
-            )
+            if default_location_db:
+                location = Location(
+                    name=default_location_db.name,
+                    latitude=default_location_db.latitude,
+                    longitude=default_location_db.longitude,
+                    elevation=default_location_db.elevation,
+                    timezone=default_location_db.timezone,
+                )
+            else:
+                # Fall back to app settings default location
+                from app.core import get_settings as _get_settings
+
+                _settings = _get_settings()
+                location = Location(
+                    name=_settings.default_location_name,
+                    latitude=_settings.default_lat,
+                    longitude=_settings.default_lon,
+                    elevation=_settings.default_elevation,
+                    timezone=_settings.default_timezone,
+                )
 
             # Initialize ephemeris service
             ephemeris = EphemerisService()
@@ -781,6 +825,23 @@ async def search_catalog(
             # Filter candidates by visibility (altitude > 30°)
             # Calculate visibility score for final sorting
             visible_results = []  # List of tuples: (dso, visibility_score)
+
+            # Use comprehensive scoring if requested
+            if use_scoring or sort_by == "score":
+                from app.models import ObservingConstraints
+                from app.services.scheduler_service import SchedulerService
+                from app.services.weather_service import WeatherService
+
+                scheduler = SchedulerService()
+                weather_service = WeatherService()
+                constraints = ObservingConstraints()
+
+                # Get weather forecast for scoring
+                twilight_times = ephemeris.calculate_twilight_times(location, current_time)
+                scoring_start = twilight_times.get("astronomical_twilight_end", observing_time)
+                scoring_end = twilight_times.get("astronomical_twilight_start", observing_time + timedelta(hours=8))
+                weather_forecasts = weather_service.get_forecast(location, scoring_start, scoring_end)
+
             for dso in candidates:
                 # Create DSOTarget for ephemeris calculation
                 # Use defaults for None values (99.0 for magnitude = very faint, 1.0 for size)
@@ -798,23 +859,48 @@ async def search_catalog(
                 try:
                     altitude, _ = ephemeris.calculate_position(target, location, observing_time)
                     if altitude > 30.0:  # Minimum altitude threshold
-                        # Calculate visibility score (lower is better):
-                        # - Brighter objects (lower magnitude) are better
-                        # - Bigger objects are better (subtract size bonus)
-                        # - Higher altitude is better (subtract altitude bonus)
-                        magnitude = dso.magnitude if dso.magnitude is not None else 99.0
-                        size = dso.size_major_arcmin if dso.size_major_arcmin is not None else 0.0
-                        visibility_score = magnitude - (size / 10.0) - (altitude / 20.0)
-                        visible_results.append((dso, visibility_score))
+                        if use_scoring or sort_by == "score":
+                            # Use comprehensive scheduler scoring
+                            duration = scheduler._calculate_visibility_duration(
+                                target, location, scoring_start, scoring_end, constraints
+                            )
+                            weather_score = scheduler._get_weather_score_for_time(observing_time, weather_forecasts)
+                            score_data = scheduler._score_target(
+                                target, location, observing_time, duration, constraints, weather_score
+                            )
+                            # Store score as tuple: (dso, score, detailed_scores)
+                            # Higher score is better, so negate for sorting (we want highest first)
+                            visible_results.append((dso, -score_data.total_score, score_data))
+                        else:
+                            # Calculate simple visibility score (lower is better):
+                            # - Brighter objects (lower magnitude) are better
+                            # - Bigger objects are better (subtract size bonus)
+                            # - Higher altitude is better (subtract altitude bonus)
+                            magnitude = dso.magnitude if dso.magnitude is not None else 99.0
+                            size = dso.size_major_arcmin if dso.size_major_arcmin is not None else 0.0
+                            visibility_score = magnitude - (size / 10.0) - (altitude / 20.0)
+                            visible_results.append((dso, visibility_score, None))
                 except Exception:
                     # Skip targets that fail calculation
                     continue
 
-            # Sort by visibility score (lower = more visible)
+            # Sort by visibility score
+            # (for simple score: lower is better; for comprehensive score: already negated so lower means higher score)
             visible_results.sort(key=lambda x: x[1])
 
-            # Extract just the DSO objects (drop the scores)
-            visible_dsos = [dso for dso, score in visible_results]
+            # Extract DSO objects and detailed scores
+            visible_dsos = []
+            score_details = {}  # Map catalog_id to score details
+            for dso, _, score_data in visible_results:
+                visible_dsos.append(dso)
+                if score_data:  # If comprehensive scoring was used
+                    catalog_id = f"{dso.catalog_name}{dso.catalog_number}"
+                    score_details[catalog_id] = {
+                        "total_score": score_data.total_score,
+                        "visibility_score": score_data.visibility_score,
+                        "weather_score": score_data.weather_score,
+                        "object_score": score_data.object_score,
+                    }
 
             # Prepend exact matches even if not visible (user specifically searched for them)
             if exact_match_objects:
@@ -852,23 +938,29 @@ async def search_catalog(
             # Get constellation details
             constellation_details = catalog_service._get_constellation_details(dso.constellation)
 
-            items.append(
-                {
-                    "id": target.catalog_id,
-                    "name": target.name,
-                    "common_name": dso.common_name,  # Include common_name from database
-                    "type": target.object_type,
-                    "constellation": dso.constellation,
-                    "constellation_full": (
-                        constellation_details["full_name"] if constellation_details else dso.constellation
-                    ),
-                    "constellation_common": constellation_details["common_name"] if constellation_details else None,
-                    "magnitude": target.magnitude,
-                    "ra": target.ra_hours * 15,  # Convert hours to degrees
-                    "dec": target.dec_degrees,
-                    "size": f"{target.size_arcmin:.1f}'" if target.size_arcmin and target.size_arcmin > 1 else None,
-                }
-            )
+            item = {
+                "id": target.catalog_id,
+                "name": target.name,
+                "common_name": dso.common_name,  # Include common_name from database
+                "type": target.object_type,
+                "constellation": dso.constellation,
+                "constellation_full": (
+                    constellation_details["full_name"] if constellation_details else dso.constellation
+                ),
+                "constellation_common": constellation_details["common_name"] if constellation_details else None,
+                "magnitude": target.magnitude,
+                "ra": target.ra_hours * 15,  # Convert hours to degrees
+                "dec": target.dec_degrees,
+                "size": f"{target.size_arcmin:.1f}'" if target.size_arcmin and target.size_arcmin > 1 else None,
+            }
+
+            # Add score details if comprehensive scoring was used
+            if visible_now and (use_scoring or sort_by == "score"):
+                catalog_id = target.catalog_id
+                if catalog_id in score_details:
+                    item["score"] = score_details[catalog_id]
+
+            items.append(item)
 
         result = {
             "items": items,
@@ -882,6 +974,8 @@ async def search_catalog(
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 
@@ -1603,6 +1697,78 @@ async def stop_slew():
         raise HTTPException(status_code=500, detail=f"Stop slew failed: {str(e)}")
 
 
+@router.post("/telescope/polar-align/start")
+async def start_polar_align():
+    """
+    Start polar alignment process.
+
+    Returns:
+        Polar alignment start status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.start_polar_align()
+
+        if success:
+            return {"status": "active", "message": "Polar alignment started"}
+        else:
+            return {"status": "error", "message": "Failed to start polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Start polar alignment failed: {str(e)}")
+
+
+@router.post("/telescope/polar-align/stop")
+async def stop_polar_align():
+    """
+    Stop polar alignment process.
+
+    Returns:
+        Polar alignment stop status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.stop_polar_align()
+
+        if success:
+            return {"status": "stopped", "message": "Polar alignment stopped"}
+        else:
+            return {"status": "error", "message": "Failed to stop polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stop polar alignment failed: {str(e)}")
+
+
+@router.post("/telescope/polar-align/pause")
+async def pause_polar_align():
+    """
+    Pause polar alignment process.
+
+    Returns:
+        Polar alignment pause status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.pause_polar_align()
+
+        if success:
+            return {"status": "paused", "message": "Polar alignment paused"}
+        else:
+            return {"status": "error", "message": "Failed to pause polar alignment"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pause polar alignment failed: {str(e)}")
+
+
 @router.post("/telescope/start-imaging")
 async def start_imaging(request: dict = None):
     """
@@ -1654,6 +1820,110 @@ async def stop_imaging():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop imaging failed: {str(e)}")
+
+
+@router.post("/telescope/recording/start")
+async def start_recording(request: dict = None):
+    """
+    Start AVI video recording.
+
+    Args:
+        request: {"filename": str (optional)} - Optional filename for recording
+
+    Returns:
+        Recording status with filename
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        filename = None if request is None else request.get("filename")
+
+        success = await seestar_client.start_record_avi(filename=filename)
+
+        if success:
+            return {"status": "recording_started", "filename": filename or "auto"}
+        else:
+            return {"status": "error", "message": "Failed to start recording"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start recording: {str(e)}")
+
+
+@router.post("/telescope/recording/stop")
+async def stop_recording():
+    """
+    Stop AVI video recording.
+
+    Returns:
+        Recording status
+    """
+    try:
+        if seestar_client is None or not seestar_client.connected:
+            raise HTTPException(status_code=400, detail="Telescope not connected")
+
+        success = await seestar_client.stop_record_avi()
+
+        if success:
+            return {"status": "recording_stopped"}
+        else:
+            return {"status": "error", "message": "Failed to stop recording"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop recording: {str(e)}")
+
+
+@router.post("/telescope/tracking/start")
+async def start_tracking(request: StartTrackingRequest, client: SeestarClient = Depends(get_current_telescope)):
+    """
+    Start tracking an object (satellite, comet, or asteroid).
+
+    Args:
+        request: StartTrackingRequest with object_type and object_id
+        client: Connected telescope client
+
+    Returns:
+        Tracking status with object details
+    """
+    try:
+        success = await client.start_track_object(object_type=request.object_type, object_id=request.object_id)
+
+        if success:
+            return {"status": "tracking_started", "object_type": request.object_type, "object_id": request.object_id}
+        else:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to start tracking {request.object_type} {request.object_id}"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start tracking: {str(e)}")
+
+
+@router.post("/telescope/tracking/stop")
+async def stop_tracking(client: SeestarClient = Depends(get_current_telescope)):
+    """
+    Stop tracking the current object.
+
+    Args:
+        client: Connected telescope client
+
+    Returns:
+        Tracking status
+    """
+    try:
+        success = await client.stop_track_object()
+
+        if success:
+            return {"status": "tracking_stopped"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to stop tracking")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop tracking: {str(e)}")
 
 
 @router.post("/telescope/start-preview")
@@ -2092,49 +2362,83 @@ async def get_field_annotations():
         raise HTTPException(status_code=500, detail=f"Failed to get annotations: {str(e)}")
 
 
+@router.post("/telescope/annotation/toggle")
+async def toggle_annotations(request: AnnotationRequest, telescope: SeestarClient = Depends(get_current_telescope)):
+    """
+    Toggle field annotations on/off.
+
+    Args:
+        request: AnnotationRequest with enabled flag
+        telescope: Connected telescope client
+    """
+    try:
+        if request.enabled:
+            success = await telescope.start_annotate()
+        else:
+            success = await telescope.stop_annotate()
+        return {"success": success, "enabled": request.enabled}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle annotations: {str(e)}")
+
+
 # ==========================================
 # PLANETARY IMAGING
 # ==========================================
 
 
-@router.post("/telescope/planet/start")
-async def start_planet_scan(planet_name: str, exposure_ms: int = 30, gain: float = 100.0):
+@router.post("/telescope/imaging/planet/scan")
+async def scan_planets():
     """
-    Start planetary scanning mode.
+    Get list of planets/moons available for imaging.
 
-    Activates planet-specific imaging with different stacking algorithm
-    optimized for planetary targets.
+    Returns major solar system imaging targets:
+    Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Moon
+
+    Note: Sun excluded for safety (requires special solar filter).
+    """
+    try:
+        from app.services.planet_service import PlanetService
+
+        planet_service = PlanetService()
+        all_planets = planet_service.get_all_planets()
+
+        # Return all major planets/moons except Sun (safety)
+        imaging_targets = [p.name for p in all_planets if p.name != "Sun"]
+
+        return {"planets": imaging_targets}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get planets: {str(e)}")
+
+
+@router.post("/telescope/imaging/planet/start")
+async def start_planetary_imaging(
+    planet_name: str, exposure: int = 10, gain: int = 80, telescope: SeestarClient = Depends(get_current_telescope)
+):
+    """
+    Start planetary imaging.
 
     Args:
         planet_name: Name of planet to image
-        exposure_ms: Exposure time in milliseconds
-        gain: Gain value (0-100)
+        exposure: Exposure time in milliseconds
+        gain: Gain value (0-200)
     """
-    if seestar_client is None or not seestar_client.connected:
-        raise HTTPException(status_code=400, detail="Telescope not connected")
-
     try:
-        success = await seestar_client.start_planet_scan(planet_name, exposure_ms, gain)
-        return {"success": success, "message": f"Planetary scan started for {planet_name}"}
+        success = await telescope.start_planet_stack(planet_name, exposure, gain)
+        return {"success": success, "message": f"Planetary imaging started for {planet_name}"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start planet scan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start planetary imaging: {str(e)}")
 
 
-@router.post("/telescope/planet/configure")
-async def configure_planetary_imaging(config: Dict[str, Any]):
+@router.post("/telescope/imaging/planet/stop")
+async def stop_planetary_imaging(telescope: SeestarClient = Depends(get_current_telescope)):
     """
-    Configure planetary imaging settings.
-
-    Sets planet-specific parameters like ROI, exposure, gain, frame rate.
+    Stop planetary imaging.
     """
-    if seestar_client is None or not seestar_client.connected:
-        raise HTTPException(status_code=400, detail="Telescope not connected")
-
     try:
-        success = await seestar_client.configure_planetary_imaging(**config)
-        return {"success": success, "message": "Planetary imaging configured"}
+        success = await telescope.stop_planet_stack()
+        return {"success": success, "message": "Planetary imaging stopped"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to configure planetary imaging: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop planetary imaging: {str(e)}")
 
 
 # ==========================================
@@ -2342,6 +2646,49 @@ async def health_check():
     }
 
 
+@router.get("/wishlist/defaults")
+async def get_wishlist_defaults():
+    """
+    Get default solar system objects for wish list.
+
+    Returns 19 solar system objects:
+    - 8 planets including Pluto (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto)
+    - Moon
+    - Sun
+    - Jupiter's Galilean moons (Io, Europa, Ganymede, Callisto)
+    - Saturn's major moons (Titan, Rhea, Tethys, Dione, Enceladus)
+
+    Returns:
+        List of default targets with name and type
+    """
+    return [
+        # Planets
+        {"name": "Mercury", "type": "planet"},
+        {"name": "Venus", "type": "planet"},
+        {"name": "Mars", "type": "planet"},
+        {"name": "Jupiter", "type": "planet"},
+        {"name": "Saturn", "type": "planet"},
+        {"name": "Uranus", "type": "planet"},
+        {"name": "Neptune", "type": "planet"},
+        {"name": "Pluto", "type": "planet"},
+        # Earth's Moon
+        {"name": "Moon", "type": "moon"},
+        # Sun
+        {"name": "Sun", "type": "star"},
+        # Jupiter's Galilean moons
+        {"name": "Io", "type": "moon"},
+        {"name": "Europa", "type": "moon"},
+        {"name": "Ganymede", "type": "moon"},
+        {"name": "Callisto", "type": "moon"},
+        # Saturn's major moons
+        {"name": "Titan", "type": "moon"},
+        {"name": "Rhea", "type": "moon"},
+        {"name": "Tethys", "type": "moon"},
+        {"name": "Dione", "type": "moon"},
+        {"name": "Enceladus", "type": "moon"},
+    ]
+
+
 @router.get("/images/previews/{filename}")
 async def get_preview_image(filename: str):
     """
@@ -2481,3 +2828,103 @@ async def get_target_preview(sanitized_catalog_id: str, db: Session = Depends(ge
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error fetching target image: {str(e)}")
+
+
+def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
+    """Fast sync computation of solar system objects — call via run_in_executor.
+
+    Bypasses compute_visibility (which sweeps 24 h of rise/set times) and
+    uses a single shared AltAz frame for all bodies instead.
+    """
+    # Prevent network calls to IERS servers that can block or fail
+    try:
+        from astropy.utils.iers import conf as iers_conf
+
+        iers_conf.auto_download = False
+        iers_conf.auto_max_age = None  # don't raise on stale data
+    except Exception:
+        pass
+
+    from astropy import units as u
+    from astropy.coordinates import AltAz, EarthLocation, get_body, get_sun
+    from astropy.time import Time
+
+    from app.services.planet_service import PlanetService
+
+    planet_service = PlanetService()
+    now_utc = datetime.utcnow()
+    t = Time(now_utc)
+
+    earth_loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+    altaz_frame = AltAz(obstime=t, location=earth_loc)
+
+    MAIN_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon", "Sun"]
+    MOON_PARENTS = {
+        "Io": "Jupiter",
+        "Europa": "Jupiter",
+        "Ganymede": "Jupiter",
+        "Callisto": "Jupiter",
+        "Titan": "Saturn",
+        "Rhea": "Saturn",
+        "Tethys": "Saturn",
+        "Dione": "Saturn",
+        "Enceladus": "Saturn",
+    }
+
+    results = []
+    parent_visible: dict = {}
+
+    for name in MAIN_BODIES:
+        try:
+            eph = planet_service.compute_ephemeris(name, now_utc)
+            # Single AltAz transform — no 24-hour rise/set sweep
+            body_coord = get_sun(t) if name == "Sun" else get_body(name.lower(), t)
+            altaz = body_coord.transform_to(altaz_frame)
+            altitude_deg = float(altaz.alt.degree)
+            is_visible = altitude_deg > 0
+            parent_visible[name] = is_visible
+            obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
+            planet = planet_service.get_planet_by_name(name)
+            results.append(
+                {
+                    "name": name,
+                    "type": obj_type,
+                    "magnitude": round(eph.magnitude, 1),
+                    "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
+                    "altitude_deg": round(altitude_deg, 1),
+                    "is_visible": is_visible,
+                    "constellation": eph.constellation,
+                    "notes": planet.notes if planet else None,
+                }
+            )
+        except Exception as exc:
+            logger.warning("solar-system: failed to compute %s: %s", name, exc)
+            obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
+            results.append({"name": name, "type": obj_type, "is_visible": False})
+
+    for moon, parent in MOON_PARENTS.items():
+        results.append(
+            {
+                "name": moon,
+                "type": "moon",
+                "parent": parent,
+                "is_visible": parent_visible.get(parent, False),
+                "magnitude": None,
+                "altitude_deg": None,
+                "angular_diameter_arcsec": None,
+                "constellation": None,
+                "notes": None,
+            }
+        )
+
+    return results
+
+
+@router.get("/solar-system/objects")
+async def get_solar_system_objects(lat: Optional[float] = Query(None), lon: Optional[float] = Query(None)):
+    """All solar system targets with current ephemeris, computed in a thread pool."""
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    objects = await loop.run_in_executor(None, _compute_solar_system_objects_sync, lat or 0.0, lon or 0.0)
+    return {"objects": objects}

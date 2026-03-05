@@ -5,11 +5,12 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router
 from app.core import get_settings
+from app.routers import preview
 
 logger = logging.getLogger(__name__)
 
@@ -37,26 +38,70 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api")
+app.include_router(preview.router)
 
-# Route for shared plan viewer
+# Paths - handle both local (backend/app/main.py) and container (/app/app/main.py) environments
+# Try container path first (2 parents from /app/app/main.py -> /app/)
 frontend_path = Path(__file__).parent.parent / "frontend"
+if not frontend_path.exists():
+    # Fall back to host path (3 parents from backend/app/main.py -> project root)
+    frontend_path = Path(__file__).parent.parent.parent / "frontend"
+
+vue_app_path = frontend_path / "vue-app" / "dist"
 
 
+# Route for shared plan viewer (legacy)
 @app.get("/plan/{plan_id}")
 async def serve_plan_viewer(plan_id: str):
     """Serve the plan viewer page for shared plans."""
     plan_html = frontend_path / "plan.html"
     if plan_html.exists():
         return FileResponse(plan_html)
-    else:
-        return {"error": "Plan viewer not found"}
+    return {"error": "Plan viewer not found"}
 
 
-# Serve static frontend files
-if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+# Mount legacy frontend static files at root
+app.mount("/legacy", StaticFiles(directory=str(frontend_path), html=True), name="legacy-static")
+
+
+# Serve Vue.js app
+if vue_app_path.exists():
+    # Mount Vue app static assets
+    app.mount("/app/assets", StaticFiles(directory=str(vue_app_path / "assets")), name="vue-assets")
+
+    # Serve favicon before catch-all route
+    @app.get("/app/favicon.svg")
+    async def serve_favicon():
+        """Serve Vue app favicon."""
+        favicon_path = vue_app_path / "favicon.svg"
+        if favicon_path.exists():
+            return FileResponse(favicon_path, media_type="image/svg+xml")
+        return {"error": "Favicon not found"}
+
+    # Catch-all route for Vue SPA - must be last
+    @app.get("/app{full_path:path}")
+    async def serve_vue_app(full_path: str):
+        """Serve Vue.js SPA for all /app routes."""
+        index_html = vue_app_path / "index.html"
+        if index_html.exists():
+            return FileResponse(index_html)
+        return {"error": "Vue app not found"}
+
 else:
-    logger.warning("Frontend not found at %s", frontend_path)
+    logger.warning("Vue app dist folder not found at %s", vue_app_path)
+
+
+# Root route - redirect to Vue SPA
+@app.get("/")
+async def root():
+    """Redirect root to Vue SPA."""
+    return RedirectResponse(url="/app/", status_code=302)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 
 @app.on_event("startup")

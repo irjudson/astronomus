@@ -1344,6 +1344,196 @@ class SeestarClient:
         self.logger.info(f"Stop imaging response: {response}")
         return response.get("result") == 0
 
+    async def start_record_avi(self, filename: Optional[str] = None) -> bool:
+        """Start AVI video recording.
+
+        Args:
+            filename: Optional filename for recording (without extension)
+
+        Returns:
+            True if recording started successfully
+
+        Raises:
+            CommandError: If recording fails to start
+        """
+        params = {}
+        if filename:
+            params["name"] = filename
+
+        response = await self._send_command("start_record_avi", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Video recording started: {filename or 'auto'}")
+            return True
+        else:
+            error_msg = f"Failed to start video recording: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_record_avi(self) -> bool:
+        """Stop AVI video recording.
+
+        Returns:
+            True if recording stopped successfully
+
+        Raises:
+            CommandError: If recording fails to stop
+        """
+        response = await self._send_command("stop_record_avi", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Video recording stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop video recording: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_track_object(self, object_type: str, object_id: str) -> bool:
+        """Start tracking a satellite, comet, or asteroid.
+
+        Args:
+            object_type: Type of object - "satellite", "comet", or "asteroid"
+            object_id: Identifier of the object to track
+
+        Returns:
+            True if tracking started successfully
+
+        Raises:
+            CommandError: If tracking fails to start
+        """
+        params = {"type": object_type, "id": object_id}
+
+        response = await self._send_command("start_track_object", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Object tracking started: {object_type} - {object_id}")
+            return True
+        else:
+            error_msg = f"Failed to start tracking {object_type} '{object_id}': {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_track_object(self) -> bool:
+        """Stop tracking current object.
+
+        Returns:
+            True if tracking stopped successfully
+
+        Raises:
+            CommandError: If tracking fails to stop
+        """
+        response = await self._send_command("stop_track_object", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Object tracking stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop tracking object: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_annotate(self) -> bool:
+        """Enable annotations on preview.
+
+        Returns:
+            True if annotations started successfully
+
+        Raises:
+            CommandError: If annotation start fails
+        """
+        response = await self._send_command("start_annotate")
+
+        if response.get("code") == 0:
+            self.logger.info("Annotations started")
+            return True
+        else:
+            error_msg = f"Failed to start annotations: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_annotate(self) -> bool:
+        """Disable annotations on preview.
+
+        Returns:
+            True if annotations stopped successfully
+
+        Raises:
+            CommandError: If annotation stop fails
+        """
+        response = await self._send_command("stop_annotate", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Annotations stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop annotations: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_scan_planet(self) -> bool:
+        """Start scanning for visible planets.
+
+        Returns:
+            True if planet scan started successfully
+
+        Raises:
+            CommandError: If planet scan fails to start
+        """
+        response = await self._send_command("iscope_start_scan_planet", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Planet scan started")
+            return True
+        else:
+            error_msg = f"Failed to start planet scan: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def start_planet_stack(self, planet_name: str, exposure: int, gain: int) -> bool:
+        """Start planetary imaging stack.
+
+        Args:
+            planet_name: Name of the planet to image
+            exposure: Exposure time in milliseconds
+            gain: Gain value (0-300)
+
+        Returns:
+            True if planetary stack started successfully
+
+        Raises:
+            CommandError: If planetary stack fails to start
+        """
+        params = {"target": planet_name, "exposure": exposure, "gain": gain}
+        response = await self._send_command("iscope_start_planet_stack", params)
+
+        if response.get("code") == 0:
+            self.logger.info(f"Planet stack started: {planet_name} (exp={exposure}ms, gain={gain})")
+            return True
+        else:
+            error_msg = f"Failed to start planet stack: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
+    async def stop_planet_stack(self) -> bool:
+        """Stop planetary imaging stack.
+
+        Returns:
+            True if planetary stack stopped successfully
+
+        Raises:
+            CommandError: If planetary stack fails to stop
+        """
+        response = await self._send_command("iscope_stop_planet_stack", {})
+
+        if response.get("code") == 0:
+            self.logger.info("Planet stack stopped")
+            return True
+        else:
+            error_msg = f"Failed to stop planet stack: {response}"
+            self.logger.error(error_msg)
+            raise CommandError(error_msg)
+
     async def stop_slew(self) -> bool:
         """Stop current slew/goto operation.
 
@@ -1458,16 +1648,17 @@ class SeestarClient:
             raise ValueError(f"Invalid action '{action}'. Must be one of: {valid_actions}")
 
         # Handle stop/abort actions directly
+        # Firmware expects a JSON array ["none"], not a string or dict (code 105 otherwise)
         if action in ["stop", "abort"]:
             self.logger.info(f"Scope move: {action}")
-            response = await self._send_command("scope_move", {"action": action})
+            response = await self._send_command("scope_move", ["none"])
             self.logger.info(f"Scope move response: {response}")
             return response.get("result") == 0
 
         # Handle directional movement using scope_speed_move command
         if action in ["up", "down", "left", "right"]:
             # Map direction to angle (degrees)
-            # Based on empirical testing:
+            # Based on empirical testing with seestar_alp reference:
             # 0° = increase azimuth (turn right/clockwise)
             # 90° = increase altitude (tilt up)
             # 180° = decrease azimuth (turn left/counter-clockwise)
@@ -1480,16 +1671,16 @@ class SeestarClient:
             }
             angle = direction_angles[action]
 
-            # Speed multiplier maps to percent (0-100)
+            # percent maps joystick distance to 1-100; level is always 1; dur_sec=3
+            # Source: ScopeSpeedMoveCmd.java — params are {angle, percent, level, dur_sec}
             speed_multiplier = speed if speed is not None else 1.0
-            percent = int(min(100, max(1, speed_multiplier * 10)))  # 10% per speed unit, capped at 100
-            level = int(speed_multiplier)  # Use speed as level
+            percent = int(min(100, max(1, speed_multiplier * 100)))
 
             self.logger.info(
-                f"Directional move {action}: angle={angle}°, percent={percent}%, level={level}, speed={speed_multiplier:.1f}x"
+                f"Directional move {action}: angle={angle}°, percent={percent}, speed_multiplier={speed_multiplier:.1f}x"
             )
 
-            params = {"angle": angle, "percent": percent, "level": level, "dur_sec": 3}  # Duration in seconds
+            params = {"angle": angle, "percent": percent, "level": 1, "dur_sec": 3}
 
             response = await self._send_command("scope_speed_move", params)
             return response.get("result") == 0
@@ -1867,9 +2058,8 @@ class SeestarClient:
         """
         self.logger.info("Stopping telescope movement")
 
-        params = {"action": "stop"}
-
-        response = await self._send_command("scope_move", params)
+        # Firmware expects a JSON array ["none"], not a string or dict (code 105 otherwise)
+        response = await self._send_command("scope_move", ["none"])
 
         self.logger.info(f"Stop movement response: {response}")
         return response.get("result") == 0
@@ -1900,6 +2090,9 @@ class SeestarClient:
     async def move_focuser_relative(self, offset: int) -> bool:
         """Move focuser by relative offset.
 
+        Fetches current position then sends an absolute target step, which is
+        the format the firmware accepts (upstream seestar_alp pattern).
+
         Args:
             offset: Steps to move (positive = out, negative = in)
 
@@ -1909,9 +2102,18 @@ class SeestarClient:
         Raises:
             CommandError: If move fails
         """
-        self.logger.info(f"Moving focuser by offset {offset}")
+        self.logger.info(f"Moving focuser by relative offset {offset}")
 
-        params = {"offset": offset}
+        # Firmware accepts absolute "step" value only; fetch current position first
+        pos_response = await self._send_command("get_focuser_position", {})
+        current_pos = pos_response.get("result", 0)
+        if isinstance(current_pos, dict):
+            current_pos = current_pos.get("step", 0)
+
+        target = int(current_pos) + offset
+        self.logger.info(f"Focuser: current={current_pos}, target={target}")
+
+        params = {"step": target, "ret_step": True}
 
         self._update_status(state=SeestarState.FOCUSING)
 
@@ -2095,8 +2297,8 @@ class SeestarClient:
         Raises:
             CommandError: If query fails
         """
-        # Fixed: Parameter name is "name" not "path" (see GetImgFileInfoCmd.java line 47)
-        params = {"name": file_path} if file_path else {}
+        # Firmware expects a string param (code 105 otherwise); pass path string directly
+        params = file_path  # may be "" — firmware accepts empty string to list recent files
 
         response = await self._send_command("get_img_file_info", params)
 
@@ -2135,7 +2337,8 @@ class SeestarClient:
         """
         self.logger.info(f"Setting location: lon={longitude}, lat={latitude}")
 
-        params = {"lon_lat": [longitude, latitude]}
+        # Upstream seestar_alp uses separate lat/lon keys with force=True
+        params = {"lat": latitude, "lon": longitude, "force": True}
 
         response = await self._send_command("set_user_location", params)
 
@@ -2255,15 +2458,70 @@ class SeestarClient:
     async def get_compass_state(self) -> Dict[str, Any]:
         """Get compass heading and calibration state.
 
+        Reads from device_state (compass_sensor key) which we confirmed is populated
+        by the firmware.  Same nested-data pattern as balance_sensor.
+
         Returns:
-            Compass state dict with heading and calibration status
+            Dict with at minimum a 'heading' field (degrees 0-360).
+        """
+        response = await self._send_command("get_device_state", {})
+        result = response.get("result", {})
+        if "compass_sensor" in result:
+            sensor = result["compass_sensor"]
+            return sensor.get("data", sensor)
+        # Fall back to dedicated command if key is absent
+        response = await self._send_command("get_compass_state", {})
+        return response.get("result", {})
+
+    async def start_leveling(self) -> bool:
+        """Activate the IMU leveling mode (mirrors the Seestar app's 'Please level' screen).
+
+        Sends start_gsensor_calibration with no params, which is the command the Seestar
+        app issues before displaying the bubble level.  After calling this, the firmware
+        begins populating balance sensor data so get_balance_sensor() returns live values.
+
+        Returns:
+            True if the command was accepted (code == 0)
+        """
+        self.logger.info("Activating IMU leveling mode")
+        response = await self._send_command("start_gsensor_calibration")
+        self.logger.info(f"start_leveling (start_gsensor_calibration) response: {response}")
+        return response.get("code") == 0
+
+    async def get_balance_sensor(self) -> Dict[str, Any]:
+        """Get current balance sensor data for leveling.
+
+        Returns:
+            Dict with x, y, z (accelerometer) and angle (total tilt in degrees).
 
         Raises:
             CommandError: If query fails
         """
-        response = await self._send_command("get_compass_state", {})
+        response = await self._send_command("get_device_state", {})
+        result = response.get("result", {})
+        for key in ("balance_sensor", "balance", "imu", "gsensor", "accelerometer"):
+            if key in result:
+                sensor = result[key]
+                # Firmware wraps values in a nested 'data' key: {'code': 0, 'data': {x, y, z, angle}}
+                return sensor.get("data", sensor)
+        self.logger.warning("Balance sensor key not found in device state; keys: %s", list(result.keys()))
+        return {"x": 0, "y": 0, "z": 0, "angle": 0}
 
-        return response.get("result", {})
+    async def start_gsensor_calibration(self) -> bool:
+        """Calibrate G-sensor (IMU accelerometer reference point).
+
+        Sends no params — same wire format as start_annotate.
+
+        Returns:
+            True if calibration accepted (code == 0)
+
+        Raises:
+            CommandError: If command fails
+        """
+        self.logger.info("Starting G-sensor calibration")
+        response = await self._send_command("start_gsensor_calibration")
+        self.logger.info(f"start_gsensor_calibration response: {response}")
+        return response.get("code") == 0
 
     # ========================================================================
     # Phase 6: Remote Connection Management
@@ -2682,6 +2940,54 @@ class SeestarClient:
         self.logger.info(f"Stop demo mode response: {response}")
         return response.get("result") == 0
 
+    async def start_polar_align(self) -> bool:
+        """Start polar alignment process.
+
+        Returns:
+            True if polar alignment started successfully
+
+        Raises:
+            CommandError: If start fails
+        """
+        self.logger.info("Starting polar alignment")
+
+        response = await self._send_command("start_polar_align")
+
+        self.logger.info(f"Start polar align response: {response}")
+        return response.get("code") == 0
+
+    async def stop_polar_align(self) -> bool:
+        """Stop polar alignment process.
+
+        Returns:
+            True if polar alignment stopped successfully
+
+        Raises:
+            CommandError: If stop fails
+        """
+        self.logger.info("Stopping polar alignment")
+
+        response = await self._send_command("stop_polar_align")
+
+        self.logger.info(f"Stop polar align response: {response}")
+        return response.get("code") == 0
+
+    async def pause_polar_align(self) -> bool:
+        """Pause polar alignment process.
+
+        Returns:
+            True if polar alignment paused successfully
+
+        Raises:
+            CommandError: If pause fails
+        """
+        self.logger.info("Pausing polar alignment")
+
+        response = await self._send_command("pause_polar_align")
+
+        self.logger.info(f"Pause polar align response: {response}")
+        return response.get("code") == 0
+
     async def check_client_verified(self) -> bool:
         """Check if current client is verified/authenticated.
 
@@ -2860,6 +3166,46 @@ class SeestarClient:
 
         if frame_bytes is None:
             raise ConnectionError("No preview frame available. RTMP stream may not be active.")
+
+        return frame_bytes
+
+    async def get_latest_preview_frame(self) -> Optional[bytes]:
+        """Get latest preview frame from telescope filesystem.
+
+        Uses file-based approach (not RTSP) to fetch preview frames.
+        This is an alternative to get_live_preview() that works when RTSP is unavailable.
+
+        Returns:
+            JPEG bytes of latest preview frame, or None if no frames available
+
+        Raises:
+            ConnectionError: If not connected to telescope
+            CommandError: If file listing or download fails
+        """
+        # List files - let exceptions propagate
+        preview_info = await self.get_image_file_info("/mnt/sda1/seestar/preview/")
+
+        if "files" not in preview_info or not preview_info["files"]:
+            self.logger.warning("No preview frames available")
+            return None
+
+        # Filter out files without timestamps and sort
+        files_with_timestamps = [f for f in preview_info["files"] if "timestamp" in f]
+        if not files_with_timestamps:
+            self.logger.warning("No timestamped preview frames available")
+            return None
+
+        files = sorted(files_with_timestamps, key=lambda f: f["timestamp"], reverse=True)
+
+        latest_file = files[0]
+        if "name" not in latest_file:
+            raise CommandError("Invalid file info: missing 'name' field")
+        file_path = f"/mnt/sda1/seestar/preview/{latest_file['name']}"
+
+        self.logger.info(f"Downloading latest preview frame: {file_path}")
+
+        # Download file - let exceptions propagate
+        frame_bytes = await self._download_file(file_path)
 
         return frame_bytes
 

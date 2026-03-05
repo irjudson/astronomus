@@ -53,8 +53,8 @@ docker-compose.override.yml
 Dockerfile.dev
 
 # Documentation
-*.md
-docs/
+
+
 
 # Data and logs
 data/*.db

@@ -9,8 +9,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
-from app.models.catalog_models import DSOCatalog, CometCatalog, ConstellationName
+from app.models.catalog_models import CometCatalog, ConstellationName, DSOCatalog
 
 
 def migrate_dso_catalog(sqlite_conn, pg_session: Session):
@@ -18,13 +19,15 @@ def migrate_dso_catalog(sqlite_conn, pg_session: Session):
     cursor = sqlite_conn.cursor()
 
     # Get all DSO records
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, catalog_name, catalog_number, common_name,
                ra_hours, dec_degrees, object_type, magnitude,
                surface_brightness, size_major_arcmin, size_minor_arcmin,
                constellation, created_at, updated_at
         FROM dso_catalog
-    """)
+    """
+    )
 
     rows = cursor.fetchall()
     print(f"Found {len(rows)} DSO records in SQLite")
@@ -46,7 +49,7 @@ def migrate_dso_catalog(sqlite_conn, pg_session: Session):
             size_minor_arcmin=row[10],
             constellation=row[11],
             created_at=row[12],
-            updated_at=row[13]
+            updated_at=row[13],
         )
         pg_session.add(dso)
         count += 1
@@ -66,24 +69,28 @@ def migrate_comet_catalog(sqlite_conn, pg_session: Session):
     cursor = sqlite_conn.cursor()
 
     # Check if table exists
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT name FROM sqlite_master
         WHERE type='table' AND name='comet_catalog'
-    """)
+    """
+    )
 
     if not cursor.fetchone():
         print("! Comet catalog table doesn't exist in SQLite, skipping")
         return 0
 
     # Get all comet records
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, designation, name, discovery_date,
                epoch_jd, perihelion_distance_au, eccentricity,
                inclination_deg, arg_perihelion_deg, ascending_node_deg,
                perihelion_time_jd, absolute_magnitude, magnitude_slope,
                current_magnitude, activity_status, comet_type, data_source, notes
         FROM comet_catalog
-    """)
+    """
+    )
 
     rows = cursor.fetchall()
     print(f"Found {len(rows)} comet records in SQLite")
@@ -109,7 +116,7 @@ def migrate_comet_catalog(sqlite_conn, pg_session: Session):
             activity_status=row[14],
             comet_type=row[15],
             data_source=row[16],
-            notes=row[17]
+            notes=row[17],
         )
         pg_session.add(comet)
         count += 1
@@ -125,20 +132,24 @@ def migrate_constellation_names(sqlite_conn, pg_session: Session):
     cursor = sqlite_conn.cursor()
 
     # Check if table exists
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT name FROM sqlite_master
         WHERE type='table' AND name='constellation_names'
-    """)
+    """
+    )
 
     if not cursor.fetchone():
         print("! Constellation names table doesn't exist in SQLite, skipping")
         return 0
 
     # Get all constellation records
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT abbreviation, full_name
         FROM constellation_names
-    """)
+    """
+    )
 
     rows = cursor.fetchall()
     print(f"Found {len(rows)} constellation records in SQLite")
@@ -146,10 +157,7 @@ def migrate_constellation_names(sqlite_conn, pg_session: Session):
     # Insert into PostgreSQL
     count = 0
     for row in rows:
-        constellation = ConstellationName(
-            abbreviation=row[0],
-            full_name=row[1]
-        )
+        constellation = ConstellationName(abbreviation=row[0], full_name=row[1])
         pg_session.add(constellation)
         count += 1
 
@@ -186,7 +194,7 @@ def main():
         if existing_dso > 0 or existing_comets > 0:
             print(f"Warning: PostgreSQL already has {existing_dso} DSO and {existing_comets} comet records")
             response = input("Continue and add more data? (y/N): ")
-            if response.lower() != 'y':
+            if response.lower() != "y":
                 print("Migration cancelled")
                 return
 

@@ -38,7 +38,8 @@ def add_comet_tables():
 
     # Create comet catalog table with orbital elements
     # Using standard Keplerian orbital elements
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS comet_catalog (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -98,11 +99,13 @@ def add_comet_tables():
             -- Observing notes
             notes TEXT
         )
-    """)
+    """
+    )
 
     # Create ephemeris cache table for pre-computed positions
     # This improves performance for visibility queries
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS comet_ephemeris (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -133,42 +136,55 @@ def add_comet_tables():
             FOREIGN KEY (comet_id) REFERENCES comet_catalog(id) ON DELETE CASCADE,
             UNIQUE(comet_id, date_jd)
         )
-    """)
+    """
+    )
 
     # Create indexes for better query performance
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_comet_designation
         ON comet_catalog(designation)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_comet_name
         ON comet_catalog(name)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_comet_magnitude
         ON comet_catalog(current_magnitude)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_ephemeris_comet_date
         ON comet_ephemeris(comet_id, date_utc)
-    """)
+    """
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_ephemeris_date
         ON comet_ephemeris(date_utc)
-    """)
+    """
+    )
 
     conn.commit()
 
     # Verify tables were created
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT name FROM sqlite_master
         WHERE type='table' AND name LIKE 'comet%'
         ORDER BY name
-    """)
+    """
+    )
     tables = cursor.fetchall()
 
     conn.close()
@@ -187,5 +203,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error adding comet tables: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
