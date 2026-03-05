@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.models import Location
+from app.services.local_weather_service import LocalWeatherService
 from app.services.satellite_service import SatelliteService
 from app.services.seven_timer_service import SevenTimerService
 from app.services.viewing_months_service import ViewingMonthsService
@@ -125,6 +126,21 @@ async def get_astronomy_weather(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching astronomy weather: {str(e)}")
+
+
+@router.get("/weather/local")
+async def get_local_weather():
+    """
+    Get current conditions from the local Ambient Weather WS-2902 station.
+
+    Returns real-time outdoor temperature, humidity, wind, rain, pressure,
+    UV index, solar radiation, and an astronomy suitability assessment.
+    Returns 503 if the station is unreachable.
+    """
+    reading = LocalWeatherService().get_current()
+    if reading is None:
+        raise HTTPException(status_code=503, detail="Local weather station unreachable")
+    return reading.to_dict()
 
 
 # ========================================================================

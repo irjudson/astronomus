@@ -123,24 +123,84 @@ class FileScannerService:
             return None
 
     def _calculate_quality_metrics(self, file_path: str) -> Dict[str, Any]:
+        """Calculate FWHM and star count for a FITS image using astropy DAOStarFinder.
+
+        Returns fwhm in pixels and star_count, or None for each on failure.
+        Only meaningful for FITS files; non-FITS files return None for both.
         """
-        Calculate quality metrics for an image file.
+        if not file_path.lower().endswith((".fit", ".fits")):
+            return {"fwhm": None, "star_count": None}
 
-        Placeholder implementation that returns None for metrics pending future work.
+        try:
+            import numpy as np
+            from astropy.io import fits
+            from astropy.stats import sigma_clipped_stats
 
-        Args:
-            file_path: Path to image file
+            try:
+                from photutils.detection import DAOStarFinder
 
-        Returns:
-            Dict with keys: fwhm, star_count
-            Both values are None until implemented
-        """
-        # TODO: Implement actual FWHM calculation using photometry algorithms
-        # TODO: Implement star detection and counting
-        return {
-            "fwhm": None,
-            "star_count": None,
-        }
+                _has_photutils = True
+            except ImportError:
+                _has_photutils = False
+
+            with fits.open(file_path) as hdul:
+                data = hdul[0].data
+                if data is None and len(hdul) > 1:
+                    data = hdul[1].data
+                if data is None:
+                    return {"fwhm": None, "star_count": None}
+
+                # Work with 2D array; take middle slice of 3D cubes
+                data = np.array(data, dtype=float)
+                if data.ndim == 3:
+                    data = data[data.shape[0] // 2]
+                if data.ndim != 2:
+                    return {"fwhm": None, "star_count": None}
+
+            mean, median, std = sigma_clipped_stats(data, sigma=3.0)
+
+            if not _has_photutils:
+                # Fallback: basic threshold detection without photutils
+                threshold = median + 5.0 * std
+                star_count = int(np.sum(data > threshold))
+                return {"fwhm": None, "star_count": star_count}
+
+            # Use DAOStarFinder with a 3-pixel initial FWHM guess
+            daofind = DAOStarFinder(fwhm=3.0, threshold=5.0 * std)
+            sources = daofind(data - median)
+
+            if sources is None or len(sources) == 0:
+                return {"fwhm": None, "star_count": 0}
+
+            # FWHM estimate: DAOStarFinder reports sharpness; derive FWHM from
+            # the round sources (sharpness close to 1 = point source)
+            round_mask = sources["roundness1"] ** 2 + sources["roundness2"] ** 2 < 0.5
+            round_sources = sources[round_mask] if np.any(round_mask) else sources
+
+            # peak / flux ratio gives a rough width estimate; use median of peak values
+            if "peak" in round_sources.colnames and "flux" in round_sources.colnames:
+                peaks = np.array(round_sources["peak"])
+                fluxes = np.array(round_sources["flux"])
+                valid = (fluxes > 0) & (peaks > 0)
+                if np.any(valid):
+                    # Gaussian approximation: flux ≈ peak × π × σ² → σ ≈ sqrt(flux/(π×peak))
+                    sigmas = np.sqrt(fluxes[valid] / (np.pi * peaks[valid]))
+                    fwhm = float(np.median(sigmas) * 2.355)  # σ → FWHM
+                else:
+                    fwhm = None
+            else:
+                fwhm = None
+
+            return {
+                "fwhm": round(fwhm, 2) if fwhm is not None else None,
+                "star_count": int(len(sources)),
+            }
+
+        except Exception as exc:
+            import logging
+
+            logging.getLogger(__name__).debug(f"Quality metrics failed for {file_path}: {exc}")
+            return {"fwhm": None, "star_count": None}
 
     def scan_files(self, directory: str, db: Session) -> int:
         """

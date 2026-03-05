@@ -7,8 +7,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.models import AsteroidOrbitalElements, AsteroidTarget
 from app.services.asteroid_service import AsteroidService
-from app.models import AsteroidTarget, AsteroidOrbitalElements
 
 
 def populate_sample_asteroids():
@@ -29,7 +29,7 @@ def populate_sample_asteroids():
                 inclination_deg=10.59,
                 arg_perihelion_deg=73.60,
                 ascending_node_deg=80.31,
-                mean_anomaly_deg=77.37
+                mean_anomaly_deg=77.37,
             ),
             absolute_magnitude=3.53,
             slope_parameter=0.12,
@@ -40,7 +40,7 @@ def populate_sample_asteroids():
             rotation_period_hours=9.07,
             asteroid_type="MBA",  # Main Belt Asteroid
             data_source="manual",
-            notes="Largest asteroid and dwarf planet in the main belt"
+            notes="Largest asteroid and dwarf planet in the main belt",
         ),
         AsteroidTarget(
             designation="4 Vesta",
@@ -53,7 +53,7 @@ def populate_sample_asteroids():
                 inclination_deg=7.14,
                 arg_perihelion_deg=150.80,
                 ascending_node_deg=103.85,
-                mean_anomaly_deg=205.80
+                mean_anomaly_deg=205.80,
             ),
             absolute_magnitude=3.20,
             slope_parameter=0.32,
@@ -64,7 +64,7 @@ def populate_sample_asteroids():
             rotation_period_hours=5.34,
             asteroid_type="MBA",
             data_source="manual",
-            notes="Second-largest asteroid, brightest asteroid visible from Earth"
+            notes="Second-largest asteroid, brightest asteroid visible from Earth",
         ),
         AsteroidTarget(
             designation="2 Pallas",
@@ -77,7 +77,7 @@ def populate_sample_asteroids():
                 inclination_deg=34.83,
                 arg_perihelion_deg=310.04,
                 ascending_node_deg=173.09,
-                mean_anomaly_deg=78.22
+                mean_anomaly_deg=78.22,
             ),
             absolute_magnitude=4.13,
             slope_parameter=0.11,
@@ -88,7 +88,7 @@ def populate_sample_asteroids():
             rotation_period_hours=7.81,
             asteroid_type="MBA",
             data_source="manual",
-            notes="Third-largest asteroid with highly inclined orbit"
+            notes="Third-largest asteroid with highly inclined orbit",
         ),
         AsteroidTarget(
             designation="3 Juno",
@@ -101,7 +101,7 @@ def populate_sample_asteroids():
                 inclination_deg=12.98,
                 arg_perihelion_deg=248.41,
                 ascending_node_deg=169.87,
-                mean_anomaly_deg=100.50
+                mean_anomaly_deg=100.50,
             ),
             absolute_magnitude=5.33,
             slope_parameter=0.23,
@@ -112,7 +112,7 @@ def populate_sample_asteroids():
             rotation_period_hours=7.21,
             asteroid_type="MBA",
             data_source="manual",
-            notes="One of the larger S-type asteroids in the main belt"
+            notes="One of the larger S-type asteroids in the main belt",
         ),
         AsteroidTarget(
             designation="433 Eros",
@@ -125,7 +125,7 @@ def populate_sample_asteroids():
                 inclination_deg=10.83,
                 arg_perihelion_deg=178.64,
                 ascending_node_deg=304.40,
-                mean_anomaly_deg=320.30
+                mean_anomaly_deg=320.30,
             ),
             absolute_magnitude=10.4,
             slope_parameter=0.46,
@@ -136,7 +136,7 @@ def populate_sample_asteroids():
             rotation_period_hours=5.27,
             asteroid_type="NEA",  # Near-Earth Asteroid
             data_source="manual",
-            notes="Well-studied near-Earth asteroid, visited by NEAR Shoemaker spacecraft"
+            notes="Well-studied near-Earth asteroid, visited by NEAR Shoemaker spacecraft",
         ),
         AsteroidTarget(
             designation="16 Psyche",
@@ -149,7 +149,7 @@ def populate_sample_asteroids():
                 inclination_deg=3.10,
                 arg_perihelion_deg=228.03,
                 ascending_node_deg=150.29,
-                mean_anomaly_deg=235.70
+                mean_anomaly_deg=235.70,
             ),
             absolute_magnitude=5.9,
             slope_parameter=0.14,
@@ -160,8 +160,8 @@ def populate_sample_asteroids():
             rotation_period_hours=4.20,
             asteroid_type="MBA",
             data_source="manual",
-            notes="Metallic asteroid, target of NASA's Psyche mission"
-        )
+            notes="Metallic asteroid, target of NASA's Psyche mission",
+        ),
     ]
 
     print("Populating sample asteroids...")
@@ -177,9 +177,11 @@ def populate_sample_asteroids():
 
             asteroid_id = service.add_asteroid(asteroid)
             print(f"  ✓ Added {asteroid.name} ({asteroid.designation}) - ID: {asteroid_id}")
-            print(f"    Magnitude: {asteroid.current_magnitude}, "
-                  f"Diameter: {asteroid.diameter_km} km, "
-                  f"Type: {asteroid.spectral_type}")
+            print(
+                f"    Magnitude: {asteroid.current_magnitude}, "
+                f"Diameter: {asteroid.diameter_km} km, "
+                f"Type: {asteroid.spectral_type}"
+            )
         except Exception as e:
             print(f"  ✗ Error adding {asteroid.name}: {e}")
 

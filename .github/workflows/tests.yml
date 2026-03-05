@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feature/**' ]
   pull_request:
     branches: [ main, develop ]
 
@@ -94,6 +94,11 @@ jobs:
         pip install -r backend/requirements.txt
         pip install -r backend/requirements-test.txt
 
+    - name: Create minimal Vue dist for tests
+      run: |
+        mkdir -p frontend/vue-app/dist/assets
+        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > frontend/vue-app/dist/index.html
+
     - name: Run tests with coverage
       run: |
         cd backend
@@ -178,6 +183,11 @@ jobs:
         DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/astronomus alembic upgrade head
         # Migrate test database
         DATABASE_URL=postgresql://pg:buffalo-jump@localhost:5432/test_astronomus alembic upgrade head
+
+    - name: Create minimal Vue dist for tests
+      run: |
+        mkdir -p frontend/vue-app/dist/assets
+        echo '<html><head><title>Astronomus</title></head><body><div id="app"></div></body></html>' > frontend/vue-app/dist/index.html
 
     - name: Run integration tests
       env:

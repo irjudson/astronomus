@@ -1,0 +1,296 @@
+import { defineStore } from 'pinia'
+import axios from 'axios'
+import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
+import { useCatalogStore } from './catalog'
+
+export const usePlanningStore = defineStore('planning', {
+  state: () => {
+    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
+    return {
+      selectedTargets: [],
+      currentPlan: null,
+      planName: '',
+      savedPlans: [],
+      loading: false,
+      error: null,
+      observationDate: null,
+      constraints: {
+        min_altitude_degrees: s.planMinAltitude,
+        max_altitude_degrees: s.planMaxAltitude,
+        avoid_moon: s.planAvoidMoon,
+        setup_time_minutes: s.planSetupMinutes,
+        object_types: s.planObjectTypes,
+        daytime_planning: false,
+      },
+
+      // Execution state
+      executionId: null,
+      executionStatus: null,
+      executionProgress: null,
+      progressPollInterval: null,
+    }
+  },
+
+  getters: {
+    hasTargets: (state) => state.selectedTargets.length > 0,
+    targetCount: (state) => state.selectedTargets.length,
+
+    // Get location from user settings store
+    location: () => {
+      const s = useSettingsStore().settings
+      return {
+        name: s.locationName || 'My Observatory',
+        latitude: s.latitude || 40.7128,
+        longitude: s.longitude || -74.0060,
+        elevation: s.elevation || 0,
+        timezone: s.timezone || 'America/New_York'
+      }
+    }
+  },
+
+  actions: {
+    addTarget(target) {
+      const exists = this.selectedTargets.some(t => t.id === target.id)
+      if (!exists) {
+        this.selectedTargets.push(target)
+      }
+    },
+
+    initFromSettings(s) {
+      this.constraints.min_altitude_degrees = s.planMinAltitude ?? this.constraints.min_altitude_degrees
+      this.constraints.max_altitude_degrees = s.planMaxAltitude ?? this.constraints.max_altitude_degrees
+      this.constraints.avoid_moon = s.planAvoidMoon ?? this.constraints.avoid_moon
+      this.constraints.setup_time_minutes = s.planSetupMinutes ?? this.constraints.setup_time_minutes
+      if (s.planObjectTypes?.length) this.constraints.object_types = s.planObjectTypes
+    },
+
+    async saveConstraints() {
+      await useSettingsStore().save({
+        planMinAltitude: this.constraints.min_altitude_degrees,
+        planMaxAltitude: this.constraints.max_altitude_degrees,
+        planAvoidMoon: this.constraints.avoid_moon,
+        planSetupMinutes: this.constraints.setup_time_minutes,
+        planObjectTypes: this.constraints.object_types,
+      })
+    },
+
+    removeTarget(targetId) {
+      this.selectedTargets = this.selectedTargets.filter(t => t.id !== targetId)
+    },
+
+    clearTargets() {
+      this.selectedTargets = []
+    },
+
+    async generatePlan() {
+      this.loading = true
+      this.error = null
+
+      try {
+        // Get location from settings
+        const location = this.location
+
+        // Build request matching backend PlanRequest model
+        const request = {
+          location: {
+            name: location.name,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            elevation: location.elevation || 0,
+            timezone: location.timezone
+          },
+          observing_date: this.observationDate || new Date().toISOString().split('T')[0],
+          constraints: {
+            min_altitude_degrees: this.constraints.min_altitude_degrees,
+            max_altitude_degrees: this.constraints.max_altitude_degrees,
+            avoid_moon: this.constraints.avoid_moon,
+            setup_time_minutes: this.constraints.setup_time_minutes,
+            object_types: this.constraints.object_types,
+            daytime_planning: this.constraints.daytime_planning
+          }
+        }
+
+        // Wishlist DSO items are preferred gap-fillers (not primary targets)
+        // The planner auto-selects the best objects for the night, then fills gaps
+        // preferring wishlist items when possible.
+        const wishlist = useCatalogStore().wishlist
+        const SOLAR_TYPES = new Set(['planet', 'moon', 'sun'])
+        const dsoTargets = wishlist.filter(t => !SOLAR_TYPES.has(t.type)).map(t => t.name)
+        const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type))
+
+        if (dsoTargets.length > 0) {
+          request.preferred_gap_fillers = dsoTargets
+        }
+
+        const response = await axios.post('/api/plan', request)
+        this.currentPlan = response.data
+        const date = this.observationDate || new Date().toISOString().split('T')[0]
+        this.planName = `Observation Plan ${date}`
+
+        // Fetch visibility for solar system wishlist items and attach to plan
+        if (solarTargets.length > 0) {
+          try {
+            const solarResponse = await axios.get('/api/solar-system/objects', {
+              params: { lat: location.latitude, lon: location.longitude }
+            })
+            const allSolar = solarResponse.data.objects || []
+            const wishlistNames = new Set(solarTargets.map(t => t.name))
+            const minAlt = this.constraints.min_altitude_degrees
+            this.currentPlan.solar_system_targets = allSolar.filter(o =>
+              wishlistNames.has(o.name) &&
+              o.altitude_deg != null &&
+              o.altitude_deg >= minAlt
+            )
+          } catch (err) {
+            console.warn('Failed to fetch solar system targets for plan:', err)
+            this.currentPlan.solar_system_targets = []
+          }
+        } else {
+          this.currentPlan.solar_system_targets = []
+        }
+      } catch (err) {
+        this.error = 'Failed to generate plan: ' + (err.response?.data?.detail || err.message)
+        console.error('Plan generation error:', err)
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async savePlan(name) {
+      const planName = name || this.planName
+      if (!this.currentPlan || !planName) return
+      // shadow the parameter so the rest of the function uses planName
+      name = planName
+      try {
+        const response = await axios.post('/api/plans/', { name, plan: this.currentPlan })
+        this.savedPlans = [response.data, ...this.savedPlans]
+        return response.data
+      } catch (err) {
+        this.error = 'Failed to save plan: ' + (err.response?.data?.detail || err.message)
+        throw err
+      }
+    },
+
+    async loadSavedPlans() {
+      try {
+        const response = await axios.get('/api/plans/')
+        this.savedPlans = response.data
+      } catch (err) {
+        console.error('Load plans error:', err)
+      }
+    },
+
+    async loadPlan(id) {
+      try {
+        const response = await axios.get(`/api/plans/${id}`)
+        this.currentPlan = response.data.plan
+        this.planName = response.data.name
+        return response.data
+      } catch (err) {
+        this.error = 'Failed to load plan: ' + (err.response?.data?.detail || err.message)
+        throw err
+      }
+    },
+
+    async deleteSavedPlan(id) {
+      try {
+        await axios.delete(`/api/plans/${id}`)
+        this.savedPlans = this.savedPlans.filter(p => p.id !== id)
+      } catch (err) {
+        this.error = 'Failed to delete plan: ' + (err.response?.data?.detail || err.message)
+        throw err
+      }
+    },
+
+    async exportPlan(format = 'seestar_alp') {
+      if (!this.currentPlan) return null
+
+      try {
+        const response = await axios.get(`/api/plans/${this.currentPlan.id}/export/${format}`)
+        return response.data
+      } catch (err) {
+        this.error = 'Failed to export plan: ' + err.message
+        return null
+      }
+    },
+
+    async executePlan(parkWhenDone = true) {
+      if (!this.currentPlan || !this.currentPlan.scheduled_targets) {
+        this.error = 'No plan to execute'
+        return
+      }
+
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await axios.post('/api/telescope/execute', {
+          scheduled_targets: this.currentPlan.scheduled_targets,
+          park_when_done: parkWhenDone
+        })
+
+        this.executionId = response.data.execution_id
+        this.executionStatus = response.data.status
+
+        // Start polling for progress
+        this.startProgressPolling()
+      } catch (err) {
+        this.error = 'Failed to execute plan: ' + (err.response?.data?.detail || err.message)
+        console.error('Execution error:', err)
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    startProgressPolling() {
+      if (this.progressPollInterval) {
+        clearInterval(this.progressPollInterval)
+      }
+
+      this.progressPollInterval = setInterval(async () => {
+        if (!this.executionId) {
+          this.stopProgressPolling()
+          return
+        }
+
+        try {
+          const response = await axios.get('/api/telescope/progress', {
+            params: { execution_id: this.executionId }
+          })
+
+          this.executionProgress = response.data
+
+          // Stop polling if execution completed or failed
+          if (response.data.state === 'completed' || response.data.state === 'failed') {
+            this.stopProgressPolling()
+            this.executionStatus = response.data.state
+          }
+        } catch (err) {
+          console.error('Progress poll error:', err)
+        }
+      }, 2000)
+    },
+
+    stopProgressPolling() {
+      if (this.progressPollInterval) {
+        clearInterval(this.progressPollInterval)
+        this.progressPollInterval = null
+      }
+    },
+
+    async abortExecution() {
+      if (!this.executionId) return
+
+      try {
+        await axios.post('/api/telescope/abort')
+        this.executionStatus = 'aborted'
+        this.stopProgressPolling()
+      } catch (err) {
+        this.error = 'Failed to abort execution: ' + err.message
+        console.error('Abort error:', err)
+      }
+    }
+  }
+})

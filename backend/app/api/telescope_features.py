@@ -515,6 +515,48 @@ async def get_compass_state(telescope: SeestarClient = Depends(get_current_teles
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/calibration/debug/device-state")
+async def get_raw_device_state(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """Return raw get_device_state({}) response — for diagnosing balance sensor key name."""
+    try:
+        response = await telescope._send_command("get_device_state", {})
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/calibration/balance/start")
+async def start_leveling(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """Activate IMU leveling mode — mirrors the Seestar app's 'Please level' screen.
+    Call this before polling /calibration/balance so the firmware populates live sensor data.
+    """
+    try:
+        success = await telescope.start_leveling()
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/calibration/balance")
+async def get_balance_sensor(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """Current balance sensor reading: {x, y, z, angle}."""
+    try:
+        result = await telescope.get_balance_sensor()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/calibration/gsensor/start")
+async def start_gsensor_calibration(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """Calibrate G-sensor IMU reference point."""
+    try:
+        success = await telescope.start_gsensor_calibration()
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==========================================
 # MOVEMENT CONTROL
 # ==========================================
