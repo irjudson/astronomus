@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from astropy.io import fits
@@ -105,7 +105,7 @@ class DirectProcessor:
         format: str = "jpeg",
         quality: int = 95,
         bit_depth: int = 8,
-        compression: str = None,
+        compression: Optional[str] = None,
         **kwargs,
     ) -> List[Path]:
         """Export processed data to image file."""

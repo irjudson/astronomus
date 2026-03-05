@@ -244,9 +244,15 @@ class TestSafetyDocumentation:
 
     def test_view_plan_documentation_exists(self):
         """Verify VIEW-PLAN-CONFIGURATION.md exists."""
-        import os
+        from pathlib import Path
 
-        plan_doc_path = os.path.join(os.path.dirname(__file__), "../../docs/seestar/VIEW-PLAN-CONFIGURATION.md")
-        assert os.path.exists(
-            plan_doc_path
+        test_dir = Path(__file__).parent
+        # Container: tests/ and docs/ are siblings under /app/ (2 levels up from tests/api/)
+        # CI: docs/ is at repo root, tests are under backend/tests/api/ (3 levels up)
+        candidates = [
+            test_dir / "../../docs/seestar/VIEW-PLAN-CONFIGURATION.md",
+            test_dir / "../../../docs/seestar/VIEW-PLAN-CONFIGURATION.md",
+        ]
+        assert any(
+            p.exists() for p in candidates
         ), "VIEW-PLAN-CONFIGURATION.md must exist with complete plan_config documentation"
