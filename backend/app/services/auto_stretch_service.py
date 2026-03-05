@@ -200,16 +200,11 @@ class AutoStretchService:
         image.save(output_path, optimize=True)
 
     def _save_tiff(self, data: np.ndarray, output_path: Path) -> None:
-        """Save as TIFF (8-bit RGB, uncompressed).
+        """Save as TIFF (16-bit per channel, uncompressed)."""
+        import tifffile
 
-        Note: True 16-bit RGB TIFF would require additional libraries like tifffile.
-        For maximum compatibility, we save as high-quality 8-bit RGB.
-        """
-        # PIL has inconsistent support for 16-bit RGB across versions,
-        # so we save as 8-bit RGB for cross-platform compatibility
-        img_data = (data * 255).astype(np.uint8)
-        image = Image.fromarray(img_data)
-        image.save(output_path, compression=None)
+        img_data = (data * 65535).astype(np.uint16)
+        tifffile.imwrite(str(output_path), img_data, photometric="rgb", compression=None)
 
     def auto_process(
         self,

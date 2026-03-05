@@ -34,6 +34,8 @@ import { computed, onMounted } from 'vue'
 import { useWeatherStore } from '@/stores/weather'
 import { useSettingsStore } from '@/stores/settings'
 
+const emit = defineEmits(['open-weather'])
+
 const weatherStore = useWeatherStore()
 const settingsStore = useSettingsStore()
 
@@ -73,7 +75,7 @@ const tooltipText = computed(() => {
 })
 
 const toggleModal = () => {
-  // Emit event to parent to show weather modal
+  emit('open-weather')
 }
 
 onMounted(() => {

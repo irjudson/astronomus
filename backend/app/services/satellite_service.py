@@ -1,11 +1,15 @@
 """ISS and satellite pass prediction service."""
 
+import logging
+import os
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 import requests
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class PassVisibility(Enum):
@@ -140,16 +144,16 @@ class SatelliteService:
     def _fetch_passes_from_api(
         self, norad_id: int, latitude: float, longitude: float, days: int, min_altitude: float
     ) -> List[dict]:
-        """
-        Fetch pass data from API.
+        """Fetch pass data from N2YO API. Requires N2YO_API_KEY environment variable."""
+        api_key = os.environ.get("N2YO_API_KEY", "")
+        if not api_key:
+            logger.warning("N2YO_API_KEY not set — satellite pass predictions unavailable. Get a free key at n2yo.com")
+            return []
 
-        Note: This is a simplified implementation. Real usage requires
-        an API key from n2yo.com and proper error handling.
-        """
-        url = f"{self.api_base_url}/visualpasses/{norad_id}/{latitude}/{longitude}/0/{days}/{min_altitude}"
-
-        # In production, would add API key parameter
-        # url += f"&apiKey={api_key}"
+        url = (
+            f"{self.api_base_url}/visualpasses/{norad_id}/{latitude}/{longitude}"
+            f"/0/{days}/{min_altitude}&apiKey={api_key}"
+        )
 
         response = requests.get(url, timeout=self.timeout)
         response.raise_for_status()
