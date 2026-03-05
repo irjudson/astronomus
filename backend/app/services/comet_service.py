@@ -58,6 +58,37 @@ class CometService:
 
         return db_comet.id
 
+    def upsert_comet(self, comet: CometTarget) -> tuple[int, bool]:
+        """
+        Add or update a comet in the catalog.
+
+        Returns:
+            Tuple of (database_id, was_created)
+        """
+        oe = comet.orbital_elements
+        db_comet = self.db.query(CometCatalog).filter(CometCatalog.designation == comet.designation).first()
+
+        if db_comet:
+            # Update existing record
+            db_comet.epoch_jd = oe.epoch_jd
+            db_comet.perihelion_distance_au = oe.perihelion_distance_au
+            db_comet.eccentricity = oe.eccentricity
+            db_comet.inclination_deg = oe.inclination_deg
+            db_comet.arg_perihelion_deg = oe.arg_perihelion_deg
+            db_comet.ascending_node_deg = oe.ascending_node_deg
+            db_comet.perihelion_time_jd = oe.perihelion_time_jd
+            db_comet.absolute_magnitude = comet.absolute_magnitude
+            db_comet.magnitude_slope = comet.magnitude_slope
+            db_comet.current_magnitude = comet.current_magnitude
+            db_comet.activity_status = comet.activity_status
+            db_comet.data_source = comet.data_source
+            db_comet.notes = comet.notes
+            self.db.commit()
+            return db_comet.id, False
+        else:
+            comet_id = self.add_comet(comet)
+            return comet_id, True
+
     def get_comet_by_designation(self, designation: str) -> Optional[CometTarget]:
         """
         Get a comet by its designation.

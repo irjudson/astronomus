@@ -307,3 +307,44 @@ async def search_bright_comets(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching for bright comets: {str(e)}")
+
+
+@router.post("/refresh", response_model=dict)
+async def refresh_comet_catalog(
+    max_magnitude: float = Query(14.0, description="Maximum magnitude to include in catalog"),
+    comet_service: CometService = Depends(get_comet_service),
+):
+    """
+    Refresh the local comet catalog from MPC / JPL Horizons.
+
+    Fetches currently active comets (those near perihelion within ±2 years)
+    from the Minor Planet Center and upserts them into the local database.
+    This should be run periodically (e.g., weekly) to keep the catalog current.
+
+    Returns:
+        Summary with counts of added, updated, and failed comets
+    """
+    try:
+        comets = horizons_service.fetch_bright_comets(max_magnitude=max_magnitude)
+
+        added = updated = failed = 0
+        for comet in comets:
+            try:
+                _, was_created = comet_service.upsert_comet(comet)
+                if was_created:
+                    added += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                print(f"Failed to upsert {comet.designation}: {e}")
+                failed += 1
+
+        return {
+            "added": added,
+            "updated": updated,
+            "failed": failed,
+            "total_fetched": len(comets),
+            "message": f"Catalog refreshed: {added} new, {updated} updated, {failed} failed",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refreshing comet catalog: {str(e)}")
