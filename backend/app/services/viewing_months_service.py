@@ -186,7 +186,7 @@ class ViewingMonthsService:
         cos_ha = (sin_dep - math.sin(lat_rad) * math.sin(decl_rad)) / denom
 
         if cos_ha > 1.0:
-            return 0.0   # sun never gets to -18°: perpetual twilight (polar summer)
+            return 0.0  # sun never gets to -18°: perpetual twilight (polar summer)
         elif cos_ha < -1.0:
             return 24.0  # sun always below -18°: polar night
 

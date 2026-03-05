@@ -1152,15 +1152,15 @@ class SeestarClient:
 
                 # Get observer location from DB settings, fall back to app config
                 from app.core.config import get_settings as _get_cfg
+
                 _cfg = _get_cfg()
                 lat, lon, elevation = _cfg.default_lat, _cfg.default_lon, 0
                 try:
                     from app.database import SessionLocal
                     from app.models.settings_models import ObservingLocation as _ObsLoc
+
                     _db = SessionLocal()
-                    _loc = _db.query(_ObsLoc).filter(
-                        _ObsLoc.is_default == True, _ObsLoc.is_active == True
-                    ).first()
+                    _loc = _db.query(_ObsLoc).filter(_ObsLoc.is_default == True, _ObsLoc.is_active == True).first()
                     _db.close()
                     if _loc:
                         lat, lon, elevation = _loc.latitude, _loc.longitude, (_loc.elevation or 0)

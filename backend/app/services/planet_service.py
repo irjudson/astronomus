@@ -282,8 +282,12 @@ class PlanetService:
         return semi_major_axis_au
 
     def _estimate_magnitude(
-        self, planet_name: str, geo_dist_au: float, helio_dist_au: float, phase_angle_deg: float,
-        time_utc: Optional[datetime] = None
+        self,
+        planet_name: str,
+        geo_dist_au: float,
+        helio_dist_au: float,
+        phase_angle_deg: float,
+        time_utc: Optional[datetime] = None,
     ) -> float:
         """
         Estimate visual magnitude of a planet using Meeus (Astronomical Algorithms) formulas.
@@ -308,12 +312,12 @@ class PlanetService:
         # V = V0 + 5*log10(r*Δ) + a1*i + a2*i² + a3*i³  (i in degrees)
         mag_coeffs = {
             "Mercury": (-0.36, +3.80e-2, -2.73e-4, +2.00e-6),
-            "Venus":   (-4.40, +0.09,    +2.39e-4, -6.51e-7),
-            "Mars":    (-1.52, +1.60e-2,  0.0,      0.0),
-            "Jupiter": (-9.40, +5.00e-4,  0.0,      0.0),
-            "Saturn":  (-8.88,  0.0,       0.0,      0.0),  # ring correction applied separately
-            "Uranus":  (-7.19,  0.0,       0.0,      0.0),
-            "Neptune": (-6.87,  0.0,       0.0,      0.0),
+            "Venus": (-4.40, +0.09, +2.39e-4, -6.51e-7),
+            "Mars": (-1.52, +1.60e-2, 0.0, 0.0),
+            "Jupiter": (-9.40, +5.00e-4, 0.0, 0.0),
+            "Saturn": (-8.88, 0.0, 0.0, 0.0),  # ring correction applied separately
+            "Uranus": (-7.19, 0.0, 0.0, 0.0),
+            "Neptune": (-6.87, 0.0, 0.0, 0.0),
         }
 
         if planet_name not in mag_coeffs:
@@ -347,8 +351,6 @@ class PlanetService:
         Uses the approximate formula based on Saturn's ecliptic longitude
         and the fixed ring pole direction (Ω=169.5°, i=26.73°).
         """
-        from astropy.coordinates import get_body_barycentric_posvel, HeliocentricMeanEcliptic
-        import astropy.units as u_
 
         t = Time(time_utc)
         # Get Saturn's ecliptic longitude using Astropy
@@ -359,7 +361,7 @@ class PlanetService:
 
         # Ring pole ascending node and inclination (J2000)
         omega = 169.5  # degrees
-        incl = 26.73   # degrees
+        incl = 26.73  # degrees
 
         # Sub-Earth latitude of ring plane
         b_rad = np.arcsin(np.sin(np.radians(incl)) * np.sin(np.radians(saturn_lon_deg - omega)))

@@ -561,8 +561,7 @@ async def get_user_settings(db: Session = Depends(get_db)):
 @router.get("/planning")
 async def get_planning_settings(db: Session = Depends(get_db)):
     """Get daily plan scheduler settings."""
-    keys = ["planning.daily_enabled", "planning.daily_time_hour",
-            "planning.daily_target_count", "planning.webhook_url"]
+    keys = ["planning.daily_enabled", "planning.daily_time_hour", "planning.daily_target_count", "planning.webhook_url"]
     rows = db.query(AppSetting).filter(AppSetting.key.in_(keys)).all()
     defaults = {
         "daily_enabled": False,

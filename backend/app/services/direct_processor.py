@@ -146,6 +146,7 @@ class DirectProcessor:
         # 16-bit RGB TIFF: PIL cannot write 16-bit RGB natively; use tifffile instead
         if bit_depth == 16 and mode == "RGB" and format in ["tiff", "tif"]:
             import tifffile
+
             tifffile_kwargs = {}
             if compression and compression != "none":
                 tifffile_kwargs["compression"] = compression

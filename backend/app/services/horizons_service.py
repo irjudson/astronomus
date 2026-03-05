@@ -128,8 +128,12 @@ class HorizonsService:
             mpc_comets = self.fetch_active_comets_from_mpc(max_years_from_perihelion=2.0)
             if mpc_comets:
                 if max_magnitude is not None:
-                    mpc_comets = [c for c in mpc_comets if c.current_magnitude is None or c.current_magnitude <= max_magnitude]
-                return sorted(mpc_comets, key=lambda c: c.current_magnitude if c.current_magnitude is not None else 99.0)
+                    mpc_comets = [
+                        c for c in mpc_comets if c.current_magnitude is None or c.current_magnitude <= max_magnitude
+                    ]
+                return sorted(
+                    mpc_comets, key=lambda c: c.current_magnitude if c.current_magnitude is not None else 99.0
+                )
         except Exception as e:
             print(f"MPC fetch failed, falling back to curated list: {e}")
 
@@ -143,9 +147,9 @@ class HorizonsService:
             "103P/Hartley",
             "12P/Pons-Brooks",
             "13P/Olbers",
-            "C/2023 A3",   # Tsuchinshan-ATLAS
-            "C/2024 G3",   # ATLAS
-            "C/2022 E3",   # ZTF
+            "C/2023 A3",  # Tsuchinshan-ATLAS
+            "C/2024 G3",  # ATLAS
+            "C/2022 E3",  # ZTF
         ]
 
         bright_comets = []
@@ -193,8 +197,8 @@ class HorizonsService:
                 # Split name from designation (MPC combines them)
                 name = None
                 if "(" in designation:
-                    name = designation[designation.index("(") + 1:designation.rindex(")")]
-                    designation = designation[:designation.index("(")].strip()
+                    name = designation[designation.index("(") + 1 : designation.rindex(")")]
+                    designation = designation[: designation.index("(")].strip()
 
                 e = float(row["e"])
                 if e < 1.0:
@@ -216,18 +220,20 @@ class HorizonsService:
                 absolute_mag = float(row["M1"]) if "M1" in elements.colnames and row["M1"] else None
                 mag_slope = float(row["K1"]) if "K1" in elements.colnames and row["K1"] else 4.0
 
-                results.append(CometTarget(
-                    designation=designation,
-                    name=name,
-                    orbital_elements=orbital_elements,
-                    absolute_magnitude=absolute_mag,
-                    magnitude_slope=mag_slope,
-                    current_magnitude=None,  # Will be calculated from ephemeris
-                    comet_type=comet_type,
-                    activity_status="active",
-                    data_source="MPC",
-                    notes=f"Near perihelion (Tp JD {tp_jd:.1f})",
-                ))
+                results.append(
+                    CometTarget(
+                        designation=designation,
+                        name=name,
+                        orbital_elements=orbital_elements,
+                        absolute_magnitude=absolute_mag,
+                        magnitude_slope=mag_slope,
+                        current_magnitude=None,  # Will be calculated from ephemeris
+                        comet_type=comet_type,
+                        activity_status="active",
+                        data_source="MPC",
+                        notes=f"Near perihelion (Tp JD {tp_jd:.1f})",
+                    )
+                )
             except Exception:
                 continue
 

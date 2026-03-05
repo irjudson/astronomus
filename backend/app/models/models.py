@@ -352,7 +352,9 @@ class ObservingPlan(BaseModel):
 
     session: SessionInfo
     location: Location
-    constraints: Optional[ObservingConstraints] = Field(default=None, description="Constraints used when generating this plan")
+    constraints: Optional[ObservingConstraints] = Field(
+        default=None, description="Constraints used when generating this plan"
+    )
     scheduled_targets: List[ScheduledTarget]
     weather_forecast: List[WeatherForecast]
     total_targets: int = Field(description="Total number of targets")
