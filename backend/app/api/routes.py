@@ -2848,6 +2848,7 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
     from astropy import units as u
     from astropy.coordinates import AltAz, EarthLocation, get_body, get_sun
     from astropy.time import Time
+
     from app.services.planet_service import PlanetService
 
     planet_service = PlanetService()

@@ -9,8 +9,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
-from app.models.catalog_models import DSOCatalog, CometCatalog, ConstellationName
+from app.models.catalog_models import CometCatalog, ConstellationName, DSOCatalog
 
 
 def migrate_dso_catalog(sqlite_conn, pg_session: Session):

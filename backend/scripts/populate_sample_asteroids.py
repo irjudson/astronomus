@@ -7,8 +7,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from app.models import AsteroidOrbitalElements, AsteroidTarget
 from app.services.asteroid_service import AsteroidService
-from app.models import AsteroidTarget, AsteroidOrbitalElements
 
 
 def populate_sample_asteroids():

@@ -6,9 +6,9 @@ This script creates the database schema and imports all NGC and IC objects
 from the pyongc library into a SQLite database for the astro planner.
 """
 
+import math
 import sqlite3
 import sys
-import math
 from pathlib import Path
 from typing import Optional
 
@@ -18,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 print(f"DEBUG: sys.path = {sys.path}")
 
 try:
-    from pyongc.ongc import Dso
     from pyongc.exceptions import ObjectNotFound
+    from pyongc.ongc import Dso
 except ImportError as e:
     print(f"Error: pyongc not installed. Details: {e}")
     import traceback

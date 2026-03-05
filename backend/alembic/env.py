@@ -1,7 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
@@ -21,9 +20,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import Base
-from app.models import processing_models, catalog_models, telescope_models, plan_models, settings_models, capture_models
 from app.core.config import get_settings
+from app.database import Base
+from app.models import capture_models, catalog_models, plan_models, processing_models, settings_models, telescope_models
 
 target_metadata = Base.metadata
 
