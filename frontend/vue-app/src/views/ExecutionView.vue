@@ -120,53 +120,68 @@
     <template #main>
       <div class="flex flex-col h-full">
         <!-- View Header -->
-        <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-200">Live Execution</h2>
-              <p class="text-sm text-gray-500">
-                {{ executionStore.currentTarget?.name || 'Ready' }}
-              </p>
+        <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-2 flex-none">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+              <h2 class="text-base font-semibold text-gray-200 leading-tight">Live Execution</h2>
+              <p class="text-xs text-gray-500 leading-tight">{{ executionStore.currentTarget?.name || 'Ready' }}</p>
             </div>
 
-            <!-- Status Info -->
-            <div v-if="executionStore.connected" class="flex items-center gap-6 text-xs">
+            <!-- Status Info — single row, no wrap -->
+            <div v-if="executionStore.connected" class="flex items-center gap-2 text-xs min-w-0 overflow-hidden">
               <!-- Position -->
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
                 <div class="text-center">
                   <div class="text-gray-500">RA</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.ra !== undefined ? formatRA(executionStore.position.ra) : '--:--:--' }}</div>
+                  <div class="font-mono text-gray-200">{{ executionStore.position?.ra != null ? formatRA(executionStore.position.ra) : '--:--:--' }}</div>
                 </div>
                 <div class="text-center">
                   <div class="text-gray-500">Dec</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.dec !== undefined ? formatDec(executionStore.position.dec) : '--:--:--' }}</div>
+                  <div class="font-mono text-gray-200">{{ executionStore.position?.dec != null ? formatDec(executionStore.position.dec) : '--°' }}</div>
                 </div>
                 <div class="text-center">
                   <div class="text-gray-500">Alt</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.alt !== undefined ? executionStore.position.alt.toFixed(1) + '°' : '--°' }}</div>
+                  <div class="font-mono text-gray-200">{{ executionStore.position?.alt != null ? executionStore.position.alt.toFixed(1) + '°' : '--°' }}</div>
                 </div>
                 <div class="text-center">
                   <div class="text-gray-500">Az</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.az !== undefined ? executionStore.position.az.toFixed(1) + '°' : '--°' }}</div>
+                  <div class="font-mono text-gray-200">{{ executionStore.position?.az != null ? executionStore.position.az.toFixed(1) + '°' : '--°' }}</div>
                 </div>
               </div>
 
-              <!-- Divider -->
-              <div class="h-8 w-px bg-gray-700"></div>
+              <div class="h-6 w-px bg-gray-700 flex-shrink-0"></div>
 
-              <!-- Hardware Status -->
-              <div class="flex items-center gap-3">
+              <!-- Orientation -->
+              <div class="flex items-center gap-2">
                 <div class="text-center">
-                  <div class="text-gray-500">Tracking</div>
-                  <div class="font-mono"
-                    :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : executionStore.hardware.trackingStatus === 'Parked' ? 'text-yellow-400' : 'text-gray-400'">
-                    {{ executionStore.hardware.trackingStatus }}
+                  <div class="text-gray-500">Mode</div>
+                  <div class="font-mono" :class="executionStore.hardware.mountMode === 'equatorial' ? 'text-blue-400' : 'text-gray-200'">
+                    {{ executionStore.hardware.mountMode === 'equatorial' ? 'EQ' : 'Alt/Az' }}
                   </div>
                 </div>
                 <div class="text-center">
-                  <div class="text-gray-500">Temp</div>
+                  <div class="text-gray-500">Hdg</div>
                   <div class="font-mono text-gray-200">
-                    {{ executionStore.hardware.sensorTemp !== null ? executionStore.hardware.sensorTemp.toFixed(1) + '°C' : '--' }}
+                    {{ executionStore.compass.heading != null ? executionStore.compass.heading + '°' + cardinalDir(executionStore.compass.heading) : '--' }}
+                  </div>
+                </div>
+                <div class="text-center">
+                  <div class="text-gray-500">Level</div>
+                  <div class="font-mono" :class="levelClass(executionStore.balance.angle)">
+                    {{ executionStore.balance.angle != null ? executionStore.balance.angle.toFixed(1) + '°' : '--' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="h-6 w-px bg-gray-700 flex-shrink-0"></div>
+
+              <!-- Hardware Status -->
+              <div class="flex items-center gap-2">
+                <div class="text-center">
+                  <div class="text-gray-500">Track</div>
+                  <div class="font-mono"
+                    :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : executionStore.hardware.trackingStatus === 'Parked' ? 'text-yellow-400' : 'text-gray-400'">
+                    {{ executionStore.hardware.trackingStatus }}
                   </div>
                 </div>
               </div>
@@ -257,6 +272,19 @@ const loadAndStagePlan = async (id) => {
 }
 
 onMounted(refreshPlans)
+
+function cardinalDir(deg) {
+  const dirs = ['N','NE','E','SE','S','SW','W','NW']
+  return dirs[Math.round(deg / 45) % 8]
+}
+
+function levelClass(angle) {
+  if (angle == null) return 'text-gray-500'
+  const abs = Math.abs(angle)
+  if (abs <= 1.0) return 'text-green-400'
+  if (abs <= 3.0) return 'text-amber-400'
+  return 'text-red-400'
+}
 
 const formatRA = (ra) => {
   const hours = ra / 15

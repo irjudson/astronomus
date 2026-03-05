@@ -114,8 +114,15 @@ export const useWeatherStore = defineStore('weather', {
 
     async fetchForecast() {
       try {
-        const response = await axios.get('/api/weather/forecast')
-        this.forecast = response.data
+        const settings = useSettingsStore().settings
+        const response = await axios.get('/api/weather/astronomy', {
+          params: {
+            lat: settings.latitude ?? 40.7128,
+            lon: settings.longitude ?? -74.0060,
+            hours: 48,
+          }
+        })
+        this.forecast = response.data.forecast ?? []
       } catch (err) {
         console.error('Forecast error:', err)
       }

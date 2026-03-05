@@ -28,6 +28,13 @@
         >
           Scope
         </button>
+        <button
+          @click="activeTab = 'planning'"
+          class="px-4 py-2 text-sm rounded-lg transition-colors"
+          :class="activeTab === 'planning' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        >
+          Planning
+        </button>
       </div>
 
       <!-- Content: General tab -->
@@ -473,10 +480,88 @@
 
           </div>
         </section>
+
+        <!-- Hardware Info -->
+        <section v-if="executionStore.connected">
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Hardware Info</h3>
+          <div class="bg-gray-800 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div class="text-gray-500 text-xs mb-0.5">Board Temp</div>
+              <div class="text-gray-200 font-mono" :class="executionStore.hardware.isOvertemp ? 'text-red-400' : ''">
+                {{ boardTempDisplay }}
+                <span v-if="executionStore.hardware.isOvertemp" class="text-red-400 text-xs ml-1">⚠ Overtemp</span>
+              </div>
+            </div>
+            <div>
+              <div class="text-gray-500 text-xs mb-0.5">Battery Temp</div>
+              <div class="text-gray-200 font-mono">{{ batteryTempDisplay }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500 text-xs mb-0.5">Battery</div>
+              <div class="text-gray-200 font-mono">
+                {{ executionStore.hardware.batteryCapacity != null ? executionStore.hardware.batteryCapacity + '%' : '--' }}
+              </div>
+            </div>
+            <div>
+              <div class="text-gray-500 text-xs mb-0.5">Charger</div>
+              <div class="font-mono"
+                :class="executionStore.hardware.chargerStatus === 'Full' ? 'text-green-400' : executionStore.hardware.chargerStatus ? 'text-amber-400' : 'text-gray-400'">
+                {{ executionStore.hardware.chargerStatus || '--' }}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <!-- Footer (General tab only) -->
-      <div v-if="activeTab === 'general'" class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
+      <!-- Content: Planning tab -->
+      <div v-else-if="activeTab === 'planning'" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <section>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Plan Generation</h3>
+          <div class="bg-gray-800 rounded-lg p-4 space-y-4">
+
+            <!-- Enable toggle -->
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-gray-200">Auto-generate daily plan</p>
+                <p class="text-xs text-gray-500">Celery generates a plan once per day</p>
+              </div>
+              <button @click="planningSettings.daily_enabled = !planningSettings.daily_enabled"
+                :class="planningSettings.daily_enabled ? 'bg-blue-600' : 'bg-gray-600'"
+                class="relative w-10 h-6 rounded-full transition-colors">
+                <span :class="planningSettings.daily_enabled ? 'translate-x-5' : 'translate-x-1'"
+                  class="block w-4 h-4 bg-white rounded-full absolute top-1 transition-transform"/>
+              </button>
+            </div>
+
+            <!-- Time picker -->
+            <div>
+              <label class="block text-sm text-gray-300 mb-1">Generate at (local hour)</label>
+              <select v-model.number="planningSettings.daily_time_hour"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200">
+                <option v-for="h in 24" :key="h-1" :value="h-1">{{ String(h-1).padStart(2,'0') }}:00</option>
+              </select>
+            </div>
+
+            <!-- Target count -->
+            <div>
+              <label class="block text-sm text-gray-300 mb-1">Targets per plan</label>
+              <input v-model.number="planningSettings.daily_target_count" type="number" min="1" max="20"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200" />
+            </div>
+
+            <!-- Webhook URL -->
+            <div>
+              <label class="block text-sm text-gray-300 mb-1">Webhook URL (optional)</label>
+              <input v-model="planningSettings.webhook_url" type="url" placeholder="https://…"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200" />
+              <p class="text-xs text-gray-500 mt-1">POST'd when the daily plan is ready</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer (General and Planning tabs) -->
+      <div v-if="activeTab === 'general' || activeTab === 'planning'" class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800">
         <button
           @click="$emit('close')"
           class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
@@ -519,22 +604,42 @@ const activeTab = ref('general')
 const levelingActive = ref(false)
 
 const localSettings = ref({ ...settingsStore.settings })
+const planningSettings = ref({ daily_enabled: false, daily_time_hour: 12, daily_target_count: 5, webhook_url: '' })
 
 // Reload settings when modal opens; reset to general tab
-watch(() => props.isOpen, (isOpen) => {
+watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     localSettings.value = { ...settingsStore.settings }
     activeTab.value = 'general'
+    try {
+      const res = await axios.get('/api/settings/planning')
+      planningSettings.value = { ...planningSettings.value, ...res.data }
+    } catch (e) { /* use defaults */ }
   }
 })
 
 const saveSettings = async () => {
   await settingsStore.save(localSettings.value)
+  try {
+    await axios.put('/api/settings/planning', planningSettings.value)
+  } catch (e) {
+    console.error('Failed to save planning settings', e)
+  }
   emit('save', localSettings.value)
   emit('close')
 }
 
 // Level status helpers
+function toDisplayTemp(celsius) {
+  if (celsius == null) return '--'
+  if ((localSettings.value.temperatureUnit || 'F') === 'F') {
+    return Math.round(celsius * 9 / 5 + 32) + '°F'
+  }
+  return celsius.toFixed(1) + '°C'
+}
+const boardTempDisplay = computed(() => toDisplayTemp(executionStore.hardware.sensorTemp))
+const batteryTempDisplay = computed(() => toDisplayTemp(executionStore.hardware.batteryTemp))
+
 const levelStatusDot = computed(() => {
   const angle = executionStore.balance.angle
   if (angle <= 2) return 'bg-green-500'

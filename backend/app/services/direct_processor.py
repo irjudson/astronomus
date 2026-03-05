@@ -138,23 +138,27 @@ class DirectProcessor:
         else:
             raise ValueError(f"Unexpected image dimensions: {img_data.shape}")
 
-        # Create PIL Image
-        if bit_depth == 16:
-            # PIL doesn't support 16-bit grayscale well, use 'I;16' for single channel
-            if mode == "L":
-                image = Image.fromarray(img_data, mode="I;16")
-            else:
-                # For RGB 16-bit, we need to use mode 'I' per channel or convert to 8-bit
-                logger.warning("16-bit RGB export not fully supported, converting to 8-bit")
-                img_data = (img_data / 256).astype(np.uint8)
-                image = Image.fromarray(img_data, mode="RGB")
-        else:
-            image = Image.fromarray(img_data, mode=mode)
-
         # Determine file extension
         ext_map = {"jpeg": "jpg", "jpg": "jpg", "tiff": "tif", "tif": "tif", "png": "png"}
         ext = ext_map.get(format, format)
         output_file = output_dir / f"{base_name}.{ext}"
+
+        # 16-bit RGB TIFF: PIL cannot write 16-bit RGB natively; use tifffile instead
+        if bit_depth == 16 and mode == "RGB" and format in ["tiff", "tif"]:
+            import tifffile
+            tifffile_kwargs = {}
+            if compression and compression != "none":
+                tifffile_kwargs["compression"] = compression
+            tifffile.imwrite(str(output_file), img_data.astype(np.uint16), **tifffile_kwargs)
+            logger.info(f"Saved 16-bit RGB TIFF to: {output_file}")
+            return [output_file]
+
+        # Create PIL Image
+        if bit_depth == 16:
+            # PIL handles 16-bit grayscale via 'I;16' mode
+            image = Image.fromarray(img_data, mode="I;16")
+        else:
+            image = Image.fromarray(img_data, mode=mode)
 
         # Save with appropriate parameters
         save_kwargs = {}
