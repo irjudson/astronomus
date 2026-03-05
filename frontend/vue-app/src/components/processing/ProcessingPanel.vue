@@ -59,8 +59,8 @@
           <p v-if="processingStore.processingJobs.length === 0" class="text-secondary">No active jobs</p>
           <div v-for="job in processingStore.processingJobs" :key="job.id" class="job-item">
             <span>{{ job.name }} ({{ job.status }})</span>
-            <progress :value="job.progress" max="100"></progress>
-            <span>{{ job.progress }}%</span>
+            <progress :value="job.progress_percent" max="100"></progress>
+            <span>{{ job.progress_percent }}%</span>
           </div>
         </div>
         <button class="btn btn-sm btn-secondary" @click="processingStore.clearProcessingJobs">Clear All Jobs</button>

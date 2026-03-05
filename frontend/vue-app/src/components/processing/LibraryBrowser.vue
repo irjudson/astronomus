@@ -19,8 +19,8 @@
       <div id="library-grid" class="library-grid-compact">
         <p v-if="processingStore.loading" class="text-secondary">Loading...</p>
         <p v-else-if="processingStore.error" class="text-error">{{ processingStore.error }}</p>
-        <p v-else-if="processingStore.libraryItems.length === 0" class="text-secondary">No images in library.</p>
-        <div v-for="item in processingStore.libraryItems" :key="item.id" class="target-card">
+        <p v-else-if="processingStore.filteredLibraryItems.length === 0" class="text-secondary">No images in library.</p>
+        <div v-for="item in processingStore.filteredLibraryItems" :key="item.id" class="target-card">
           <h4>{{ item.name }}</h4>
           <span :class="['status-badge', `status-${item.status}`]">{{ item.status }}</span>
           <!-- Add thumbnail and click to select later -->
