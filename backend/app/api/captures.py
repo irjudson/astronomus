@@ -112,9 +112,7 @@ class CaptureStatusUpdate(BaseModel):
 
 
 @router.put("/{catalog_id}", response_model=CaptureHistoryResponse)
-async def update_capture_status(
-    catalog_id: str, update: CaptureStatusUpdate, db: Session = Depends(get_db)
-):
+async def update_capture_status(catalog_id: str, update: CaptureStatusUpdate, db: Session = Depends(get_db)):
     """
     Update (or create) the user-controlled capture status for a target.
 
