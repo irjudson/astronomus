@@ -446,7 +446,10 @@ function onDocMousemove(e) {
   planningStore.setTargetWindow(index, new Date(ns).toISOString(), new Date(ne).toISOString())
 }
 
-function onDocMouseup() { dragState.value = null }
+function onDocMouseup() {
+  if (dragState.value) planningStore.reorderByTime()
+  dragState.value = null
+}
 
 const edgePx = (i) => {
   const w = tx(targets.value[i].end_time) - tx(targets.value[i].start_time)
