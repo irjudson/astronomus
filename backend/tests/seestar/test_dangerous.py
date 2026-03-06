@@ -14,7 +14,6 @@ import pytest
 from app.clients.seestar_client import SeestarClient
 from tests.seestar.mock_server import MockSeestarServer
 
-
 pytestmark = pytest.mark.mock
 
 

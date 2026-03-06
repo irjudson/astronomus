@@ -7,7 +7,9 @@ from .system import SeestarSystemMixin
 from .files import SeestarFilesMixin
 
 
-class SeestarClient(SeestarTransport, SeestarMountMixin, SeestarObservationMixin, SeestarSystemMixin, SeestarFilesMixin):
+class SeestarClient(
+    SeestarTransport, SeestarMountMixin, SeestarObservationMixin, SeestarSystemMixin, SeestarFilesMixin
+):
     """TCP client for Seestar S50 smart telescope.
 
     Combines transport, mount control, observation, system management,

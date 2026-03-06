@@ -11,7 +11,6 @@ import pytest
 
 from app.clients.seestar_client import CommandError, EventType, SeestarClient, SeestarEvent
 
-
 pytestmark = pytest.mark.hardware
 
 

@@ -9,7 +9,6 @@ import pytest
 
 from app.clients.seestar_client import CommandError, SeestarClient
 
-
 pytestmark = pytest.mark.hardware
 
 
