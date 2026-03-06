@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.capture_models import CaptureHistory, OutputFile
+from app.models.capture_models import CaptureHistory, CaptureStatus, OutputFile
 from app.services.file_transfer_service import FileTransferService
 
 router = APIRouter(prefix="/captures", tags=["captures"])
@@ -107,6 +107,9 @@ async def list_captures(
         raise HTTPException(status_code=500, detail=f"Error listing captures: {str(e)}")
 
 
+_VALID_STATUS_VALUES = {s.value for s in CaptureStatus}
+
+
 class CaptureStatusUpdate(BaseModel):
     status: Optional[str] = None  # "complete" | "needs_more" | null to clear
 
@@ -123,6 +126,11 @@ async def update_capture_status(catalog_id: str, update: CaptureStatusUpdate, db
     Returns:
         Updated capture history record
     """
+    if update.status is not None and update.status not in _VALID_STATUS_VALUES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid status '{update.status}'. Valid values: {sorted(_VALID_STATUS_VALUES)}",
+        )
     try:
         record = db.query(CaptureHistory).filter(CaptureHistory.catalog_id == catalog_id).first()
         if not record:

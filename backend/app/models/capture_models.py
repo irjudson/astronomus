@@ -1,10 +1,20 @@
 """Capture history database models."""
 
+import enum
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+
+class CaptureStatus(str, enum.Enum):
+    """Canonical status values for CaptureHistory.status."""
+
+    COMPLETE = "complete"
+    NEEDS_MORE = "needs_more"
+    NEEDS_MORE_DATA = "needs_more_data"  # Legacy alias (backend suggestion label)
 
 
 class CaptureHistory(Base):
@@ -22,9 +32,10 @@ class CaptureHistory(Base):
     first_captured_at = Column(DateTime, nullable=True)
     last_captured_at = Column(DateTime, nullable=True)
 
-    # User-controlled status: null (captured), 'complete', 'needs_more_data'
+    # User-controlled status: None = not reviewed, 'complete', 'needs_more'
+    # Constrained to CaptureStatus values via CHECK constraint (see migration).
     status = Column(String(20), nullable=True)
-    suggested_status = Column(String(20), nullable=True)  # Auto-calculated
+    suggested_status = Column(String(20), nullable=True)  # Auto-calculated by service
 
     # Quality metrics (from best capture)
     best_fwhm = Column(Float, nullable=True)
@@ -32,8 +43,15 @@ class CaptureHistory(Base):
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships (will add when OutputFile exists)
-    # output_files = relationship("OutputFile", back_populates="capture_history")
+    # OutputFiles are linked by catalog_id (not a hard FK — files may be scanned
+    # before CaptureHistory exists).  viewonly=True prevents accidental mutations
+    # through this relationship.
+    output_files = relationship(
+        "OutputFile",
+        primaryjoin="CaptureHistory.catalog_id == foreign(OutputFile.catalog_id)",
+        viewonly=True,
+        lazy="select",
+    )
 
 
 class OutputFile(Base):
@@ -46,7 +64,7 @@ class OutputFile(Base):
     file_type = Column(String(20), nullable=False)  # raw_fits, stacked_fits, jpg, png, tiff
     file_size_bytes = Column(BigInteger, nullable=False)
 
-    # Target linking
+    # Target linking (no hard FK — files are scanned independently of capture tracking)
     catalog_id = Column(String(50), nullable=False, index=True)
     catalog_id_confidence = Column(Float, default=1.0)  # Fuzzy match score
 
@@ -68,5 +86,9 @@ class OutputFile(Base):
     observation_date = Column(DateTime, nullable=True)  # From FITS DATE-OBS
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships (will add back_populates when ready)
-    # capture_history = relationship("CaptureHistory", back_populates="output_files")
+    capture_history = relationship(
+        "CaptureHistory",
+        primaryjoin="OutputFile.catalog_id == foreign(CaptureHistory.catalog_id)",
+        viewonly=True,
+        lazy="select",
+    )
