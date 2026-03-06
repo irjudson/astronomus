@@ -66,7 +66,7 @@ class TestPlanetaryStartEndpoint:
 
     def test_start_planetary_imaging_success(self, client, mock_seestar_client):
         """Test successful start of planetary imaging."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
 
@@ -83,7 +83,7 @@ class TestPlanetaryStartEndpoint:
 
     def test_start_planetary_imaging_failure(self, client, mock_seestar_client):
         """Test start planetary imaging when operation fails (returns success=False)."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         mock_seestar_client.start_planet_stack = AsyncMock(return_value=False)
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
@@ -106,7 +106,7 @@ class TestPlanetaryStartEndpoint:
 
     def test_start_planetary_imaging_missing_planet_name(self, client, mock_seestar_client):
         """Test start planetary imaging without required planet_name parameter."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
 
@@ -119,7 +119,7 @@ class TestPlanetaryStartEndpoint:
 
     def test_start_planetary_imaging_client_error(self, client, mock_seestar_client):
         """Test start planetary imaging when client raises error."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         mock_seestar_client.start_planet_stack = AsyncMock(side_effect=Exception("Hardware error"))
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
@@ -138,7 +138,7 @@ class TestPlanetaryStopEndpoint:
 
     def test_stop_planetary_imaging_success(self, client, mock_seestar_client):
         """Test successful stop of planetary imaging."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
 
@@ -155,7 +155,7 @@ class TestPlanetaryStopEndpoint:
 
     def test_stop_planetary_imaging_failure(self, client, mock_seestar_client):
         """Test stop planetary imaging when operation fails (returns success=False)."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         mock_seestar_client.stop_planet_stack = AsyncMock(return_value=False)
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client
@@ -178,7 +178,7 @@ class TestPlanetaryStopEndpoint:
 
     def test_stop_planetary_imaging_client_error(self, client, mock_seestar_client):
         """Test stop planetary imaging when client raises error."""
-        from app.api.routes import get_current_telescope
+        from app.api.telescope import get_current_telescope
 
         mock_seestar_client.stop_planet_stack = AsyncMock(side_effect=Exception("Hardware error"))
         app.dependency_overrides[get_current_telescope] = lambda: mock_seestar_client

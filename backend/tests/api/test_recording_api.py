@@ -23,7 +23,7 @@ def mock_seestar_client():
 
 def test_start_recording(mock_seestar_client):
     """Test POST /api/telescope/recording/start endpoint."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/recording/start", json={"filename": "test_video"})
 
         assert response.status_code == 200
@@ -34,7 +34,7 @@ def test_start_recording(mock_seestar_client):
 
 def test_start_recording_without_filename(mock_seestar_client):
     """Test POST /api/telescope/recording/start without filename."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/recording/start", json={})
 
         assert response.status_code == 200
@@ -45,7 +45,7 @@ def test_start_recording_without_filename(mock_seestar_client):
 
 def test_stop_recording(mock_seestar_client):
     """Test POST /api/telescope/recording/stop endpoint."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/recording/stop")
 
         assert response.status_code == 200
@@ -55,7 +55,7 @@ def test_stop_recording(mock_seestar_client):
 
 def test_start_recording_not_connected():
     """Test start recording when telescope is not connected."""
-    with patch("app.api.routes.seestar_client", None):
+    with patch("app.api.telescope.seestar_client", None):
         response = client.post("/api/telescope/recording/start", json={"filename": "test_video"})
 
         assert response.status_code == 400
@@ -64,7 +64,7 @@ def test_start_recording_not_connected():
 
 def test_stop_recording_not_connected():
     """Test stop recording when telescope is not connected."""
-    with patch("app.api.routes.seestar_client", None):
+    with patch("app.api.telescope.seestar_client", None):
         response = client.post("/api/telescope/recording/stop")
 
         assert response.status_code == 400
