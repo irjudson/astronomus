@@ -16,6 +16,18 @@ from app.clients.seestar_client import SeestarClient
 router = APIRouter()
 
 
+def _ok(success: bool) -> dict:
+    """Convert a boolean telescope result to a proper HTTP response.
+
+    Returns ``{"success": True}`` on success.
+    Raises ``HTTPException(502)`` when the telescope rejected the command,
+    so callers get a real HTTP error instead of a 200 with ``success=false``.
+    """
+    if not success:
+        raise HTTPException(status_code=502, detail="Telescope rejected the command")
+    return {"success": True}
+
+
 # ==========================================
 # Request Models
 # ==========================================
@@ -177,7 +189,7 @@ async def set_exposure_settings(
         else:
             raise HTTPException(status_code=400, detail="Must provide exposure_ms+gain or stack_exposure_ms")
 
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -190,7 +202,7 @@ async def configure_dithering(
 
     try:
         success = await telescope.configure_dither(request.enabled, request.pixels, request.interval)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -201,7 +213,7 @@ async def start_autofocus(telescope: SeestarClient = Depends(get_current_telesco
 
     try:
         success = await telescope.auto_focus()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -225,7 +237,7 @@ async def move_focuser(
         else:
             raise HTTPException(status_code=400, detail="Must provide position or offset")
 
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -236,7 +248,7 @@ async def reset_focuser_factory(telescope: SeestarClient = Depends(get_current_t
 
     try:
         success = await telescope.reset_focuser_to_factory()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -254,7 +266,7 @@ async def control_dew_heater(
 
     try:
         success = await telescope.set_dew_heater(request.enabled, request.power_level)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -281,7 +293,7 @@ async def control_dc_output(
         # Use set_dc_output with appropriate config
         output_config = {"enabled": request.enabled}
         success = await telescope.set_dc_output(output_config)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -309,7 +321,7 @@ async def connect_to_wifi(
 
     try:
         success = await telescope.connect_to_wifi(request.ssid)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -352,7 +364,7 @@ async def set_telescope_location(
 
     try:
         success = await telescope.set_location(request.longitude, request.latitude)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -363,7 +375,7 @@ async def shutdown_telescope_endpoint(telescope: SeestarClient = Depends(get_cur
 
     try:
         success = await telescope.shutdown_telescope()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -374,7 +386,7 @@ async def reboot_telescope_endpoint(telescope: SeestarClient = Depends(get_curre
 
     try:
         success = await telescope.reboot_telescope()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -394,7 +406,7 @@ async def set_pi_time(unix_timestamp: int, telescope: SeestarClient = Depends(ge
     """Set system time on telescope."""
     try:
         success = await telescope.set_pi_time(unix_timestamp)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -421,7 +433,7 @@ async def configure_advanced_stacking_endpoint(
     """Configure advanced stacking settings (DBE, star correction, etc.)."""
     try:
         success = await telescope.configure_advanced_stacking(**config)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -433,7 +445,7 @@ async def set_manual_exposure_endpoint(
     """Set manual exposure settings."""
     try:
         success = await telescope.set_manual_exposure(exposure_ms, gain)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -445,7 +457,7 @@ async def set_auto_exposure_endpoint(
     """Set auto exposure with brightness target."""
     try:
         success = await telescope.set_auto_exposure(brightness_target)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -455,7 +467,7 @@ async def stop_autofocus_endpoint(telescope: SeestarClient = Depends(get_current
     """Stop autofocus operation."""
     try:
         success = await telescope.stop_autofocus()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -480,7 +492,7 @@ async def clear_polar_alignment(telescope: SeestarClient = Depends(get_current_t
     """Clear polar alignment data."""
     try:
         success = await telescope.clear_polar_alignment()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -490,7 +502,7 @@ async def start_compass_calibration(telescope: SeestarClient = Depends(get_curre
     """Start compass calibration routine."""
     try:
         success = await telescope.start_compass_calibration()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -500,7 +512,7 @@ async def stop_compass_calibration(telescope: SeestarClient = Depends(get_curren
     """Stop compass calibration routine."""
     try:
         success = await telescope.stop_compass_calibration()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -532,7 +544,7 @@ async def start_leveling(telescope: SeestarClient = Depends(get_current_telescop
     """
     try:
         success = await telescope.start_leveling()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -552,7 +564,7 @@ async def start_gsensor_calibration(telescope: SeestarClient = Depends(get_curre
     """Calibrate G-sensor IMU reference point."""
     try:
         success = await telescope.start_gsensor_calibration()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -569,7 +581,7 @@ async def slew_to_coordinates(
     """Slew to specific RA/Dec coordinates."""
     try:
         success = await telescope.slew_to_coordinates(ra_hours, dec_degrees)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -579,7 +591,7 @@ async def stop_telescope_movement(telescope: SeestarClient = Depends(get_current
     """Stop all telescope movement."""
     try:
         success = await telescope.stop_telescope_movement()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -591,7 +603,7 @@ async def move_to_horizon(
     """Move to horizon position (azimuth/altitude)."""
     try:
         success = await telescope.move_to_horizon(azimuth, altitude)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -654,7 +666,7 @@ async def delete_image(filename: str, telescope: SeestarClient = Depends(get_cur
     """Delete image from telescope storage."""
     try:
         success = await telescope.delete_image(filename)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -681,7 +693,7 @@ async def enable_wifi_client_mode(telescope: SeestarClient = Depends(get_current
     """Enable WiFi client mode."""
     try:
         success = await telescope.enable_wifi_client_mode()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -691,7 +703,7 @@ async def disable_wifi_client_mode(telescope: SeestarClient = Depends(get_curren
     """Disable WiFi client mode."""
     try:
         success = await telescope.disable_wifi_client_mode()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -703,7 +715,7 @@ async def save_wifi_network(
     """Save WiFi network credentials."""
     try:
         success = await telescope.save_wifi_network(ssid, password, security)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -713,7 +725,7 @@ async def remove_wifi_network(ssid: str, telescope: SeestarClient = Depends(get_
     """Remove saved WiFi network."""
     try:
         success = await telescope.remove_wifi_network(ssid)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -735,7 +747,7 @@ async def configure_access_point(
     """Configure WiFi access point."""
     try:
         success = await telescope.configure_access_point(ssid, password, is_5g)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -747,7 +759,7 @@ async def set_wifi_country(
     """Set WiFi regulatory domain."""
     try:
         success = await telescope.set_wifi_country(country_code)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -764,7 +776,7 @@ async def join_remote_session(
     """Join remote observation session."""
     try:
         success = await telescope.join_remote_session(session_id)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -774,7 +786,7 @@ async def leave_remote_session(telescope: SeestarClient = Depends(get_current_te
     """Leave remote observation session."""
     try:
         success = await telescope.leave_remote_session()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -786,7 +798,7 @@ async def disconnect_remote_client(
     """Disconnect a remote client."""
     try:
         success = await telescope.disconnect_remote_client(client_id)
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -801,7 +813,7 @@ async def start_demo_mode(telescope: SeestarClient = Depends(get_current_telesco
     """Start demonstration mode."""
     try:
         success = await telescope.start_demo_mode()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -811,7 +823,7 @@ async def stop_demo_mode(telescope: SeestarClient = Depends(get_current_telescop
     """Stop demonstration mode."""
     try:
         success = await telescope.stop_demo_mode()
-        return {"success": success}
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

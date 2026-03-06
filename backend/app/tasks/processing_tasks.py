@@ -143,10 +143,17 @@ def cancel_job_task(self, job_id: int) -> bool:
 
 
 @celery_app.task(name="cleanup_old_jobs")
-def cleanup_old_jobs_task(days: int = 7):
-    """Clean up old job directories."""
-    service = ProcessingService()
-    service.cleanup_old_jobs(days=days)
+def cleanup_old_jobs_task(days: int = 7) -> Dict[str, Any]:
+    """Clean up old job directories older than `days` days."""
+    logger = logging.getLogger(__name__)
+    try:
+        service = ProcessingService()
+        service.cleanup_old_jobs(days=days)
+        logger.info(f"cleanup_old_jobs: removed jobs older than {days} days")
+        return {"success": True, "days": days}
+    except Exception as exc:
+        logger.exception(f"cleanup_old_jobs failed: {exc}")
+        return {"success": False, "error": str(exc)}
 
 
 @celery_app.task(bind=True, name="stack_and_stretch")
