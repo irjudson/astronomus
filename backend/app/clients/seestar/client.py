@@ -1,10 +1,10 @@
 """Composite SeestarClient combining all behavior mixins."""
 
-from .transport import SeestarTransport
+from .files import SeestarFilesMixin
 from .mount import SeestarMountMixin
 from .observation import SeestarObservationMixin
 from .system import SeestarSystemMixin
-from .files import SeestarFilesMixin
+from .transport import SeestarTransport
 
 
 class SeestarClient(
