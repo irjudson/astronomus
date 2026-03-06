@@ -30,7 +30,7 @@ class TestAnnotationEndpoints:
 
     def test_toggle_annotation_enable_success(self, client, mock_seestar_client):
         """Test successfully enabling annotations."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 200
@@ -42,7 +42,7 @@ class TestAnnotationEndpoints:
 
     def test_toggle_annotation_disable_success(self, client, mock_seestar_client):
         """Test successfully disabling annotations."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": False})
 
             assert response.status_code == 200
@@ -54,7 +54,7 @@ class TestAnnotationEndpoints:
 
     def test_toggle_annotation_not_connected(self, client):
         """Test annotation toggle when telescope not connected (returns 503)."""
-        with patch("app.api.routes.seestar_client", None):
+        with patch("app.api.telescope.seestar_client", None):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 503
@@ -63,7 +63,7 @@ class TestAnnotationEndpoints:
     def test_toggle_annotation_enable_failure(self, client, mock_seestar_client):
         """Test annotation enable returns success=False when operation fails."""
         mock_seestar_client.start_annotate = AsyncMock(return_value=False)
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 200
@@ -74,7 +74,7 @@ class TestAnnotationEndpoints:
     def test_toggle_annotation_disable_failure(self, client, mock_seestar_client):
         """Test annotation disable returns success=False when operation fails."""
         mock_seestar_client.stop_annotate = AsyncMock(return_value=False)
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": False})
 
             assert response.status_code == 200
@@ -85,7 +85,7 @@ class TestAnnotationEndpoints:
     def test_toggle_annotation_exception(self, client, mock_seestar_client):
         """Test annotation toggle with exception."""
         mock_seestar_client.start_annotate = AsyncMock(side_effect=Exception("Annotation error"))
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 500
@@ -93,14 +93,14 @@ class TestAnnotationEndpoints:
 
     def test_toggle_annotation_invalid_request(self, client, mock_seestar_client):
         """Test annotation toggle with invalid request body."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/annotation/toggle", json={})
 
             assert response.status_code == 422  # FastAPI validation error
 
     def test_toggle_annotation_disconnected(self, client):
         """Test annotation toggle when no telescope is connected (seestar_client is None)."""
-        with patch("app.api.routes.seestar_client", None):
+        with patch("app.api.telescope.seestar_client", None):
             response = client.post("/api/telescope/annotation/toggle", json={"enabled": True})
 
             assert response.status_code == 503

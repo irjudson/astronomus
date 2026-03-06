@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import routes
+from app.api import routes, telescope
 from app.clients.seestar_client import SeestarClient
 from app.main import app
 
@@ -31,27 +31,27 @@ from app.main import app
 def test_client(mock_seestar_client):
     """Create test client with seestar_client already set."""
     # Set the client in routes BEFORE creating TestClient
-    old_client = routes.seestar_client
-    routes.seestar_client = mock_seestar_client
+    old_client = telescope.seestar_client
+    telescope.seestar_client = mock_seestar_client
 
     client = TestClient(app)
     yield client
 
     # Cleanup
-    routes.seestar_client = old_client
+    telescope.seestar_client = old_client
 
 
 @pytest.fixture
 def test_client_disconnected():
-    """Create test client with NO telescope connected (routes.seestar_client = None)."""
-    old_client = routes.seestar_client
-    routes.seestar_client = None
+    """Create test client with NO telescope connected (telescope.seestar_client = None)."""
+    old_client = telescope.seestar_client
+    telescope.seestar_client = None
 
     client = TestClient(app)
     yield client
 
     # Cleanup
-    routes.seestar_client = old_client
+    telescope.seestar_client = old_client
 
 
 @pytest.fixture

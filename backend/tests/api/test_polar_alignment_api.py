@@ -31,7 +31,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_start_polar_align_success(self, client, mock_seestar_client):
         """Test successful polar alignment start."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/start")
 
             assert response.status_code == 200
@@ -45,7 +45,7 @@ class TestPolarAlignmentEndpoints:
         """Test failed polar alignment start."""
         mock_seestar_client.start_polar_align = AsyncMock(return_value=False)
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/start")
 
             assert response.status_code == 200
@@ -56,7 +56,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_start_polar_align_not_connected(self, client):
         """Test polar alignment start when telescope not connected."""
-        with patch("app.api.routes.seestar_client", None):
+        with patch("app.api.telescope.seestar_client", None):
             response = client.post("/api/telescope/polar-align/start")
 
             assert response.status_code == 400
@@ -66,7 +66,7 @@ class TestPolarAlignmentEndpoints:
         """Test polar alignment start with exception."""
         mock_seestar_client.start_polar_align = AsyncMock(side_effect=Exception("Alignment system error"))
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/start")
 
             assert response.status_code == 500
@@ -74,7 +74,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_stop_polar_align_success(self, client, mock_seestar_client):
         """Test successful polar alignment stop."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/stop")
 
             assert response.status_code == 200
@@ -88,7 +88,7 @@ class TestPolarAlignmentEndpoints:
         """Test failed polar alignment stop."""
         mock_seestar_client.stop_polar_align = AsyncMock(return_value=False)
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/stop")
 
             assert response.status_code == 200
@@ -99,7 +99,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_stop_polar_align_not_connected(self, client):
         """Test polar alignment stop when telescope not connected."""
-        with patch("app.api.routes.seestar_client", None):
+        with patch("app.api.telescope.seestar_client", None):
             response = client.post("/api/telescope/polar-align/stop")
 
             assert response.status_code == 400
@@ -109,7 +109,7 @@ class TestPolarAlignmentEndpoints:
         """Test polar alignment stop with exception."""
         mock_seestar_client.stop_polar_align = AsyncMock(side_effect=Exception("Stop command failed"))
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/stop")
 
             assert response.status_code == 500
@@ -117,7 +117,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_pause_polar_align_success(self, client, mock_seestar_client):
         """Test successful polar alignment pause."""
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/pause")
 
             assert response.status_code == 200
@@ -131,7 +131,7 @@ class TestPolarAlignmentEndpoints:
         """Test failed polar alignment pause."""
         mock_seestar_client.pause_polar_align = AsyncMock(return_value=False)
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/pause")
 
             assert response.status_code == 200
@@ -142,7 +142,7 @@ class TestPolarAlignmentEndpoints:
 
     def test_pause_polar_align_not_connected(self, client):
         """Test polar alignment pause when telescope not connected."""
-        with patch("app.api.routes.seestar_client", None):
+        with patch("app.api.telescope.seestar_client", None):
             response = client.post("/api/telescope/polar-align/pause")
 
             assert response.status_code == 400
@@ -152,7 +152,7 @@ class TestPolarAlignmentEndpoints:
         """Test polar alignment pause with exception."""
         mock_seestar_client.pause_polar_align = AsyncMock(side_effect=Exception("Pause command failed"))
 
-        with patch("app.api.routes.seestar_client", mock_seestar_client):
+        with patch("app.api.telescope.seestar_client", mock_seestar_client):
             response = client.post("/api/telescope/polar-align/pause")
 
             assert response.status_code == 500

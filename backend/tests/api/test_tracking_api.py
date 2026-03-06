@@ -23,7 +23,7 @@ def mock_seestar_client():
 
 def test_start_tracking_satellite(mock_seestar_client):
     """Test POST /api/telescope/tracking/start endpoint with satellite."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "satellite", "object_id": "25544"})
 
         assert response.status_code == 200
@@ -35,7 +35,7 @@ def test_start_tracking_satellite(mock_seestar_client):
 
 def test_start_tracking_comet(mock_seestar_client):
     """Test POST /api/telescope/tracking/start endpoint with comet."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "comet", "object_id": "C/2023 A3"})
 
         assert response.status_code == 200
@@ -47,7 +47,7 @@ def test_start_tracking_comet(mock_seestar_client):
 
 def test_start_tracking_asteroid(mock_seestar_client):
     """Test POST /api/telescope/tracking/start endpoint with asteroid."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "asteroid", "object_id": "433"})
 
         assert response.status_code == 200
@@ -59,7 +59,7 @@ def test_start_tracking_asteroid(mock_seestar_client):
 
 def test_start_tracking_missing_object_type(mock_seestar_client):
     """Test POST /api/telescope/tracking/start with missing object_type."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_id": "25544"})
 
         assert response.status_code == 422  # Validation error
@@ -67,7 +67,7 @@ def test_start_tracking_missing_object_type(mock_seestar_client):
 
 def test_start_tracking_missing_object_id(mock_seestar_client):
     """Test POST /api/telescope/tracking/start with missing object_id."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "satellite"})
 
         assert response.status_code == 422  # Validation error
@@ -75,7 +75,7 @@ def test_start_tracking_missing_object_id(mock_seestar_client):
 
 def test_start_tracking_not_connected():
     """Test start tracking when telescope is not connected."""
-    with patch("app.api.routes.seestar_client", None):
+    with patch("app.api.telescope.seestar_client", None):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "satellite", "object_id": "25544"})
 
         assert response.status_code == 503
@@ -86,7 +86,7 @@ def test_start_tracking_failure(mock_seestar_client):
     """Test start tracking when the operation fails."""
     mock_seestar_client.start_track_object = AsyncMock(return_value=False)
 
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/start", json={"object_type": "satellite", "object_id": "25544"})
 
         assert response.status_code == 500
@@ -95,7 +95,7 @@ def test_start_tracking_failure(mock_seestar_client):
 
 def test_stop_tracking(mock_seestar_client):
     """Test POST /api/telescope/tracking/stop endpoint."""
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/stop")
 
         assert response.status_code == 200
@@ -105,7 +105,7 @@ def test_stop_tracking(mock_seestar_client):
 
 def test_stop_tracking_not_connected():
     """Test stop tracking when telescope is not connected."""
-    with patch("app.api.routes.seestar_client", None):
+    with patch("app.api.telescope.seestar_client", None):
         response = client.post("/api/telescope/tracking/stop")
 
         assert response.status_code == 503
@@ -116,7 +116,7 @@ def test_stop_tracking_failure(mock_seestar_client):
     """Test stop tracking when the operation fails."""
     mock_seestar_client.stop_track_object = AsyncMock(return_value=False)
 
-    with patch("app.api.routes.seestar_client", mock_seestar_client):
+    with patch("app.api.telescope.seestar_client", mock_seestar_client):
         response = client.post("/api/telescope/tracking/stop")
 
         assert response.status_code == 500
