@@ -169,6 +169,9 @@ class SeestarClient:
         self._status = SeestarStatus(connected=False, state=SeestarState.DISCONNECTED)
         self._operation_states: Dict[str, str] = {}
 
+        # Cached observer location (lat, lon, elevation) — populated on first goto
+        self._observer_location: Optional[tuple] = None
+
         # Reconnection tracking (Android app style)
         self._miss_time = 0  # Number of consecutive disconnects
         self._last_miss_time = 0.0  # Timestamp of last disconnect
@@ -971,22 +974,18 @@ class SeestarClient:
             CommandError: If goto command fails
         """
         self.logger.info(f"Scope goto: RA={ra_hours}h, Dec={dec_degrees}°")
-        print(f"[CLIENT PRINT] scope_goto called with RA={ra_hours}h, Dec={dec_degrees}°", flush=True)
 
         params = [ra_hours, dec_degrees]
-        print(f"[CLIENT PRINT] Sending scope_goto with params: {params}", flush=True)
         self._update_status(state=SeestarState.SLEWING)
         response = await self._send_command("scope_goto", params)
 
-        print(f"[CLIENT PRINT] Raw telescope response: {response}", flush=True)
+        self.logger.debug("scope_goto response: %s", response)
 
         result = response.get("result", -1)
         code = response.get("code", -1)
 
-        print(f"[CLIENT PRINT] Response result={result}, code={code}", flush=True)
-
         if result == 0 and code == 0:
-            print("[CLIENT PRINT] scope_goto command ACCEPTED - telescope should be moving", flush=True)
+            self.logger.info("scope_goto accepted — telescope slewing to RA=%sh Dec=%s°", ra_hours, dec_degrees)
             return True
         else:
             error_msg = f"Goto failed with result={result}, code={code}"
@@ -1006,16 +1005,14 @@ class SeestarClient:
         Raises:
             CommandError: If initialization fails
         """
-        self.logger.info("Initializing equatorial mode...")
-        print("[CLIENT PRINT] Starting mount initialization (go home sequence)", flush=True)
+        self.logger.info("Initializing equatorial mode (mount go-home sequence)...")
 
         try:
             # Execute mount_go_home
             response = await self._send_command("mount_go_home", {})
 
             if response.get("code") == 0:
-                self.logger.info("Go home command accepted, waiting for completion...")
-                print("[CLIENT PRINT] Go home in progress (may take 30-60 seconds)...", flush=True)
+                self.logger.info("Go home accepted — waiting ~45s for homing to complete...")
 
                 # Wait for homing to complete (typically 30-60 seconds)
                 await asyncio.sleep(45)
@@ -1023,7 +1020,6 @@ class SeestarClient:
                 # Mark as initialized
                 self._update_status(mount_mode=MountMode.EQUATORIAL, equatorial_initialized=True)
                 self.logger.info("Equatorial mode initialized successfully")
-                print("[CLIENT PRINT] Equatorial mode initialized!", flush=True)
                 return True
             else:
                 error_msg = f"Go home failed: code={response.get('code')}"
@@ -1079,13 +1075,9 @@ class SeestarClient:
         Raises:
             CommandError: If goto command fails
         """
-        self.logger.info(f"Goto target: {target_name} at RA={ra_hours}h, Dec={dec_degrees}°")
-
-        print(
-            f"[CLIENT PRINT] goto_target called with RA={ra_hours}h, Dec={dec_degrees}°, target={target_name}",
-            flush=True,
+        self.logger.info(
+            f"Goto target: {target_name} at RA={ra_hours}h, Dec={dec_degrees}° (mode={self.status.mount_mode.value})"
         )
-        print(f"[CLIENT PRINT] Current mount mode: {self.status.mount_mode.value}", flush=True)
 
         # CRITICAL: Cancel any active operations before movement
         # Check if telescope is currently imaging/viewing
@@ -1095,16 +1087,15 @@ class SeestarClient:
             view_status = view.get("state")
             view_stage = view.get("stage")
 
-            print(f"[CLIENT PRINT] Current view state: {view_status}, stage: {view_stage}", flush=True)
+            self.logger.debug("View state before goto: status=%s stage=%s", view_status, view_stage)
 
             # If actively imaging or viewing, cancel it
             if view_status == "working" or view_stage in ["ContinuousExposure", "Stacking"]:
                 self.logger.warning(f"Canceling active {view_stage} before goto")
-                print(f"[CLIENT PRINT] Canceling active operation ({view_stage})...", flush=True)
                 try:
                     await self._send_command("iscope_cancel_view", {})
                     await asyncio.sleep(1)  # Give it time to cancel
-                    print("[CLIENT PRINT] ✓ Active operation canceled", flush=True)
+                    self.logger.info("Active operation canceled")
                 except Exception as cancel_error:
                     self.logger.warning(f"Cancel view failed (may be OK): {cancel_error}")
         except Exception as e:
@@ -1116,16 +1107,14 @@ class SeestarClient:
         mount = device_state.get("mount", {})
         actual_equ_mode = mount.get("equ_mode", False)
 
-        print(f"[CLIENT PRINT] Device mount state: equ_mode={actual_equ_mode}", flush=True)
+        self.logger.debug("Device mount state: equ_mode=%s", actual_equ_mode)
 
         # If we want alt/az mode but device is in equatorial mode, fix it
         if self.status.mount_mode == MountMode.ALTAZ and actual_equ_mode is True:
             self.logger.warning("Device in equatorial mode but client wants alt/az - clearing polar alignment")
-            print("[CLIENT PRINT] Clearing polar alignment to enable alt/az movement...", flush=True)
             try:
                 await self.clear_polar_alignment()
                 self.logger.info("Successfully switched to alt/az mode")
-                print("[CLIENT PRINT] ✓ Mount switched to alt/az mode", flush=True)
             except Exception as e:
                 self.logger.error(f"Failed to clear polar alignment: {e}")
                 raise CommandError(f"Failed to switch mount to alt/az mode: {e}")
@@ -1139,33 +1128,36 @@ class SeestarClient:
 
         # Use appropriate method based on mount mode
         if self.status.mount_mode == MountMode.ALTAZ:
-            print("[CLIENT PRINT] Converting RA/Dec to Alt/Az for alt/az mount...", flush=True)
+            self.logger.debug("Converting RA/Dec to Alt/Az for alt/az mount")
 
             try:
-                # Get telescope location from device state
-                # TODO: Cache this or get from settings
                 from datetime import datetime
 
                 import astropy.units as u
                 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
                 from astropy.time import Time
 
-                # Get observer location from DB settings, fall back to app config
-                from app.core.config import get_settings as _get_cfg
+                # Use cached observer location, or fetch from DB (then cache)
+                if self._observer_location is None:
+                    from app.core.config import get_settings as _get_cfg
 
-                _cfg = _get_cfg()
-                lat, lon, elevation = _cfg.default_lat, _cfg.default_lon, 0
-                try:
-                    from app.database import SessionLocal
-                    from app.models.settings_models import ObservingLocation as _ObsLoc
+                    _cfg = _get_cfg()
+                    lat, lon, elevation = _cfg.default_lat, _cfg.default_lon, 0
+                    try:
+                        from app.database import SessionLocal
+                        from app.models.settings_models import ObservingLocation as _ObsLoc
 
-                    _db = SessionLocal()
-                    _loc = _db.query(_ObsLoc).filter(_ObsLoc.is_default == True, _ObsLoc.is_active == True).first()
-                    _db.close()
-                    if _loc:
-                        lat, lon, elevation = _loc.latitude, _loc.longitude, (_loc.elevation or 0)
-                except Exception:
-                    pass
+                        _db = SessionLocal()
+                        _loc = _db.query(_ObsLoc).filter(_ObsLoc.is_default == True, _ObsLoc.is_active == True).first()
+                        _db.close()
+                        if _loc:
+                            lat, lon, elevation = _loc.latitude, _loc.longitude, (_loc.elevation or 0)
+                    except Exception:
+                        pass
+                    self._observer_location = (lat, lon, elevation)
+                    self.logger.debug("Observer location loaded: lat=%.4f lon=%.4f elev=%.0fm", lat, lon, elevation)
+
+                lat, lon, elevation = self._observer_location
 
                 # Convert RA/Dec to Alt/Az
                 coord = SkyCoord(ra=ra_hours * u.hourangle, dec=dec_degrees * u.deg, frame="icrs")
@@ -1177,22 +1169,20 @@ class SeestarClient:
                 azimuth = altaz_coord.az.deg
                 altitude = altaz_coord.alt.deg
 
-                print(f"[CLIENT PRINT] Converted to Az={azimuth:.2f}°, Alt={altitude:.2f}°", flush=True)
+                self.logger.info("Coordinate conversion: Az=%.2f° Alt=%.2f° for %s", azimuth, altitude, target_name)
 
                 # Check if target is above horizon
                 if altitude < 10:
                     self.logger.warning(f"Target {target_name} is low (alt={altitude:.1f}°) - may not be visible")
 
-                # Use move_to_horizon which we know works in alt/az mode
-                print(f"[CLIENT PRINT] Calling move_to_horizon(az={azimuth:.2f}, alt={altitude:.2f})", flush=True)
                 self._update_status(state=SeestarState.SLEWING, current_target=target_name)
                 success = await self.move_to_horizon(azimuth=azimuth, altitude=altitude)
 
                 if success:
-                    print(f"[CLIENT PRINT] move_to_horizon succeeded - telescope moving to {target_name}", flush=True)
+                    self.logger.info("move_to_horizon accepted — slewing to %s", target_name)
                     return True
                 else:
-                    print("[CLIENT PRINT] move_to_horizon failed", flush=True)
+                    self.logger.error("move_to_horizon failed for %s", target_name)
                     return False
 
             except Exception as e:
@@ -1202,27 +1192,24 @@ class SeestarClient:
         else:
             # Use iscope_start_view directly (for initialized equatorial mode)
             # Same as official Seestar app - see StartGoToCmd.java line 99
-            print("[CLIENT PRINT] Using iscope_start_view for equatorial mode", flush=True)
             params = {
                 "mode": "star",
                 "target_ra_dec": [ra_hours, dec_degrees],
                 "target_name": target_name,
                 "lp_filter": use_lp_filter,
             }
-            print(f"[CLIENT PRINT] Sending iscope_start_view with params: {params}", flush=True)
+            self.logger.debug("Sending iscope_start_view: %s", params)
             self._update_status(state=SeestarState.SLEWING, current_target=target_name)
             response = await self._send_command("iscope_start_view", params)
 
-            print(f"[CLIENT PRINT] Raw telescope response: {response}", flush=True)
+            self.logger.debug("iscope_start_view response: %s", response)
 
             # Check for error codes
             result = response.get("result", -1)
             code = response.get("code", -1)
 
-            print(f"[CLIENT PRINT] Response result={result}, code={code}", flush=True)
-
             if result == 0 and code == 0:
-                print("[CLIENT PRINT] Goto command ACCEPTED - telescope should be moving", flush=True)
+                self.logger.info("iscope_start_view accepted — slewing to %s", target_name)
                 return True
             else:
                 error_msg = f"Goto failed with result={result}, code={code}"
@@ -2379,7 +2366,6 @@ class SeestarClient:
             CommandError: If move fails
         """
         self.logger.info(f"Moving to horizon: az={azimuth}°, alt={altitude}°")
-        print(f"[MOVE_TO_HORIZON] Called with az={azimuth}, alt={altitude}")
 
         params = {"azimuth": azimuth, "altitude": altitude}
 
@@ -2387,13 +2373,10 @@ class SeestarClient:
 
         response = await self._send_command("scope_move_to_horizon", params)
 
-        print(f"[MOVE_TO_HORIZON] Response: {response}")
-        print(f"[MOVE_TO_HORIZON] response.get('result'): {response.get('result')}")
-        print(f"[MOVE_TO_HORIZON] response.get('code'): {response.get('code')}")
-
-        self.logger.info(f"Move to horizon response: {response}")
+        self.logger.debug(
+            "scope_move_to_horizon response: result=%s code=%s", response.get("result"), response.get("code")
+        )
         success = response.get("result") == 0
-        print(f"[MOVE_TO_HORIZON] Returning: {success}")
         return success
 
     async def reset_focuser_to_factory(self) -> bool:

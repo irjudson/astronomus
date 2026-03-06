@@ -1,7 +1,10 @@
 """JPL Horizons integration for fetching comet data."""
 
+import logging
 from datetime import datetime
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from astropy.time import Time
 from astroquery.jplhorizons import Horizons
@@ -106,7 +109,7 @@ class HorizonsService:
             return comet
 
         except Exception as e:
-            print(f"Error fetching comet {designation} from Horizons: {e}")
+            logger.error("Error fetching comet %s from Horizons: %s", designation, e)
             return None
 
     def fetch_bright_comets(self, max_magnitude: float = 12.0, epoch: Optional[datetime] = None) -> List[CometTarget]:
@@ -135,7 +138,7 @@ class HorizonsService:
                     mpc_comets, key=lambda c: c.current_magnitude if c.current_magnitude is not None else 99.0
                 )
         except Exception as e:
-            print(f"MPC fetch failed, falling back to curated list: {e}")
+            logger.warning("MPC fetch failed, falling back to curated list: %s", e)
 
         # Fallback: curated list of periodic comets + recent notable comets
         known_comets = [
@@ -159,7 +162,7 @@ class HorizonsService:
                 if comet and (comet.current_magnitude is None or comet.current_magnitude <= max_magnitude):
                     bright_comets.append(comet)
             except Exception as e:
-                print(f"Skipping {designation}: {e}")
+                logger.debug("Skipping %s: %s", designation, e)
                 continue
 
         return bright_comets
@@ -298,5 +301,5 @@ class HorizonsService:
             return result
 
         except Exception as e:
-            print(f"Error fetching ephemeris for {designation}: {e}")
+            logger.error("Error fetching ephemeris for %s: %s", designation, e)
             return {"designation": designation, "data": [], "error": str(e)}

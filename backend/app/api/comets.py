@@ -1,10 +1,13 @@
 """API routes for comet catalog and visibility."""
 
+import logging
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models import CometEphemeris, CometTarget, CometVisibility, Location
@@ -336,7 +339,7 @@ async def refresh_comet_catalog(
                 else:
                     updated += 1
             except Exception as e:
-                print(f"Failed to upsert {comet.designation}: {e}")
+                logger.error("Failed to upsert %s: %s", comet.designation, e)
                 failed += 1
 
         return {
