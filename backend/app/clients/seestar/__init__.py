@@ -1,17 +1,17 @@
 """Seestar S50 client package."""
 
-from .types import (
-    SeestarState,
-    MountMode,
-    SeestarStatus,
-    SeestarClientError,
-    ConnectionError,
-    CommandError,
-    TimeoutError,
-    EventType,
-    SeestarEvent,
-)
 from .client import SeestarClient
+from .types import (
+    CommandError,
+    ConnectionError,
+    EventType,
+    MountMode,
+    SeestarClientError,
+    SeestarEvent,
+    SeestarState,
+    SeestarStatus,
+    TimeoutError,
+)
 
 __all__ = [
     "SeestarClient",

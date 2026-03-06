@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from .types import SeestarState, CommandError
+from .types import CommandError, SeestarState
 
 
 class SeestarObservationMixin:

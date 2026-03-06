@@ -6,16 +6,16 @@ continues to work without modification.
 """
 
 from app.clients.seestar import (  # noqa: F401
-    SeestarClient,
-    SeestarState,
-    MountMode,
-    SeestarStatus,
-    SeestarClientError,
-    ConnectionError,
     CommandError,
-    TimeoutError,
+    ConnectionError,
     EventType,
+    MountMode,
+    SeestarClient,
+    SeestarClientError,
     SeestarEvent,
+    SeestarState,
+    SeestarStatus,
+    TimeoutError,
 )
 
 __all__ = [

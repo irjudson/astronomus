@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .types import SeestarState, MountMode, CommandError
+from .types import CommandError, MountMode, SeestarState
 
 
 class SeestarMountMixin:
