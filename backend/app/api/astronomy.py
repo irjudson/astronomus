@@ -455,7 +455,7 @@ async def get_altitude_curve(
         import astropy.units as u
 
         start_dt = datetime.fromisoformat(imaging_start)
-        end_dt   = datetime.fromisoformat(imaging_end)
+        end_dt = datetime.fromisoformat(imaging_end)
 
         if start_dt.tzinfo is None:
             start_dt = start_dt.replace(tzinfo=timezone.utc)
@@ -466,7 +466,7 @@ async def get_altitude_curve(
             raise HTTPException(status_code=400, detail="imaging_end must be after imaging_start")
 
         interval = timedelta(minutes=15)
-        times    = []
+        times = []
         t = start_dt
         while t <= end_dt:
             times.append(t)
@@ -493,7 +493,7 @@ async def get_altitude_curve(
         elif ra_hours is not None and dec_degrees is not None:
             # Fixed DSO — use EphemerisService
             location = Location(latitude=lat, longitude=lon, elevation=0, name="observer", timezone="UTC")
-            target   = DSOTarget(
+            target = DSOTarget(
                 catalog_id="_curve",
                 name="_curve",
                 ra_hours=ra_hours,
