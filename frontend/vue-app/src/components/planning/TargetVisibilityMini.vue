@@ -1,5 +1,6 @@
 <template>
   <svg
+    ref="svgRef"
     :viewBox="`0 0 ${W} ${H}`"
     preserveAspectRatio="xMidYMid meet"
     class="w-full rounded"
@@ -11,17 +12,44 @@
       </clipPath>
     </defs>
 
-    <!-- Scheduled window highlight -->
-    <rect
-      v-if="windowWidth > 0"
-      :x="windowX"
-      :y="0"
-      :width="windowWidth"
-      :height="H"
-      :fill="scoreColor + '30'"
-      :stroke="scoreColor"
-      stroke-width="1"
-    />
+    <!-- Scheduled window highlight + drag handles -->
+    <g v-if="windowWidth > 0">
+      <!-- Visual window (non-interactive) -->
+      <rect
+        :x="windowX" :y="0"
+        :width="windowWidth" :height="H"
+        :fill="scoreColor + '30'"
+        :stroke="scoreColor"
+        stroke-width="1"
+        style="pointer-events: none"
+      />
+
+      <!-- Drag handles (only when index is set) -->
+      <template v-if="index != null">
+        <!-- Left resize handle -->
+        <rect
+          :x="windowX" :y="0"
+          :width="Math.min(6, windowWidth / 4)" :height="H"
+          fill="transparent" style="cursor: ew-resize"
+          @mousedown.stop="startDrag($event, 'left')"
+        />
+        <!-- Interior move handle -->
+        <rect
+          :x="windowX + Math.min(6, windowWidth / 4)" :y="0"
+          :width="Math.max(0, windowWidth - 2 * Math.min(6, windowWidth / 4))" :height="H"
+          fill="transparent"
+          :style="{ cursor: dragState?.mode === 'move' ? 'grabbing' : 'grab' }"
+          @mousedown.stop="startDrag($event, 'move')"
+        />
+        <!-- Right resize handle -->
+        <rect
+          :x="windowX + windowWidth - Math.min(6, windowWidth / 4)" :y="0"
+          :width="Math.min(6, windowWidth / 4)" :height="H"
+          fill="transparent" style="cursor: ew-resize"
+          @mousedown.stop="startDrag($event, 'right')"
+        />
+      </template>
+    </g>
 
     <!-- Min altitude threshold line -->
     <line
@@ -40,21 +68,27 @@
       :clip-path="`url(#${clipId})`"
     />
 
-    <!-- Window start/end altitude dots -->
-    <circle
-      v-if="windowWidth > 0 && startDotY !== null"
-      :cx="windowX"
-      :cy="startDotY"
-      r="2.5"
-      :fill="scoreColor"
-    />
-    <circle
-      v-if="windowWidth > 0 && endDotY !== null"
-      :cx="windowX + windowWidth"
-      :cy="endDotY"
-      r="2.5"
-      :fill="scoreColor"
-    />
+    <!-- Start dot (visual, non-interactive) + large hit area for drag -->
+    <g v-if="windowWidth > 0 && startDotY !== null">
+      <circle :cx="windowX" :cy="startDotY" r="2.5" :fill="scoreColor" style="pointer-events: none" />
+      <circle
+        v-if="index != null"
+        :cx="windowX" :cy="startDotY" r="7"
+        fill="transparent" style="cursor: ew-resize"
+        @mousedown.stop="startDrag($event, 'left')"
+      />
+    </g>
+
+    <!-- End dot (visual, non-interactive) + large hit area for drag -->
+    <g v-if="windowWidth > 0 && endDotY !== null">
+      <circle :cx="windowX + windowWidth" :cy="endDotY" r="2.5" :fill="scoreColor" style="pointer-events: none" />
+      <circle
+        v-if="index != null"
+        :cx="windowX + windowWidth" :cy="endDotY" r="7"
+        fill="transparent" style="cursor: ew-resize"
+        @mousedown.stop="startDrag($event, 'right')"
+      />
+    </g>
 
     <!-- Scheduled time label inside window -->
     <text
@@ -70,8 +104,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import { usePlanningStore } from '@/stores/planning'
 
 // Module-level cache shared across all instances: key = `${catalogId}|${imagingStart}`
 const _cache = new Map()
@@ -82,7 +117,14 @@ const props = defineProps({
   location: { type: Object, default: null },   // plan.location (lat/lon for API)
   minAlt:   { type: Number, default: 20 },
   bodyName: { type: String, default: null },   // solar system body name (overrides ra/dec fetch)
+  index:    { type: Number, default: null },   // null = read-only (discovery/solar system cards)
 })
+
+const planningStore = usePlanningStore()
+const svgRef = ref(null)
+const dragState = ref(null)
+// { mode: 'move'|'left'|'right', startClientX, origStartMs, origEndMs }
+const MIN_DUR_MS = 5 * 60 * 1000
 
 const W = 300
 const H = 52
@@ -211,5 +253,54 @@ const scheduledLabel = computed(() => {
     ? new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
     : ''
   return `${fmt(props.target.start_time)} – ${fmt(props.target.end_time)}`
+})
+
+function startDrag(e, mode) {
+  if (props.index == null) return
+  e.preventDefault()
+  dragState.value = {
+    mode,
+    startClientX: e.clientX,
+    origStartMs: new Date(props.target.start_time).getTime(),
+    origEndMs:   new Date(props.target.end_time).getTime(),
+  }
+}
+
+function onDocMousemove(e) {
+  if (!dragState.value || !svgRef.value || props.index == null) return
+  e.preventDefault()
+  const { mode, startClientX, origStartMs, origEndMs } = dragState.value
+
+  const rect    = svgRef.value.getBoundingClientRect()
+  const pxDelta = e.clientX - startClientX
+  // Full SVG width maps to full session duration (simpler than PlanTimeline)
+  const msDelta = (pxDelta / rect.width) * sessionDur.value
+
+  let ns = origStartMs
+  let ne = origEndMs
+
+  if (mode === 'move') {
+    ns = origStartMs + msDelta
+    ne = origEndMs   + msDelta
+    if (ns < sessionStart.value) { ne += sessionStart.value - ns; ns = sessionStart.value }
+    if (ne > sessionEnd.value)   { ns -= ne - sessionEnd.value;   ne = sessionEnd.value   }
+  } else if (mode === 'left') {
+    ns = Math.max(sessionStart.value, Math.min(origStartMs + msDelta, origEndMs - MIN_DUR_MS))
+  } else {
+    ne = Math.min(sessionEnd.value, Math.max(origEndMs + msDelta, origStartMs + MIN_DUR_MS))
+  }
+
+  planningStore.setTargetWindow(props.index, new Date(ns).toISOString(), new Date(ne).toISOString())
+}
+
+function onDocMouseup() { dragState.value = null }
+
+onMounted(() => {
+  document.addEventListener('mousemove', onDocMousemove)
+  document.addEventListener('mouseup',   onDocMouseup)
+})
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDocMousemove)
+  document.removeEventListener('mouseup',   onDocMouseup)
 })
 </script>

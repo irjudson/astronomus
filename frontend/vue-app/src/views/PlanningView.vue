@@ -181,6 +181,7 @@
                         :session="planningStore.currentPlan.session"
                         :location="planningStore.currentPlan.location"
                         :min-alt="planningStore.constraints.min_altitude_degrees"
+                        :index="index"
                       />
                     </div>
                   </div>
