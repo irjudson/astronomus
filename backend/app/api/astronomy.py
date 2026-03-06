@@ -450,9 +450,9 @@ async def get_altitude_curve(
         { points: [[iso_str, altitude_deg], ...] }
     """
     try:
+        import astropy.units as u
         from astropy.coordinates import AltAz, EarthLocation, get_body, get_sun
         from astropy.time import Time
-        import astropy.units as u
 
         start_dt = datetime.fromisoformat(imaging_start)
         end_dt = datetime.fromisoformat(imaging_end)
