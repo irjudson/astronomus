@@ -1,12 +1,6 @@
-"""Backward-compatible re-export for the Seestar S50 client.
+"""Seestar S50 client package."""
 
-All public symbols are now defined in app.clients.seestar.
-This module exists so existing code (``from app.clients.seestar_client import SeestarClient``)
-continues to work without modification.
-"""
-
-from app.clients.seestar import (  # noqa: F401
-    SeestarClient,
+from .types import (
     SeestarState,
     MountMode,
     SeestarStatus,
@@ -17,6 +11,7 @@ from app.clients.seestar import (  # noqa: F401
     EventType,
     SeestarEvent,
 )
+from .client import SeestarClient
 
 __all__ = [
     "SeestarClient",
