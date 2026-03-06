@@ -12,6 +12,7 @@
 
     <!-- SVG chart -->
     <svg
+      ref="svgRef"
       :viewBox="`0 0 ${W} ${H}`"
       preserveAspectRatio="xMidYMid meet"
       class="w-full border border-gray-800 rounded-b-lg"
@@ -91,8 +92,9 @@
         />
       </g>
 
-      <!-- 4. Target window rects (filled, score-colored) -->
+      <!-- 4. Target window rects + drag handles -->
       <g :clip-path="`url(#${clipId})`">
+        <!-- Visual window (pointer-events: none — handled by transparent overlay rects below) -->
         <rect
           v-for="(target, i) in targets" :key="'win' + (target.target?.catalog_id || i)"
           :x="tx(target.start_time)" :y="MT"
@@ -101,9 +103,35 @@
           :fill="scoreColor(target.score?.total_score) + '26'"
           :stroke="scoreColor(target.score?.total_score)"
           stroke-width="1.5"
-          style="cursor: pointer"
-          @click="$emit('select-target', i)"
+          style="pointer-events: none"
         />
+
+        <!-- Per-target drag handles: left edge / interior / right edge -->
+        <template v-for="(target, i) in targets" :key="'drag' + i">
+          <!-- Left resize handle -->
+          <rect
+            :x="tx(target.start_time)" :y="MT"
+            :width="EDGE_PX" :height="CH"
+            fill="transparent" style="cursor: ew-resize"
+            @mousedown.stop="onWindowMousedown($event, i, 'left')"
+          />
+          <!-- Interior move handle -->
+          <rect
+            :x="tx(target.start_time) + EDGE_PX" :y="MT"
+            :width="Math.max(0, tx(target.end_time) - tx(target.start_time) - 2 * EDGE_PX)"
+            :height="CH"
+            fill="transparent"
+            :style="{ cursor: dragState?.index === i ? 'grabbing' : 'grab' }"
+            @mousedown.stop="onWindowMousedown($event, i, 'move')"
+          />
+          <!-- Right resize handle -->
+          <rect
+            :x="tx(target.end_time) - EDGE_PX" :y="MT"
+            :width="EDGE_PX" :height="CH"
+            fill="transparent" style="cursor: ew-resize"
+            @mousedown.stop="onWindowMousedown($event, i, 'right')"
+          />
+        </template>
       </g>
 
       <!-- 5. Field rotation stripe (bottom of window) -->
@@ -178,13 +206,22 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import { usePlanningStore } from '@/stores/planning'
 
 const props = defineProps({
   plan: { type: Object, required: true }
 })
 const emit = defineEmits(['select-target'])
+
+const planningStore = usePlanningStore()
+const svgRef = ref(null)
+const dragState = ref(null)
+// dragState shape: { index, mode: 'move'|'left'|'right', startClientX, origStartMs, origEndMs }
+
+const EDGE_PX = 8        // viewBox pixels for left/right drag handle zones
+const MIN_DUR_MS = 5 * 60 * 1000
 
 // Module-level cache shared across all PlanTimeline instances
 const _tlCache = new Map()
@@ -226,7 +263,15 @@ async function fetchAllCurves() {
   fullCurves.value = { ...fullCurves.value, ...updated }
 }
 
-onMounted(fetchAllCurves)
+onMounted(() => {
+  fetchAllCurves()
+  document.addEventListener('mousemove', onDocMousemove)
+  document.addEventListener('mouseup',   onDocMouseup)
+})
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDocMousemove)
+  document.removeEventListener('mouseup',   onDocMouseup)
+})
 watch(() => props.plan?.session?.imaging_start, fetchAllCurves)
 
 // SVG dimensions & margins
@@ -275,6 +320,48 @@ const pointsToPath = (pts) => {
     .map(([t, alt], i) => `${i === 0 ? 'M' : 'L'}${tx(t).toFixed(1)},${ay(alt).toFixed(1)}`)
     .join(' ')
 }
+
+function onWindowMousedown(e, i, mode) {
+  e.preventDefault()
+  emit('select-target', i)
+  const t = targets.value[i]
+  dragState.value = {
+    index: i,
+    mode,
+    startClientX: e.clientX,
+    origStartMs: new Date(t.start_time).getTime(),
+    origEndMs:   new Date(t.end_time).getTime(),
+  }
+}
+
+function onDocMousemove(e) {
+  if (!dragState.value) return
+  const { index, mode, startClientX, origStartMs, origEndMs } = dragState.value
+
+  const rect    = svgRef.value.getBoundingClientRect()
+  const pxDelta = e.clientX - startClientX
+  // Chart area CW occupies (CW/W) of the rendered SVG width
+  const msDelta = pxDelta * sessionDur.value * W / (CW * rect.width)
+
+  let ns = origStartMs
+  let ne = origEndMs
+
+  if (mode === 'move') {
+    ns = origStartMs + msDelta
+    ne = origEndMs   + msDelta
+    // Clamp within session, preserving duration
+    if (ns < sessionStart.value) { ne += sessionStart.value - ns; ns = sessionStart.value }
+    if (ne > sessionEnd.value)   { ns -= ne - sessionEnd.value;   ne = sessionEnd.value   }
+  } else if (mode === 'left') {
+    ns = Math.max(sessionStart.value, Math.min(origStartMs + msDelta, origEndMs - MIN_DUR_MS))
+  } else { // right
+    ne = Math.min(sessionEnd.value, Math.max(origEndMs + msDelta, origStartMs + MIN_DUR_MS))
+  }
+
+  planningStore.setTargetWindow(index, new Date(ns).toISOString(), new Date(ne).toISOString())
+}
+
+function onDocMouseup() { dragState.value = null }
 
 const scoreColor = (score) =>
   score == null ? '#6b7280' : score >= 0.7 ? '#22c55e' : score >= 0.4 ? '#f59e0b' : '#ef4444'
