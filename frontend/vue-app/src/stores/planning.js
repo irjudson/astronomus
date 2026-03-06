@@ -348,19 +348,23 @@ export const usePlanningStore = defineStore('planning', {
     },
 
     setTargetWindow(index, startIso, endIso) {
+      if (!startIso || !endIso) return
       const ts = this.currentPlan?.scheduled_targets
       if (!ts?.[index]) return
       const startMs = new Date(startIso).getTime()
       const endMs   = new Date(endIso).getTime()
+      if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return
       ts[index].start_time       = startIso
       ts[index].end_time         = endIso
       ts[index].duration_minutes = Math.round((endMs - startMs) / 60000)
-      // Update coverage percent
       const s = this.currentPlan.session
       if (s) {
-        const totalDarkMs    = new Date(s.imaging_end).getTime() - new Date(s.imaging_start).getTime()
-        const totalImagingMs = ts.reduce((sum, t) => sum + t.duration_minutes * 60000, 0)
-        this.currentPlan.coverage_percent = Math.round((totalImagingMs / totalDarkMs) * 100)
+        const totalDarkMs = new Date(s.imaging_end).getTime() - new Date(s.imaging_start).getTime()
+        if (totalDarkMs > 0) {
+          const totalImagingMs = ts.reduce((sum, t) => sum + t.duration_minutes * 60000, 0)
+          this.currentPlan.coverage_percent = Math.round((totalImagingMs / totalDarkMs) * 100)
+        }
+        this.currentPlan.total_targets = ts.length
       }
     },
   }
