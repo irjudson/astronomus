@@ -32,8 +32,11 @@
           <p v-if="activeDiscoveryTab === 'deep-sky'" class="text-sm text-gray-500">
             {{ catalogStore.totalItems }} celestial objects
           </p>
-          <p v-else class="text-sm text-gray-500">
+          <p v-else-if="activeDiscoveryTab === 'solar-system'" class="text-sm text-gray-500">
             Solar system objects
+          </p>
+          <p v-else class="text-sm text-gray-500">
+            ISS &amp; satellite passes
           </p>
         </div>
 
@@ -61,6 +64,17 @@
           >
             Solar System
           </button>
+          <button
+            @click="activeDiscoveryTab = 'satellites'"
+            :class="[
+              'px-4 py-1.5 rounded-t text-sm font-medium transition-colors',
+              activeDiscoveryTab === 'satellites'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+            ]"
+          >
+            Satellites
+          </button>
         </div>
 
         <!-- Content -->
@@ -69,6 +83,7 @@
             <CatalogGrid />
           </template>
           <SolarSystemPanel v-else-if="activeDiscoveryTab === 'solar-system'" />
+          <SatellitePassesPanel v-else-if="activeDiscoveryTab === 'satellites'" />
         </div>
       </div>
     </template>
@@ -82,6 +97,7 @@ import PanelContainer from '@/components/layout/PanelContainer.vue'
 import SearchFilters from '@/components/discovery/SearchFilters.vue'
 import CatalogGrid from '@/components/discovery/CatalogGrid.vue'
 import SolarSystemPanel from '@/components/discovery/SolarSystemPanel.vue'
+import SatellitePassesPanel from '@/components/discovery/SatellitePassesPanel.vue'
 
 const catalogStore = useCatalogStore()
 const leftPanelVisible = ref(true)
