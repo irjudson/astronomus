@@ -111,14 +111,14 @@
           <!-- Left resize handle -->
           <rect
             :x="tx(target.start_time)" :y="MT"
-            :width="EDGE_PX" :height="CH"
+            :width="edgePx(i)" :height="CH"
             fill="transparent" style="cursor: ew-resize"
             @mousedown.stop="onWindowMousedown($event, i, 'left')"
           />
           <!-- Interior move handle -->
           <rect
-            :x="tx(target.start_time) + EDGE_PX" :y="MT"
-            :width="Math.max(0, tx(target.end_time) - tx(target.start_time) - 2 * EDGE_PX)"
+            :x="tx(target.start_time) + edgePx(i)" :y="MT"
+            :width="Math.max(0, tx(target.end_time) - tx(target.start_time) - 2 * edgePx(i))"
             :height="CH"
             fill="transparent"
             :style="{ cursor: dragState?.index === i ? 'grabbing' : 'grab' }"
@@ -126,8 +126,8 @@
           />
           <!-- Right resize handle -->
           <rect
-            :x="tx(target.end_time) - EDGE_PX" :y="MT"
-            :width="EDGE_PX" :height="CH"
+            :x="tx(target.end_time) - edgePx(i)" :y="MT"
+            :width="edgePx(i)" :height="CH"
             fill="transparent" style="cursor: ew-resize"
             @mousedown.stop="onWindowMousedown($event, i, 'right')"
           />
@@ -335,12 +335,13 @@ function onWindowMousedown(e, i, mode) {
 }
 
 function onDocMousemove(e) {
-  if (!dragState.value) return
+  if (!dragState.value || !svgRef.value) return
+  e.preventDefault()
   const { index, mode, startClientX, origStartMs, origEndMs } = dragState.value
 
   const rect    = svgRef.value.getBoundingClientRect()
   const pxDelta = e.clientX - startClientX
-  // Chart area CW occupies (CW/W) of the rendered SVG width
+  // Convert rendered-px delta → ms: (W/rect.width) maps to viewBox px, (sessionDur/CW) maps to time
   const msDelta = pxDelta * sessionDur.value * W / (CW * rect.width)
 
   let ns = origStartMs
@@ -362,6 +363,11 @@ function onDocMousemove(e) {
 }
 
 function onDocMouseup() { dragState.value = null }
+
+const edgePx = (i) => {
+  const w = tx(targets.value[i].end_time) - tx(targets.value[i].start_time)
+  return Math.min(EDGE_PX, Math.floor(w / 3))
+}
 
 const scoreColor = (score) =>
   score == null ? '#6b7280' : score >= 0.7 ? '#22c55e' : score >= 0.4 ? '#f59e0b' : '#ef4444'
