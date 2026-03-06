@@ -1,12 +1,10 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
-import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings';
+import { useSettingsStore, DEFAULT_SETTINGS } from './settings';
 import { useToastStore } from './toast';
 
 export const useCatalogStore = defineStore('catalog', {
-  state: () => {
-    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
-    return {
+  state: () => ({
     items: [],
     loading: false,
     error: null,
@@ -18,16 +16,15 @@ export const useCatalogStore = defineStore('catalog', {
       type: '',
       constellation: '',
       max_magnitude: '',
-      sort_by: s.catalogSortBy,
-      visible_now: s.catalogVisibleNow,
-      use_scoring: s.catalogUseScoring,
+      sort_by: DEFAULT_SETTINGS.catalogSortBy,
+      visible_now: DEFAULT_SETTINGS.catalogVisibleNow,
+      use_scoring: DEFAULT_SETTINGS.catalogUseScoring,
     },
     prefetchCache: new Map(),
     selectedTargets: [], // For "Add to Plan" functionality (session)
     wishlist: [], // Persistent wishlist saved to backend
     captureMap: {}, // { [catalog_id]: CaptureHistoryResponse }
-    }
-  },
+  }),
   getters: {
     totalPages: (state) => Math.ceil(state.totalItems / state.pageSize),
     hasPrevPage: (state) => state.currentPage > 1,
