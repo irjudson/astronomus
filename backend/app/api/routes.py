@@ -215,7 +215,7 @@ async def list_targets(
                     ]
             except Exception as e:
                 # If visibility fails, continue without it
-                print(f"Warning: Could not calculate visibility: {e}")
+                logger.warning("Could not calculate visibility: %s", e)
 
             # Sort by: optimal now > visible > rising > setting > below horizon
             # Within each group, sort by altitude
@@ -265,7 +265,7 @@ async def list_targets(
                         ]
                 except Exception as e:
                     # If visibility fails, continue without it
-                    print(f"Warning: Could not calculate visibility: {e}")
+                    logger.warning("Could not calculate visibility: %s", e)
 
         # Add capture history for all paginated targets (single efficient query)
         try:
@@ -309,10 +309,10 @@ async def list_targets(
                 except Exception as query_error:
                     # If session is in failed transaction, just continue without capture history
                     # This can happen if visibility calculation fails first
-                    print(f"Warning: Could not fetch capture history: {query_error}")
+                    logger.warning("Could not fetch capture history: %s", query_error)
         except Exception as e:
             # Outer exception handler
-            print(f"Warning: Capture history processing failed: {e}")
+            logger.warning("Capture history processing failed: %s", e)
 
         return paginated
     except Exception as e:
@@ -1272,24 +1272,21 @@ async def get_telescope_status():
         # This sends iscope_get_app_state command which updates internal state
         # based on telescope's actual stage (AutoGoto, AutoFocus, Stack, Idle, ScopeHome, etc.)
         app_state = await seestar_client.get_app_state()
-        print(f"[STATUS ENDPOINT] app_state stage: {app_state.get('stage')}")
+        logger.debug("Status poll: app_state stage=%s", app_state.get("stage"))
 
         # Also check device state to detect parked (mount.close=True)
-        # This is important for detecting state on connect or if parked via Seestar app
         device_state = await seestar_client.get_device_state()
         mount = device_state.get("mount", {})
-        print(f"[STATUS ENDPOINT] mount.close: {mount.get('close')}")
-        print(f"[STATUS ENDPOINT] mount state: {mount}")
+        logger.debug("Status poll: mount.close=%s", mount.get("close"))
 
         # Get current RA/Dec coordinates
         try:
             await seestar_client.get_current_coordinates()
-            # get_current_coordinates() updates internal status with current coordinates
         except Exception as e:
-            print(f"[STATUS ENDPOINT] Failed to get coordinates: {e}")
+            logger.debug("Status poll: failed to get coordinates: %s", e)
 
         status = seestar_client.status
-        print(f"[STATUS ENDPOINT] internal state: {status.state.value if status.state else 'unknown'}")
+        logger.debug("Status poll: internal state=%s", status.state.value if status.state else "unknown")
 
         # Extract compass heading from device_state (direction field confirmed in firmware)
         compass_data = device_state.get("compass_sensor", {}).get("data", {})
@@ -1523,20 +1520,15 @@ async def unpark_telescope():
     Returns:
         Unpark status
     """
-    print(f"[UNPARK ENDPOINT] Called. seestar_client is None: {seestar_client is None}")
-    if seestar_client:
-        print(f"[UNPARK ENDPOINT] seestar_client.connected: {seestar_client.connected}")
-
     try:
         if seestar_client is None or not seestar_client.connected:
-            print("[UNPARK ENDPOINT] ERROR: Telescope not connected")
             raise HTTPException(status_code=400, detail="Telescope not connected")
 
-        print("[UNPARK ENDPOINT] Calling move_to_horizon(azimuth=180.0, altitude=45.0)")
         # Unpark Seestar by moving to horizon position (south, 45° altitude)
         # This opens the telescope arm and makes it ready for observing
+        logger.info("Unparking telescope: move_to_horizon(azimuth=180, altitude=45)")
         success = await seestar_client.move_to_horizon(azimuth=180.0, altitude=45.0)
-        print(f"[UNPARK ENDPOINT] move_to_horizon returned: {success}")
+        logger.info("Unpark result: %s", success)
 
         if success:
             return {"status": "active", "message": "Telescope unparked and ready"}
@@ -1545,10 +1537,7 @@ async def unpark_telescope():
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[UNPARK ENDPOINT] Exception: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.error("Unpark failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unpark failed: {str(e)}")
 
 
@@ -1698,42 +1687,28 @@ async def goto_coordinates(request: dict):
     Returns:
         Goto status
     """
-    print("[SLEW PRINT] Function entry - goto_coordinates called", flush=True)
     try:
-        print(f"[SLEW PRINT] Request data: {request}", flush=True)
-
-        print(f"[SLEW PRINT] Checking client connection - client is None: {seestar_client is None}", flush=True)
-        if seestar_client is not None:
-            print(f"[SLEW PRINT] Client connected: {seestar_client.connected}", flush=True)
-
         if seestar_client is None or not seestar_client.connected:
-            print("[SLEW PRINT] ERROR: Telescope not connected", flush=True)
             raise HTTPException(status_code=400, detail="Telescope not connected")
 
         ra = request.get("ra")
         dec = request.get("dec")
         target_name = request.get("target_name", "Manual Target")
 
-        print(f"[SLEW PRINT] Extracted - RA: {ra}, Dec: {dec}, Target: {target_name}", flush=True)
-
         if ra is None or dec is None:
-            print("[SLEW PRINT] ERROR: Missing RA or Dec", flush=True)
             raise HTTPException(status_code=400, detail="Must provide ra and dec coordinates")
 
-        print("[SLEW PRINT] About to call goto_target", flush=True)
+        logger.info("Goto: RA=%.4f Dec=%.4f target=%s", ra, dec, target_name)
         success = await seestar_client.goto_target(ra, dec, target_name)
-        print(f"[SLEW PRINT] goto_target returned: {success}", flush=True)
 
         if success:
-            print("[SLEW PRINT] Returning success response", flush=True)
             return {"status": "slewing", "message": f"Slewing to RA={ra}, Dec={dec}"}
         else:
-            print("[SLEW PRINT] goto_target returned False, returning error", flush=True)
             return {"status": "error", "message": "Failed to start goto"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[SLEW DIAGNOSTIC] Exception in goto_coordinates: {e}", exc_info=True)
+        logger.error("Goto failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Goto failed: {str(e)}")
 
 
