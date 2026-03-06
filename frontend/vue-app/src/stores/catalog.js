@@ -229,7 +229,7 @@ export const useCatalogStore = defineStore('catalog', {
     async addToWishlist(item) {
       if (this.isInWishlist(item.name)) return
       const entry = { name: item.name, type: item.type || item.object_type || 'unknown' }
-      this.wishlist = [...this.wishlist, entry]
+      this.wishlist.push(entry)
       try {
         await axios.put('/api/settings/wishlist', this.wishlist)
         useToastStore().success(`${item.name} added to wishlist`)

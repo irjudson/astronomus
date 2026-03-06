@@ -12,7 +12,7 @@
       <div v-else-if="catalogStore.error" class="empty-state error-message">{{ catalogStore.error }}</div>
       <div v-else-if="catalogStore.items.length === 0" class="empty-state">No objects found. Try adjusting your search or filters.</div>
       <div v-else class="grid-container">
-        <div v-for="item in catalogStore.items" :key="item.id || item.name" class="catalog-card">
+        <div v-for="item in catalogStore.items" :key="item.catalog_id || item.id" class="catalog-card">
           <div class="catalog-card-image">
             <img :src="getImageUrl(item)" :alt="item.name" loading="lazy" @error="hideParentOnError">
           </div>

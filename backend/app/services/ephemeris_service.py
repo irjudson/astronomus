@@ -1,6 +1,7 @@
 """Ephemeris calculations using Skyfield."""
 
 import math
+import time as _time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -10,6 +11,10 @@ from skyfield import almanac
 from skyfield.api import Loader, Star, wgs84
 
 from app.models import DSOTarget, Location
+
+# Module-level position cache: (ra, dec, lat, lon, time_bucket_s) -> (alt, az)
+_POSITION_CACHE: dict = {}
+_POSITION_CACHE_TTL = 60  # seconds; sky moves ~0.5 arcmin in 60s, fine for ranking
 
 
 class EphemerisService:
@@ -139,6 +144,16 @@ class EphemerisService:
         Returns:
             Tuple of (altitude, azimuth) in degrees
         """
+        # Cache key: quantise time to 60s buckets (fine for ranking; sky moves ~0.5 arcmin/min)
+        now = _time.monotonic()
+        time_bucket = int(time.timestamp() // _POSITION_CACHE_TTL)
+        cache_key = (target.ra_hours, target.dec_degrees, location.latitude, location.longitude, time_bucket)
+
+        if cache_key in _POSITION_CACHE:
+            result, stored_at = _POSITION_CACHE[cache_key]
+            if now - stored_at < _POSITION_CACHE_TTL:
+                return result
+
         # Create observer location
         observer = self.earth + wgs84.latlon(location.latitude, location.longitude, elevation_m=location.elevation)
 
@@ -154,7 +169,17 @@ class EphemerisService:
         apparent = astrometric.apparent()
         alt, az, _ = apparent.altaz()
 
-        return alt.degrees, az.degrees
+        result = (alt.degrees, az.degrees)
+        _POSITION_CACHE[cache_key] = (result, now)
+
+        # Evict old entries to keep memory bounded (> 1000 stale entries)
+        if len(_POSITION_CACHE) > 1000:
+            cutoff = now - _POSITION_CACHE_TTL
+            stale = [k for k, (_, t_stored) in _POSITION_CACHE.items() if t_stored < cutoff]
+            for k in stale:
+                _POSITION_CACHE.pop(k, None)
+
+        return result
 
     def calculate_field_rotation_rate(self, target: DSOTarget, location: Location, time: datetime) -> float:
         """
