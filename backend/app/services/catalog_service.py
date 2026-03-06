@@ -19,6 +19,14 @@ class CatalogService:
     def __init__(self, db: Session):
         """Initialize catalog service with database session."""
         self.db = db
+        self._constellation_cache: Optional[dict] = None
+
+    def _load_constellation_cache(self) -> dict:
+        """Load all constellations into memory on first call (88 rows, never changes)."""
+        if self._constellation_cache is None:
+            rows = self.db.query(ConstellationName).all()
+            self._constellation_cache = {r.abbreviation: r for r in rows}
+        return self._constellation_cache
 
     def _db_row_to_target(self, dso: DSOCatalog) -> DSOTarget:
         """Convert database model to DSOTarget."""
@@ -78,26 +86,22 @@ class CatalogService:
         )
 
     def _get_constellation_full_name(self, abbreviation: str) -> str:
-        """Look up full constellation name from abbreviation."""
+        """Look up full constellation name from abbreviation (O(1) via cache)."""
         if not abbreviation:
             return None
-
-        constellation = self.db.query(ConstellationName).filter(ConstellationName.abbreviation == abbreviation).first()
-
-        return constellation.full_name if constellation else abbreviation
+        c = self._load_constellation_cache().get(abbreviation)
+        return c.full_name if c else abbreviation
 
     def _get_constellation_details(self, abbreviation: str) -> dict:
-        """Look up constellation details from abbreviation."""
+        """Look up constellation details from abbreviation (O(1) via cache)."""
         if not abbreviation:
             return None
-
-        constellation = self.db.query(ConstellationName).filter(ConstellationName.abbreviation == abbreviation).first()
-
-        if constellation:
+        c = self._load_constellation_cache().get(abbreviation)
+        if c:
             return {
-                "abbreviation": constellation.abbreviation,
-                "full_name": constellation.full_name,
-                "common_name": constellation.common_name,
+                "abbreviation": c.abbreviation,
+                "full_name": c.full_name,
+                "common_name": c.common_name,
             }
         return None
 

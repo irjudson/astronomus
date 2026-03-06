@@ -67,8 +67,12 @@ def get_current_telescope() -> Optional[SeestarClient]:
     return seestar_client
 
 
-# In-memory storage for shared plans (in production, use Redis or database)
-shared_plans: Dict[str, ObservingPlan] = {}
+# Short-lived in-memory store for shareable plan links (plan_id -> (plan, expiry_time))
+# Plans expire after 24 h to prevent unbounded memory growth.
+import time as _time
+
+shared_plans: Dict[str, tuple[ObservingPlan, float]] = {}
+SHARED_PLAN_TTL = 86400  # 24 hours
 
 # Simple TTL cache for catalog queries (cache_key -> (result, expiry_time))
 catalog_cache: Dict[str, tuple[Any, float]] = {}
@@ -1120,12 +1124,18 @@ async def share_plan(plan: ObservingPlan):
         # Generate a short, unique ID
         plan_id = str(uuid.uuid4())[:8]
 
+        # Evict expired entries on each write (amortised cleanup)
+        now = _time.time()
+        expired = [k for k, (_, exp) in shared_plans.items() if now > exp]
+        for k in expired:
+            del shared_plans[k]
+
         # Ensure uniqueness
         while plan_id in shared_plans:
             plan_id = str(uuid.uuid4())[:8]
 
-        # Store the plan
-        shared_plans[plan_id] = plan
+        # Store with expiry timestamp
+        shared_plans[plan_id] = (plan, now + SHARED_PLAN_TTL)
 
         return {
             "plan_id": plan_id,
@@ -1151,10 +1161,12 @@ async def get_shared_plan(plan_id: str):
     Returns:
         Observing plan
     """
-    if plan_id not in shared_plans:
-        raise HTTPException(status_code=404, detail="Plan not found")
+    entry = shared_plans.get(plan_id)
+    if entry is None or _time.time() > entry[1]:
+        shared_plans.pop(plan_id, None)
+        raise HTTPException(status_code=404, detail="Plan not found or expired")
 
-    return shared_plans[plan_id]
+    return entry[0]
 
 
 # ========================================================================
