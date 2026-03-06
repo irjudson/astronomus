@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-import pytz
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
