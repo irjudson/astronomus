@@ -257,6 +257,7 @@ const scheduledLabel = computed(() => {
 
 function startDrag(e, mode) {
   if (props.index == null) return
+  if (!props.target.start_time || !props.target.end_time) return
   e.preventDefault()
   dragState.value = {
     mode,
