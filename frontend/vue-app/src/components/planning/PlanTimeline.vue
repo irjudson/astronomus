@@ -100,8 +100,8 @@
           :x="tx(target.start_time)" :y="MT"
           :width="Math.max(2, tx(target.end_time) - tx(target.start_time))"
           :height="CH"
-          :fill="scoreColor(target.score?.total_score) + '26'"
-          :stroke="scoreColor(target.score?.total_score)"
+          :fill="windowColor(i) + '26'"
+          :stroke="windowColor(i)"
           stroke-width="1.5"
           style="pointer-events: none"
         />
@@ -319,6 +319,83 @@ const pointsToPath = (pts) => {
   return pts
     .map(([t, alt], i) => `${i === 0 ? 'M' : 'L'}${tx(t).toFixed(1)},${ay(alt).toFixed(1)}`)
     .join(' ')
+}
+
+function interpAlt(isoStr, pts) {
+  if (!pts?.length || !isoStr) return null
+  const tMs = new Date(isoStr).getTime()
+  for (let i = 0; i < pts.length - 1; i++) {
+    const t0 = new Date(pts[i][0]).getTime()
+    const t1 = new Date(pts[i + 1][0]).getTime()
+    if (tMs >= t0 && tMs <= t1) {
+      const frac = (tMs - t0) / (t1 - t0)
+      return pts[i][1] + frac * (pts[i + 1][1] - pts[i][1])
+    }
+  }
+  return null
+}
+
+const SLEW_GAP_MS = 5 * 60 * 1000  // 5-minute minimum slew gap
+
+const conflictMap = computed(() => {
+  const ts = targets.value
+  const result = {}
+
+  // 1. Low-altitude check — sample at start, middle, end of each window
+  for (let i = 0; i < ts.length; i++) {
+    const curve = fullCurves.value[ts[i].target?.catalog_id] ?? ts[i].altitude_points
+    if (!curve?.length) continue
+    const sMs = new Date(ts[i].start_time).getTime()
+    const eMs = new Date(ts[i].end_time).getTime()
+    for (const ms of [sMs, (sMs + eMs) / 2, eMs]) {
+      const alt = interpAlt(new Date(ms).toISOString(), curve)
+      if (alt != null && alt < minAlt.value) {
+        result[i] = 'lowalt'
+        break
+      }
+    }
+  }
+
+  // 2. True overlap — any two windows that share time (overrides lowalt)
+  for (let i = 0; i < ts.length; i++) {
+    for (let j = i + 1; j < ts.length; j++) {
+      const sI = new Date(ts[i].start_time).getTime()
+      const eI = new Date(ts[i].end_time).getTime()
+      const sJ = new Date(ts[j].start_time).getTime()
+      const eJ = new Date(ts[j].end_time).getTime()
+      if (sI < eJ && eI > sJ) {
+        result[i] = 'overlap'
+        result[j] = 'overlap'
+      }
+    }
+  }
+
+  // 3. Insufficient slew gap between consecutive targets (only if not already overlap)
+  const sorted = ts
+    .map((t, origIndex) => ({
+      origIndex,
+      startMs: new Date(t.start_time).getTime(),
+      endMs: new Date(t.end_time).getTime(),
+    }))
+    .sort((a, b) => a.startMs - b.startMs)
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = sorted[i + 1].startMs - sorted[i].endMs
+    if (gap >= 0 && gap < SLEW_GAP_MS) {
+      if (result[sorted[i].origIndex] !== 'overlap')     result[sorted[i].origIndex]     = 'gap'
+      if (result[sorted[i + 1].origIndex] !== 'overlap') result[sorted[i + 1].origIndex] = 'gap'
+    }
+  }
+
+  return result
+})
+
+function windowColor(i) {
+  const c = conflictMap.value[i]
+  if (c === 'overlap') return '#ef4444'  // red
+  if (c === 'gap')     return '#f97316'  // orange
+  if (c === 'lowalt')  return '#eab308'  // yellow
+  return scoreColor(targets.value[i].score?.total_score)
 }
 
 function onWindowMousedown(e, i, mode) {
