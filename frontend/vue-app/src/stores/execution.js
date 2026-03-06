@@ -1,14 +1,12 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
+import { useSettingsStore, DEFAULT_SETTINGS } from './settings'
 
 export const useExecutionStore = defineStore('execution', {
-  state: () => {
-    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
-    return {
+  state: () => ({
     // Connection state
     connected: false,
-    telescopeIp: s.telescopeHost || null,
+    telescopeIp: DEFAULT_SETTINGS.telescopeHost || null,
     loading: false,
     error: null,
 
@@ -77,8 +75,7 @@ export const useExecutionStore = defineStore('execution', {
     // Position polling
     positionInterval: null,
     progressPollInterval: null, // for polling /api/telescope/progress
-    }
-  },
+  }),
 
   getters: {
     currentTarget: (state) => {

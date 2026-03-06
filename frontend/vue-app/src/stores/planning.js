@@ -1,36 +1,33 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import { useSettingsStore, savedSettings, DEFAULT_SETTINGS } from './settings'
+import { useSettingsStore, DEFAULT_SETTINGS } from './settings'
 import { useCatalogStore } from './catalog'
 import { useToastStore } from './toast'
 
 export const usePlanningStore = defineStore('planning', {
-  state: () => {
-    const s = { ...DEFAULT_SETTINGS, ...savedSettings() }
-    return {
-      selectedTargets: [],
-      currentPlan: null,
-      planName: '',
-      savedPlans: [],
-      loading: false,
-      error: null,
-      observationDate: null,
-      constraints: {
-        min_altitude_degrees: s.planMinAltitude,
-        max_altitude_degrees: s.planMaxAltitude,
-        avoid_moon: s.planAvoidMoon,
-        setup_time_minutes: s.planSetupMinutes,
-        object_types: s.planObjectTypes,
-        daytime_planning: false,
-      },
+  state: () => ({
+    selectedTargets: [],
+    currentPlan: null,
+    planName: '',
+    savedPlans: [],
+    loading: false,
+    error: null,
+    observationDate: null,
+    constraints: {
+      min_altitude_degrees: DEFAULT_SETTINGS.planMinAltitude,
+      max_altitude_degrees: DEFAULT_SETTINGS.planMaxAltitude,
+      avoid_moon: DEFAULT_SETTINGS.planAvoidMoon,
+      setup_time_minutes: DEFAULT_SETTINGS.planSetupMinutes,
+      object_types: [...DEFAULT_SETTINGS.planObjectTypes],
+      daytime_planning: false,
+    },
 
-      // Execution state
-      executionId: null,
-      executionStatus: null,
-      executionProgress: null,
-      progressPollInterval: null,
-    }
-  },
+    // Execution state
+    executionId: null,
+    executionStatus: null,
+    executionProgress: null,
+    progressPollInterval: null,
+  }),
 
   getters: {
     hasTargets: (state) => state.selectedTargets.length > 0,

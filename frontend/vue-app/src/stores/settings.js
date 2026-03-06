@@ -34,8 +34,8 @@ export const DEFAULT_SETTINGS = {
 
 const LS_KEY = 'astronomus_settings'
 
-/** Synchronous read of persisted settings from localStorage cache. */
-export function savedSettings() {
+/** Synchronous read of persisted settings from localStorage cache (internal use only). */
+function savedSettings() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
 }
 
