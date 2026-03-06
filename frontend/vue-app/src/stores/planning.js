@@ -347,6 +347,16 @@ export const usePlanningStore = defineStore('planning', {
       this.currentPlan.total_targets    = ts.length
     },
 
+    reorderByTime() {
+      const ts = this.currentPlan?.scheduled_targets
+      if (!ts) return
+      ts.sort((a, b) => {
+        const at = a.start_time ? new Date(a.start_time).getTime() : Infinity
+        const bt = b.start_time ? new Date(b.start_time).getTime() : Infinity
+        return at - bt
+      })
+    },
+
     setTargetWindow(index, startIso, endIso) {
       if (!startIso || !endIso) return
       const ts = this.currentPlan?.scheduled_targets

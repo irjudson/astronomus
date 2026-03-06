@@ -294,7 +294,10 @@ function onDocMousemove(e) {
   planningStore.setTargetWindow(props.index, new Date(ns).toISOString(), new Date(ne).toISOString())
 }
 
-function onDocMouseup() { dragState.value = null }
+function onDocMouseup() {
+  if (dragState.value && props.index != null) planningStore.reorderByTime()
+  dragState.value = null
+}
 
 onMounted(() => {
   document.addEventListener('mousemove', onDocMousemove)
