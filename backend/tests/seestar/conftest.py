@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from app.clients.seestar_client import CommandError, SeestarClient
 from tests.seestar.mock_server import MockSeestarServer
 
-
 # ---------------------------------------------------------------------------
 # CLI options
 # ---------------------------------------------------------------------------

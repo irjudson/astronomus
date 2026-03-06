@@ -17,7 +17,6 @@ import pytest_asyncio
 from app.clients.seestar_client import SeestarClient
 from tests.fixtures.seestar_playback import PlaybackServerContext
 
-
 pytestmark = pytest.mark.playback
 
 POLAR_ALIGN_RECORDING = Path("tests/fixtures/recordings/polar_align.json")

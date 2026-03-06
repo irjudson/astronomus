@@ -10,7 +10,6 @@ import pytest_asyncio
 
 from app.clients.seestar_client import SeestarClient, SeestarState
 
-
 pytestmark = pytest.mark.hardware
 
 
