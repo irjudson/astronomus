@@ -5,9 +5,7 @@ import base64
 import json
 import logging
 import socket
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -21,8 +19,6 @@ from .types import (
     CommandError,
     ConnectionError,
     EventType,
-    MountMode,
-    SeestarClientError,
     SeestarEvent,
     SeestarState,
     SeestarStatus,

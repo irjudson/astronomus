@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from .types import CommandError, SeestarState
+from .types import SeestarState
 
 
 class SeestarSystemMixin:
