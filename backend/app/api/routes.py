@@ -406,10 +406,10 @@ async def list_scored_targets(
             scoring_start = plan.session.imaging_start
             scoring_end = plan.session.imaging_end
 
-            # Use constraints from request (or defaults if plan doesn't have them)
+            # Use constraints stored in the plan (fall back to defaults if plan predates this field)
             from app.models import ObservingConstraints
 
-            constraints = ObservingConstraints()  # TODO: Extract from plan if stored
+            constraints = plan.constraints if plan.constraints is not None else ObservingConstraints()
 
         # Get candidate targets with filters
         targets = catalog_service.filter_targets(

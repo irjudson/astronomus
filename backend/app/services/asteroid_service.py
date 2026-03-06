@@ -1,7 +1,10 @@
 """Asteroid catalog and ephemeris service."""
 
+import logging
 from datetime import datetime
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from astropy import units as u
@@ -332,7 +335,7 @@ class AsteroidService:
                     visible.append(visibility)
             except Exception as e:
                 # Skip asteroids that fail computation
-                print(f"Warning: Failed to compute visibility for {asteroid.designation}: {e}")
+                logger.warning("Failed to compute visibility for %s: %s", asteroid.designation, e)
                 continue
 
         # Sort by magnitude (brightest first)

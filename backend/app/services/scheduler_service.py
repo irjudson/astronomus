@@ -1,8 +1,11 @@
 """Observing session scheduler using greedy algorithm with urgency lookahead."""
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from app.core import get_settings
 from app.models import (
@@ -139,11 +142,15 @@ class SchedulerService:
                 alt, _ = self.ephemeris.calculate_position(best_target, location, end_time)
                 altitude_points.append((end_time, alt))
 
-            # Debug: Print altitude range
+            # Log altitude range at debug level
             if altitude_points:
                 alts = [alt for _, alt in altitude_points]
-                print(
-                    f"DEBUG: {best_target.catalog_id} altitude range: {min(alts):.1f}° - {max(alts):.1f}° ({len(altitude_points)} points)"
+                logger.debug(
+                    "Altitude range for %s: %.1f° - %.1f° (%d points)",
+                    best_target.catalog_id,
+                    min(alts),
+                    max(alts),
+                    len(altitude_points),
                 )
 
             # Calculate recommended exposure settings

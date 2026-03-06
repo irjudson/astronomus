@@ -1,8 +1,11 @@
 """Main planner service that orchestrates the entire planning process."""
 
+import logging
 import time
 from datetime import datetime, timedelta
 from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 import pytz
 from sqlalchemy.orm import Session
@@ -100,7 +103,7 @@ class PlannerService:
             # Convert to dict for JSON serialization
             sky_quality_dict = sky_quality.model_dump()
         except Exception as e:
-            print(f"Warning: Failed to get sky quality: {e}")
+            logger.warning("Failed to get sky quality: %s", e)
 
         # Get candidate targets
         t0 = time.time()
@@ -115,7 +118,7 @@ class PlannerService:
             if len(targets) == 0:
                 raise ValueError("None of the custom targets were found in catalog")
 
-            print(f"[TIMING] Custom target loading: {time.time() - t0:.2f}s ({len(targets)} targets)")
+            logger.debug("[TIMING] Custom target loading: %.2fs (%d targets)", time.time() - t0, len(targets))
         else:
             # Filter targets by object type
             # Limit to brighter objects (mag < 12) and top 200 candidates for performance
@@ -125,7 +128,7 @@ class PlannerService:
                 max_magnitude=12.0,  # Practical limit for Seestar S50
                 limit=200,  # Enough variety while keeping performance fast
             )
-            print(f"[TIMING] Target filtering: {time.time() - t0:.2f}s ({len(targets)} targets)")
+            logger.debug("[TIMING] Target filtering: %.2fs (%d targets)", time.time() - t0, len(targets))
 
         # Apply sky quality filtering if available (skip for custom targets - user explicitly chose them)
         if not request.custom_targets and sky_quality and sky_quality.suitable_for:
@@ -136,8 +139,10 @@ class PlannerService:
             targets = [t for t in targets if t.object_type in suitable_types]
             filtered_count = original_count - len(targets)
             if filtered_count > 0:
-                print(
-                    f"Sky quality filtering: removed {filtered_count} targets unsuitable for Bortle {sky_quality.bortle_class} conditions"
+                logger.debug(
+                    "Sky quality filtering: removed %d targets unsuitable for Bortle %s conditions",
+                    filtered_count,
+                    sky_quality.bortle_class,
                 )
 
         # Populate image URLs for targets
@@ -149,7 +154,7 @@ class PlannerService:
                 # Set URL pattern that frontend can use to fetch image on-demand
                 sanitized_id = target.catalog_id.replace(" ", "_").replace("/", "_").replace(":", "_")
                 target.image_url = f"/api/images/targets/{sanitized_id}"
-        print(f"[TIMING] Image URL assignment: {time.time() - t1:.2f}s ({len(targets)} targets)")
+        logger.debug("[TIMING] Image URL assignment: %.2fs (%d targets)", time.time() - t1, len(targets))
 
         # Add visible comets if "comet" is in object types
         if request.constraints.object_types and "comet" in request.constraints.object_types:
@@ -187,12 +192,12 @@ class PlannerService:
                     targets.append(comet_target)
             except Exception as e:
                 # Log error but don't fail the entire plan
-                print(f"Warning: Failed to add comets to plan: {e}")
+                logger.warning("Failed to add comets to plan: %s", e)
 
         # Get weather forecast
         t2 = time.time()
         weather_forecast = self.weather.get_forecast(request.location, session.imaging_start, session.imaging_end)
-        print(f"[TIMING] Weather forecast: {time.time() - t2:.2f}s")
+        logger.debug("[TIMING] Weather forecast: %.2fs", time.time() - t2)
 
         # Schedule targets
         t3 = time.time()
@@ -203,12 +208,12 @@ class PlannerService:
             constraints=request.constraints,
             weather_forecasts=weather_forecast,
         )
-        print(f"[TIMING] Scheduler: {time.time() - t3:.2f}s ({len(scheduled_targets)} scheduled)")
+        logger.debug("[TIMING] Scheduler: %.2fs (%d scheduled)", time.time() - t3, len(scheduled_targets))
 
         # Detect and fill gaps
         t4 = time.time()
         gaps = self.scheduler.detect_gaps(scheduled_targets, session, request.constraints)
-        print(f"[TIMING] Gap detection: {time.time() - t4:.2f}s ({len(gaps)} gaps found)")
+        logger.debug("[TIMING] Gap detection: %.2fs (%d gaps)", time.time() - t4, len(gaps))
 
         gap_fillers = []
         if gaps:
@@ -226,8 +231,10 @@ class PlannerService:
                     max_magnitude=12.0,
                     limit=200,
                 )
-                print(
-                    f"[TIMING] Gap filler candidate loading: {time.time() - t_gap_candidates:.2f}s ({len(gap_filler_candidates)} candidates)"
+                logger.debug(
+                    "[TIMING] Gap filler candidate loading: %.2fs (%d candidates)",
+                    time.time() - t_gap_candidates,
+                    len(gap_filler_candidates),
                 )
 
             # Prioritize wishlist items at the front of the gap filler pool
@@ -251,7 +258,7 @@ class PlannerService:
                 observed_targets=observed_targets,
                 scheduled_types=scheduled_types,
             )
-            print(f"[TIMING] Gap filling: {time.time() - t5:.2f}s ({len(gap_fillers)} gap fillers added)")
+            logger.debug("[TIMING] Gap filling: %.2fs (%d gap fillers)", time.time() - t5, len(gap_fillers))
 
         # Merge gap fillers into schedule and sort by start time
         all_scheduled = sorted(scheduled_targets + gap_fillers, key=lambda x: x.start_time)
