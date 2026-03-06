@@ -138,28 +138,23 @@ async def list_targets(
 
         catalog_service = CatalogService(db)
 
-        # Get filtered targets (without pagination to allow sorting)
+        # For visibility sort, DB already orders by magnitude ASC — limit to 500 at the DB level.
+        # For other sorts we need all records in Python first, then paginate.
+        db_limit = 500 if sort_by == "visibility" else None
         targets = catalog_service.filter_targets(
             object_types=object_types,
             min_magnitude=min_magnitude,
             max_magnitude=max_magnitude,
             constellation=constellation,
-            limit=None,  # Get all for sorting, then paginate
+            limit=db_limit,
             offset=0,
         )
 
         # Performance optimization: Only calculate visibility for ALL targets if sorting by visibility
         # Otherwise, sort first, paginate, then calculate visibility only for paginated results
         if sort_by == "visibility" and include_visibility:
-            # Performance: When sorting by visibility, limit to brightest 500 targets first
-            # This avoids expensive ephemeris calculations on 1000+ faint objects
-            # Sort by magnitude first to get the brightest candidates
-            targets.sort(key=lambda t: t.magnitude)
-
-            # Take only brightest 500 targets for visibility calculations
-            # This is a reasonable tradeoff: most visible objects are bright anyway
-            max_visibility_calc = 500
-            targets_for_visibility = targets[:max_visibility_calc]
+            # DB already returned the 500 brightest sorted by magnitude — no Python sort needed
+            targets_for_visibility = targets
 
             try:
                 settings_service = SettingsService(db)

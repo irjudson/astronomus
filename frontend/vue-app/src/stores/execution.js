@@ -211,8 +211,10 @@ export const useExecutionStore = defineStore('execution', {
       if (this.positionInterval) return
 
       this.positionInterval = setInterval(() => {
-        this.fetchPosition()
-      }, 2000) // Poll every 2 seconds
+        if (document.visibilityState === 'visible') {
+          this.fetchPosition()
+        }
+      }, 2000) // Poll every 2 seconds; skips when tab is hidden
     },
 
     stopPositionPolling() {
