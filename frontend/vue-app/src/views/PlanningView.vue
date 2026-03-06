@@ -92,33 +92,78 @@
               </div>
             </div>
 
+            <!-- Plan Timeline -->
+            <PlanTimeline
+              v-if="planningStore.currentPlan.scheduled_targets?.length"
+              :plan="planningStore.currentPlan"
+              class="mb-6"
+              @select-target="scrollToTarget"
+            />
+
             <!-- Scheduled Targets -->
             <div class="space-y-3">
               <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Scheduled Targets</h3>
               <div
                 v-for="(target, index) in planningStore.currentPlan.scheduled_targets"
-                :key="index"
-                class="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors"
+                :key="target.target?.catalog_id || index"
+                :ref="el => { if (el) targetRefs[index] = el }"
+                :class="[
+                  'bg-gray-900 border rounded-lg p-4 transition-colors',
+                  selectedTargetIndex === index
+                    ? 'border-blue-600'
+                    : 'border-gray-800 hover:border-gray-700'
+                ]"
               >
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
+                <div class="flex items-start gap-2">
+                  <!-- Reorder buttons -->
+                  <div class="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
+                    <button
+                      @click="planningStore.moveTarget(index, index - 1)"
+                      :disabled="index === 0"
+                      class="px-1 py-0.5 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none transition-colors"
+                      title="Move up"
+                    >▲</button>
+                    <button
+                      @click="planningStore.moveTarget(index, index + 1)"
+                      :disabled="index === planningStore.currentPlan.scheduled_targets.length - 1"
+                      class="px-1 py-0.5 rounded text-gray-500 hover:text-gray-300 hover:bg-gray-800 disabled:opacity-20 disabled:cursor-not-allowed text-xs leading-none transition-colors"
+                      title="Move down"
+                    >▼</button>
+                  </div>
+
+                  <!-- Main content -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2 flex-wrap">
                       <span class="text-gray-200 font-medium">{{ target.target.common_name || target.target.catalog_id }}</span>
                       <span class="px-2 py-0.5 bg-blue-600/20 text-blue-400 text-xs rounded">
                         {{ target.target.object_type }}
                       </span>
-                      <span v-if="target.gap_filler" class="px-2 py-0.5 bg-yellow-600/20 text-yellow-400 text-xs rounded">
+                      <span v-if="target.is_gap_filler" class="px-2 py-0.5 bg-yellow-600/20 text-yellow-400 text-xs rounded">
                         Gap Filler
                       </span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm">
-                      <div>
+                      <div class="flex items-center gap-1 flex-wrap">
                         <span class="text-gray-500">Time:</span>
-                        <span class="text-gray-300 ml-2">{{ formatTime(target.start_time) }} ({{ target.duration_minutes }} min)</span>
+                        <span class="text-gray-300">{{ formatTime(target.start_time) }}</span>
+                        <input
+                          type="number"
+                          min="5"
+                          max="300"
+                          :value="target.duration_minutes"
+                          @change="planningStore.updateTargetDuration(index, $event.target.value)"
+                          @keydown.enter.prevent="$event.target.blur()"
+                          class="w-14 bg-gray-800 border border-gray-700 rounded px-1.5 py-0 text-gray-300 text-xs focus:border-blue-500 focus:outline-none"
+                          title="Duration (minutes)"
+                        />
+                        <span class="text-gray-500 text-xs">min</span>
                       </div>
                       <div>
                         <span class="text-gray-500">Altitude:</span>
-                        <span class="text-gray-300 ml-2">{{ Math.round(target.max_altitude) }}° @ {{ formatTime(target.transit_time) }}</span>
+                        <span class="text-gray-300 ml-2">
+                          {{ Math.round(target.start_altitude) }}°→{{ Math.round(target.end_altitude) }}°
+                          <span class="text-gray-500">({{ peakAlt(target) }}° peak)</span>
+                        </span>
                       </div>
                       <div>
                         <span class="text-gray-500">Magnitude:</span>
@@ -129,9 +174,25 @@
                         <span class="text-gray-300 ml-2">{{ target.target.size_arcmin }}′</span>
                       </div>
                     </div>
+                    <!-- Altitude visibility mini chart -->
+                    <div class="mt-2">
+                      <TargetVisibilityMini
+                        :target="target"
+                        :session="planningStore.currentPlan.session"
+                        :location="planningStore.currentPlan.location"
+                        :min-alt="planningStore.constraints.min_altitude_degrees"
+                      />
+                    </div>
                   </div>
-                  <div class="text-right">
-                    <div class="text-2xl font-bold text-blue-500">{{ index + 1 }}</div>
+
+                  <!-- Right: index + remove -->
+                  <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div class="text-2xl font-bold text-blue-500 leading-none">{{ index + 1 }}</div>
+                    <button
+                      @click="planningStore.removeFromPlan(index)"
+                      class="mt-1 px-1.5 py-0.5 text-gray-600 hover:text-red-400 hover:bg-red-900/20 rounded text-xs transition-colors"
+                      title="Remove from plan"
+                    >✕</button>
                   </div>
                 </div>
               </div>
@@ -159,9 +220,9 @@
                         class="px-2 py-0.5 bg-gray-600/20 text-gray-500 text-xs rounded"
                       >Below Horizon</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-2">
                       <div v-if="obj.altitude_deg != null">
-                        <span class="text-gray-500">Altitude:</span>
+                        <span class="text-gray-500">Now:</span>
                         <span class="text-gray-300 ml-2">{{ obj.altitude_deg }}°</span>
                       </div>
                       <div v-if="obj.magnitude != null">
@@ -177,8 +238,16 @@
                         <span class="text-gray-300 ml-2">{{ obj.angular_diameter_arcsec }}″</span>
                       </div>
                     </div>
+                    <!-- Tonight's visibility curve across the session -->
+                    <TargetVisibilityMini
+                      :target="{ start_time: null, end_time: null, start_altitude: obj.altitude_deg, end_altitude: obj.altitude_deg, score: null, altitude_points: [] }"
+                      :session="planningStore.currentPlan.session"
+                      :location="planningStore.currentPlan.location"
+                      :min-alt="planningStore.constraints.min_altitude_degrees"
+                      :body-name="obj.name"
+                    />
                   </div>
-                  <div class="text-right ml-4">
+                  <div class="text-right ml-4 flex-shrink-0">
                     <span class="text-xs text-gray-500 uppercase tracking-wide">Planetary</span>
                   </div>
                 </div>
@@ -204,17 +273,36 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlanningStore } from '@/stores/planning'
 import { useExecutionStore } from '@/stores/execution'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import PlanningControls from '@/components/planning/PlanningControls.vue'
+import PlanTimeline from '@/components/planning/PlanTimeline.vue'
+import TargetVisibilityMini from '@/components/planning/TargetVisibilityMini.vue'
 
 const router = useRouter()
 const planningStore = usePlanningStore()
 const executionStore = useExecutionStore()
 const leftPanelVisible = ref(true)
+
+const targetRefs = ref([])
+const selectedTargetIndex = ref(null)
+
+const peakAlt = (target) => {
+  const pts = target.altitude_points
+  if (pts?.length) return Math.round(Math.max(...pts.map(([, a]) => a)))
+  return Math.round(Math.max(target.start_altitude ?? 0, target.end_altitude ?? 0))
+}
+
+const scrollToTarget = (index) => {
+  selectedTargetIndex.value = index
+  nextTick(() => {
+    const el = targetRefs.value[index]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+}
 
 const formatDate = (dateStr) => {
   if (!dateStr) return 'N/A'

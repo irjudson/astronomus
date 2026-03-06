@@ -3,10 +3,12 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+import pytz
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from app.models import Location
+from app.models import DSOTarget, Location
+from app.services.ephemeris_service import EphemerisService
 from app.services.local_weather_service import LocalWeatherService
 from app.services.satellite_service import SatelliteService
 from app.services.seven_timer_service import SevenTimerService
@@ -426,3 +428,91 @@ async def get_viewing_months_summary(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating viewing summary: {str(e)}")
+
+
+@router.get("/altitude-curve")
+async def get_altitude_curve(
+    lat: float = Query(..., description="Observer latitude", ge=-90, le=90),
+    lon: float = Query(..., description="Observer longitude", ge=-180, le=180),
+    imaging_start: str = Query(..., description="Session start as ISO 8601 string"),
+    imaging_end: str = Query(..., description="Session end as ISO 8601 string"),
+    ra_hours: Optional[float] = Query(None, description="Right ascension in hours (fixed objects)", ge=0, lt=24),
+    dec_degrees: Optional[float] = Query(None, description="Declination in degrees (fixed objects)", ge=-90, le=90),
+    body_name: Optional[str] = Query(None, description="Solar system body name (e.g. Mars, Moon, Sun)"),
+):
+    """
+    Return altitude sampled every 15 minutes across a session window.
+
+    Supports both fixed sky objects (via ra_hours + dec_degrees) and moving
+    solar system bodies (via body_name). Used by plan and discovery cards.
+
+    Returns:
+        { points: [[iso_str, altitude_deg], ...] }
+    """
+    try:
+        from astropy.coordinates import AltAz, EarthLocation, get_body, get_sun
+        from astropy.time import Time
+        import astropy.units as u
+
+        start_dt = datetime.fromisoformat(imaging_start)
+        end_dt   = datetime.fromisoformat(imaging_end)
+
+        if start_dt.tzinfo is None:
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+        if end_dt.tzinfo is None:
+            end_dt = end_dt.replace(tzinfo=timezone.utc)
+
+        if end_dt <= start_dt:
+            raise HTTPException(status_code=400, detail="imaging_end must be after imaging_start")
+
+        interval = timedelta(minutes=15)
+        times    = []
+        t = start_dt
+        while t <= end_dt:
+            times.append(t)
+            t += interval
+        if times[-1] != end_dt:
+            times.append(end_dt)
+
+        points = []
+
+        if body_name:
+            # Solar system body — recompute RA/Dec at each sample time
+            name = body_name.strip().title()
+            earth_location = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
+            for dt in times:
+                t_ast = Time(dt.astimezone(timezone.utc))
+                altaz_frame = AltAz(obstime=t_ast, location=earth_location)
+                if name == "Sun":
+                    body_coord = get_sun(t_ast)
+                else:
+                    body_coord = get_body(name.lower(), t_ast)
+                alt_deg = body_coord.transform_to(altaz_frame).alt.degree
+                points.append([dt.isoformat(), round(alt_deg, 2)])
+
+        elif ra_hours is not None and dec_degrees is not None:
+            # Fixed DSO — use EphemerisService
+            location = Location(latitude=lat, longitude=lon, elevation=0, name="observer", timezone="UTC")
+            target   = DSOTarget(
+                catalog_id="_curve",
+                name="_curve",
+                ra_hours=ra_hours,
+                dec_degrees=dec_degrees,
+                object_type="galaxy",
+                magnitude=0.0,
+                size_arcmin=0.0,
+            )
+            ephemeris = EphemerisService()
+            for dt in times:
+                alt, _ = ephemeris.calculate_position(target, location, dt)
+                points.append([dt.isoformat(), round(alt, 2)])
+
+        else:
+            raise HTTPException(status_code=400, detail="Provide either ra_hours+dec_degrees or body_name")
+
+        return {"points": points}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error computing altitude curve: {str(e)}")

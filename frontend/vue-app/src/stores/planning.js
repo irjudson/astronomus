@@ -304,6 +304,47 @@ export const usePlanningStore = defineStore('planning', {
         this.error = 'Failed to abort execution: ' + err.message
         console.error('Abort error:', err)
       }
+    },
+
+    removeFromPlan(index) {
+      if (!this.currentPlan?.scheduled_targets) return
+      this.currentPlan.scheduled_targets.splice(index, 1)
+      this._recalcTimes()
+    },
+
+    moveTarget(fromIndex, toIndex) {
+      const ts = this.currentPlan?.scheduled_targets
+      if (!ts) return
+      if (toIndex < 0 || toIndex >= ts.length) return
+      const [t] = ts.splice(fromIndex, 1)
+      ts.splice(toIndex, 0, t)
+      this._recalcTimes()
+    },
+
+    updateTargetDuration(index, minutes) {
+      const ts = this.currentPlan?.scheduled_targets
+      if (!ts?.[index]) return
+      const mins = Math.max(5, Math.min(300, Number(minutes)))
+      if (!isNaN(mins)) {
+        ts[index].duration_minutes = mins
+        this._recalcTimes()
+      }
+    },
+
+    _recalcTimes() {
+      const ts = this.currentPlan?.scheduled_targets
+      const s  = this.currentPlan?.session
+      if (!ts || !s) return
+      let cursor = new Date(s.imaging_start)
+      for (const t of ts) {
+        t.start_time = cursor.toISOString()
+        cursor = new Date(cursor.getTime() + t.duration_minutes * 60000)
+        t.end_time = cursor.toISOString()
+      }
+      const totalDarkMs    = new Date(s.imaging_end) - new Date(s.imaging_start)
+      const totalImagingMs = ts.reduce((sum, t) => sum + t.duration_minutes * 60000, 0)
+      this.currentPlan.coverage_percent = Math.round((totalImagingMs / totalDarkMs) * 100)
+      this.currentPlan.total_targets    = ts.length
     }
   }
 })

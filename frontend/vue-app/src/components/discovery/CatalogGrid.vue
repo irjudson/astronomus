@@ -93,6 +93,19 @@
                 </div>
                 <div v-else class="text-xs text-gray-600">No data</div>
               </div>
+              <!-- Tonight's visibility curve (shown when card expanded + plan session exists) -->
+              <div
+                v-if="expandedCardId === cardKey(item) && altitudeCurveCache[cardKey(item)]"
+                class="border-t border-gray-700 pt-2 mt-2"
+              >
+                <p class="text-xs text-gray-500 mb-1">Tonight's visibility</p>
+                <TargetVisibilityMini
+                  :target="altitudeCurveCache[cardKey(item)]"
+                  :session="planningStore.currentPlan.session"
+                  :min-alt="planningStore.constraints?.min_altitude_degrees ?? 20"
+                />
+              </div>
+
               <!-- Capture Review (shown when card expanded) -->
               <div v-if="expandedCardId === cardKey(item)" class="border-t border-gray-700 pt-2 mt-2">
                 <p class="text-xs text-gray-500 mb-1">Capture status</p>
@@ -147,17 +160,62 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useCatalogStore } from '@/stores/catalog';
 import { useSettingsStore } from '@/stores/settings';
+import { usePlanningStore } from '@/stores/planning';
 import CaptureReviewPanel from '@/components/shared/CaptureReviewPanel.vue';
+import TargetVisibilityMini from '@/components/planning/TargetVisibilityMini.vue';
 import axios from 'axios';
 
 const catalogStore = useCatalogStore();
 const settingsStore = useSettingsStore();
+const planningStore = usePlanningStore();
 const gridEl = ref(null);
 
 // --- Card expand / viewing months ---
 const expandedCardId = ref(null);
 const viewingMonthsCache = ref({});
 const monthsLoading = ref(null);
+
+// --- Altitude curve cache (keyed by cardKey) ---
+const altitudeCurveCache = ref({});
+
+async function fetchAltitudeCurve(item) {
+  const key = cardKey(item);
+  if (altitudeCurveCache.value[key]) return;
+  if (item.ra == null || item.dec == null) return;
+
+  const session = planningStore.currentPlan?.session;
+  if (!session?.imaging_start || !session?.imaging_end) return;
+
+  try {
+    const lat = settingsStore.settings.latitude ?? 0;
+    const lon = settingsStore.settings.longitude ?? 0;
+    const res = await axios.get('/api/altitude-curve', {
+      params: {
+        ra_hours: item.ra,
+        dec_degrees: item.dec,
+        lat,
+        lon,
+        imaging_start: session.imaging_start,
+        imaging_end:   session.imaging_end,
+      }
+    });
+    // Shape altitude_points to match TargetVisibilityMini expectations:
+    // needs start_time, end_time, start_altitude, end_altitude, altitude_points, score
+    const pts = res.data.points ?? [];
+    const alts = pts.map(([, a]) => a);
+    altitudeCurveCache.value[key] = {
+      altitude_points: pts,
+      start_time: session.imaging_start,
+      end_time:   session.imaging_end,
+      start_altitude: alts[0] ?? 0,
+      end_altitude:   alts[alts.length - 1] ?? 0,
+      score: item.score ? { total_score: item.score.total_score } : null,
+      target: {},
+    };
+  } catch (e) {
+    // silently skip if endpoint unavailable
+  }
+}
 
 const MONTH_ABBR = ['J','F','M','A','M','J','J','A','S','O','N','D'];
 const RATING_COLOR = {
@@ -182,6 +240,7 @@ function toggleCard(item) {
   if (!viewingMonthsCache.value[key] && item.ra != null && item.dec != null) {
     fetchViewingMonths(item);
   }
+  fetchAltitudeCurve(item);
 }
 
 async function fetchViewingMonths(item) {
