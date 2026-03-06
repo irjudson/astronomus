@@ -321,9 +321,8 @@ const pointsToPath = (pts) => {
     .join(' ')
 }
 
-function interpAlt(isoStr, pts) {
-  if (!pts?.length || !isoStr) return null
-  const tMs = new Date(isoStr).getTime()
+function interpAlt(tMs, pts) {
+  if (!pts?.length || tMs == null) return null
   for (let i = 0; i < pts.length - 1; i++) {
     const t0 = new Date(pts[i][0]).getTime()
     const t1 = new Date(pts[i + 1][0]).getTime()
@@ -340,15 +339,20 @@ const SLEW_GAP_MS = 5 * 60 * 1000  // 5-minute minimum slew gap
 const conflictMap = computed(() => {
   const ts = targets.value
   const result = {}
+  // Only process targets with valid times
+  const validIndices = new Set(
+    ts.map((t, i) => (t.start_time && t.end_time ? i : null)).filter(i => i !== null)
+  )
 
   // 1. Low-altitude check — sample at start, middle, end of each window
   for (let i = 0; i < ts.length; i++) {
+    if (!validIndices.has(i)) continue
     const curve = fullCurves.value[ts[i].target?.catalog_id] ?? ts[i].altitude_points
     if (!curve?.length) continue
     const sMs = new Date(ts[i].start_time).getTime()
     const eMs = new Date(ts[i].end_time).getTime()
     for (const ms of [sMs, (sMs + eMs) / 2, eMs]) {
-      const alt = interpAlt(new Date(ms).toISOString(), curve)
+      const alt = interpAlt(ms, curve)
       if (alt != null && alt < minAlt.value) {
         result[i] = 'lowalt'
         break
@@ -358,7 +362,9 @@ const conflictMap = computed(() => {
 
   // 2. True overlap — any two windows that share time (overrides lowalt)
   for (let i = 0; i < ts.length; i++) {
+    if (!validIndices.has(i)) continue
     for (let j = i + 1; j < ts.length; j++) {
+      if (!validIndices.has(j)) continue
       const sI = new Date(ts[i].start_time).getTime()
       const eI = new Date(ts[i].end_time).getTime()
       const sJ = new Date(ts[j].start_time).getTime()
@@ -377,6 +383,7 @@ const conflictMap = computed(() => {
       startMs: new Date(t.start_time).getTime(),
       endMs: new Date(t.end_time).getTime(),
     }))
+    .filter((_, i) => validIndices.has(i))
     .sort((a, b) => a.startMs - b.startMs)
 
   for (let i = 0; i < sorted.length - 1; i++) {
