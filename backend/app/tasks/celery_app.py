@@ -16,7 +16,7 @@ celery_app = Celery(
     "astro_planner",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.processing_tasks", "app.tasks.planning_tasks"],
+    include=["app.tasks.processing_tasks", "app.tasks.planning_tasks", "app.tasks.telescope_tasks"],
 )
 
 # Configure Celery
@@ -38,6 +38,11 @@ celery_app.conf.beat_schedule = {
     "generate-daily-plan": {
         "task": "generate_daily_plan",
         "schedule": crontab(hour=12, minute=0),  # Daily at noon in configured timezone
+        "args": (),
+    },
+    "cleanup-old-jobs": {
+        "task": "cleanup_old_jobs",
+        "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM
         "args": (),
     },
 }
