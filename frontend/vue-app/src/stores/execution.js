@@ -45,7 +45,7 @@ export const useExecutionStore = defineStore('execution', {
     balance: { x: 0, y: 0, z: 0, angle: 0 },
 
     // Annotations
-    annotationsEnabled: s.annotationsEnabled,
+    annotationsEnabled: DEFAULT_SETTINGS.annotationsEnabled,
 
     // Hardware state
     hardware: {
