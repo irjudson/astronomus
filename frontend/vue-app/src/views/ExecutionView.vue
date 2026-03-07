@@ -114,6 +114,9 @@
           </div>
         </div>
 
+        <!-- Advanced controls (Tier 2) -->
+        <ControlsDrawer v-if="executionStore.connected" />
+
         <!-- Messages — collapsible, default closed -->
         <div class="border-t border-gray-800 pt-4">
           <button
@@ -208,6 +211,7 @@ import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
 import NowPlayingPanel from '@/components/execution/NowPlayingPanel.vue'
 import PlanTimeline from '@/components/planning/PlanTimeline.vue'
+import ControlsDrawer from '@/components/observe/ControlsDrawer.vue'
 
 const executionStore = useExecutionStore()
 const planningStore = usePlanningStore()
