@@ -1,11 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import DiscoveryView from '@/views/DiscoveryView.vue'
+import TonightView from '@/views/TonightView.vue'
 
 export const routes = [
   {
     path: '/',
-    name: 'discovery', // Renamed from 'home' to 'discovery'
-    component: DiscoveryView // Use DiscoveryView for the main discovery page
+    name: 'tonight',
+    component: TonightView
+  },
+  {
+    path: '/sky',
+    name: 'sky',
+    component: () => import('@/views/DiscoveryView.vue')
   },
   {
     path: '/plan',
@@ -13,15 +18,17 @@ export const routes = [
     component: () => import('@/views/PlanningView.vue')
   },
   {
-    path: '/execute',
-    name: 'execute',
+    path: '/observe',
+    name: 'observe',
     component: () => import('@/views/ExecutionView.vue')
   },
   {
-    path: '/process',
-    name: 'process',
+    path: '/archive',
+    name: 'archive',
     component: () => import('@/views/ProcessingView.vue')
-  }
+  },
+  { path: '/execute', redirect: '/observe' },
+  { path: '/process', redirect: '/archive' },
 ]
 
 const router = createRouter({
