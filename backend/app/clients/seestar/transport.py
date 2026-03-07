@@ -64,7 +64,8 @@ class SeestarTransport:
         self._private_key_path = Path(private_key_path or settings.seestar_private_key_path)
         if not self._private_key_path.is_absolute():
             # Make relative paths relative to backend directory
-            self._private_key_path = Path(__file__).parent.parent.parent / self._private_key_path
+            # __file__ = backend/app/clients/seestar/transport.py → 4 parents up = backend/
+            self._private_key_path = Path(__file__).parent.parent.parent.parent / self._private_key_path
 
         self._private_key_pem: Optional[bytes] = None
 
