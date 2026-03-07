@@ -4,7 +4,7 @@ API dependencies.
 
 from fastapi import HTTPException
 
-from app.api import routes
+from app.api import telescope as telescope_module
 from app.clients.seestar_client import SeestarClient
 
 
@@ -15,6 +15,6 @@ def get_current_telescope() -> SeestarClient:
     Raises:
         HTTPException: If no telescope is connected (503 Service Unavailable)
     """
-    if routes.seestar_client is None:
+    if telescope_module.seestar_client is None:
         raise HTTPException(status_code=503, detail="Telescope not connected")
-    return routes.seestar_client
+    return telescope_module.seestar_client
