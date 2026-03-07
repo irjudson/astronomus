@@ -206,6 +206,11 @@ export const usePlanningStore = defineStore('planning', {
       }
     },
 
+    clearPlan() {
+      this.currentPlan = null
+      this.planName = ''
+    },
+
     async deleteSavedPlan(id) {
       try {
         await axios.delete(`/api/plans/${id}`)

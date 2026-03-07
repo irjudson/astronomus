@@ -75,6 +75,7 @@ export const useExecutionStore = defineStore('execution', {
     // Position polling
     positionInterval: null,
     progressPollInterval: null, // for polling /api/telescope/progress
+    hardwareInfoInterval: null,
   }),
 
   getters: {
@@ -120,8 +121,9 @@ export const useExecutionStore = defineStore('execution', {
           this.telescopeIp = ip
           this.startPositionPolling()
 
-          // Fetch initial hardware status
+          // Fetch initial hardware status (retry once after 3s to handle timing)
           this.fetchSystemInfo()
+          setTimeout(() => this.fetchSystemInfo(), 3000)
           this.fetchDewHeaterStatus()
 
           // Persist telescope host so it's pre-filled next session
@@ -215,12 +217,22 @@ export const useExecutionStore = defineStore('execution', {
           this.fetchPosition()
         }
       }, 2000) // Poll every 2 seconds; skips when tab is hidden
+
+      this.hardwareInfoInterval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          this.fetchSystemInfo()
+        }
+      }, 60000) // Refresh hardware info every 60s
     },
 
     stopPositionPolling() {
       if (this.positionInterval) {
         clearInterval(this.positionInterval)
         this.positionInterval = null
+      }
+      if (this.hardwareInfoInterval) {
+        clearInterval(this.hardwareInfoInterval)
+        this.hardwareInfoInterval = null
       }
     },
 
@@ -750,7 +762,7 @@ export const useExecutionStore = defineStore('execution', {
       if (!this.connected) return
 
       try {
-        const response = await axios.get('/api/telescope/features/system/info')
+        const response = await axios.get('/api/telescope/features/system/info', { timeout: 10000 })
         if (response.data) {
           const pi = response.data.pi_info || {}
           this.hardware.sensorTemp = pi.temp ?? null

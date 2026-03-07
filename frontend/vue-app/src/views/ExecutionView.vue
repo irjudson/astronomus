@@ -146,6 +146,14 @@
           v-if="planningStore.currentPlan"
           class="flex-none border-b border-gray-800 px-4 py-3 bg-gray-900/50"
         >
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-gray-500 font-medium">{{ planningStore.planName || 'Active Plan' }}</span>
+            <button
+              @click="unloadPlan"
+              :disabled="executionStore.executionStatus === 'running'"
+              class="text-xs text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >Unload</button>
+          </div>
           <PlanTimeline
             :plan="planningStore.currentPlan"
             @select-target="() => {}"
@@ -253,6 +261,13 @@ const transformPlan = (name, observingPlan) => ({
     imaging_mode: PLANETARY_TYPES.has((st.target.object_type || '').toLowerCase()) ? 'planetary' : 'deep-sky',
   })),
 })
+
+const unloadPlan = () => {
+  planningStore.clearPlan()
+  executionStore.currentPlan = null
+  executionStore.scheduledTargets = []
+  executionStore.executionStatus = 'idle'
+}
 
 const loadAndStagePlan = async (id) => {
   loadingPlanId.value = id
