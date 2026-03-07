@@ -681,10 +681,16 @@ async def search_catalog(
         # If searching for specific object, check for exact match first
         exact_match_objects = []
         if search:
+            import re as _re
+            # If user types "M31", also try zero-padded "M031" to match common_name storage format
+            _m = _re.match(r'^([A-Za-z]+)(\d+)$', search.strip(), _re.IGNORECASE)
+            padded_search = f"{_m.group(1)}{_m.group(2).zfill(3)}" if _m else search
+
             # Check for exact matches (case-insensitive) - these bypass all filters
             exact_query = db.query(DSOCatalog).filter(
                 or_(
                     DSOCatalog.common_name.ilike(search),
+                    DSOCatalog.common_name.ilike(padded_search),
                     func.concat(DSOCatalog.catalog_name, DSOCatalog.catalog_number).ilike(search),
                 )
             )
@@ -692,9 +698,11 @@ async def search_catalog(
 
             # Apply partial search filter for remaining results
             search_pattern = f"%{search}%"
+            padded_pattern = f"%{padded_search}%"
             query = query.filter(
                 or_(
                     DSOCatalog.common_name.ilike(search_pattern),
+                    DSOCatalog.common_name.ilike(padded_pattern),
                     func.concat(DSOCatalog.catalog_name, DSOCatalog.catalog_number).ilike(search_pattern),
                 )
             )

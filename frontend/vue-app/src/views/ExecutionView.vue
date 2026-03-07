@@ -27,20 +27,41 @@
             />
           </button>
           <div v-show="gotoOpen">
-            <div class="flex gap-2">
-              <input
-                v-model="gotoInput"
-                placeholder="Object name or RA Dec"
-                class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-blue-500 focus:outline-none"
-                @keydown.enter="doSlew"
-              />
-              <button
-                @click="doSlew"
-                :disabled="!executionStore.connected || !gotoInput.trim()"
-                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <div class="relative">
+              <div class="flex gap-2">
+                <input
+                  v-model="gotoInput"
+                  placeholder="Object name or RA Dec"
+                  class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-blue-500 focus:outline-none"
+                  @input="onGotoInput"
+                  @keydown.enter="doSlew"
+                  @keydown.escape="gotoSuggestions = []"
+                  @blur="onGotoBlur"
+                  autocomplete="off"
+                />
+                <button
+                  @click="doSlew"
+                  :disabled="!executionStore.connected || !gotoInput.trim()"
+                  class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Go
+                </button>
+              </div>
+              <!-- Autocomplete dropdown -->
+              <div
+                v-if="gotoSuggestions.length"
+                class="absolute top-full left-0 right-12 z-50 mt-0.5 bg-gray-800 border border-gray-700 rounded shadow-xl overflow-hidden"
               >
-                Go
-              </button>
+                <button
+                  v-for="item in gotoSuggestions"
+                  :key="item.id"
+                  @mousedown.prevent="selectSuggestion(item)"
+                  class="w-full text-left px-3 py-1.5 hover:bg-gray-700 flex items-center gap-2 border-b border-gray-700/50 last:border-0"
+                >
+                  <span class="text-sm text-gray-200 flex-1 truncate">{{ item.name }}</span>
+                  <span class="text-xs text-gray-500 capitalize flex-shrink-0">{{ item.type }}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -208,6 +229,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import axios from 'axios'
 import { ChevronDownIcon } from 'lucide-vue-next'
 import { useExecutionStore } from '@/stores/execution'
 import { usePlanningStore } from '@/stores/planning'
@@ -231,6 +253,8 @@ const moveOpen = ref(false)
 const msgOpen = ref(false)
 
 const gotoInput = ref('')
+const gotoSuggestions = ref([])
+let gotoSearchTimeout = null
 const loadingPlanId = ref(null)
 
 // Alert when connection drops during an active plan
@@ -240,9 +264,38 @@ watch(() => executionStore.connected, (newVal, oldVal) => {
   }
 })
 
+const onGotoInput = () => {
+  clearTimeout(gotoSearchTimeout)
+  const query = gotoInput.value.trim()
+  if (query.length < 2) { gotoSuggestions.value = []; return }
+  gotoSearchTimeout = setTimeout(async () => {
+    try {
+      const res = await axios.get('/api/catalog/search', {
+        params: { search: query, page_size: 6, visible_now: false }
+      })
+      gotoSuggestions.value = res.data.items || []
+    } catch { gotoSuggestions.value = [] }
+  }, 200)
+}
+
+const onGotoBlur = () => {
+  setTimeout(() => { gotoSuggestions.value = [] }, 150)
+}
+
+const selectSuggestion = (item) => {
+  gotoInput.value = item.name
+  gotoSuggestions.value = []
+  executionStore.slewToTarget({
+    name: item.name,
+    ra: item.ra / 15,   // API returns degrees; slew endpoint needs hours
+    dec: item.dec,
+  })
+}
+
 const doSlew = async () => {
   const input = gotoInput.value.trim()
   if (!input || !executionStore.connected) return
+  gotoSuggestions.value = []
   await executionStore.slewToTarget({ name: input, ra: null, dec: null })
 }
 

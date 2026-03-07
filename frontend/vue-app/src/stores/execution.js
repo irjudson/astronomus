@@ -243,10 +243,22 @@ export const useExecutionStore = defineStore('execution', {
       }
 
       try {
-        await axios.post('/api/telescope/slew', {
-          ra: target.ra,
-          dec: target.dec,
-          name: target.name
+        let ra = target.ra
+        let dec = target.dec
+
+        // If no coordinates, resolve via catalog search
+        if (ra == null || dec == null) {
+          const res = await axios.get('/api/catalog/search', {
+            params: { search: target.name, page_size: 1, visible_now: false }
+          })
+          const item = res.data.items?.[0]
+          if (!item) throw new Error(`"${target.name}" not found in catalog`)
+          ra = item.ra
+          dec = item.dec
+        }
+
+        await axios.post('/api/telescope/features/movement/slew', null, {
+          params: { ra_hours: ra, dec_degrees: dec }
         })
 
         this.addMessage(`Slewing to ${target.name}`)
