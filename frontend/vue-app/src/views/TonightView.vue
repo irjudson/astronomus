@@ -92,7 +92,7 @@
     <!-- Quick links (3-col grid) -->
     <div class="grid grid-cols-3 gap-4">
       <router-link
-        to="/discover"
+        to="/sky"
         class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col items-center gap-2 hover:border-indigo-600 transition-colors cursor-pointer"
       >
         <span class="text-2xl">&#x1F52D;</span>
