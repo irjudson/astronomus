@@ -480,10 +480,14 @@ export const useExecutionStore = defineStore('execution', {
     },
 
     async extendTarget(minutes) {
+      minutes = Math.round(minutes)
+      if (!minutes || minutes <= 0) return
       if (this.executionStatus !== 'running') return
       const st = this.scheduledTargets[this.currentTargetIndex]
       if (!st) return
-      const newEndMs = new Date(st.end_time).getTime() + minutes * 60000
+      const baseMs = st.end_time ? new Date(st.end_time).getTime() : Date.now()
+      if (isNaN(baseMs)) return
+      const newEndMs = baseMs + minutes * 60000
       st.end_time = new Date(newEndMs).toISOString()
       st.duration_minutes = (st.duration_minutes || 0) + minutes
       try { await axios.post('/api/telescope/abort') } catch { /* best-effort */ }
