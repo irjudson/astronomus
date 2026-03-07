@@ -293,7 +293,7 @@ const loadAndStagePlan = async (id) => {
     const transformed = transformPlan(detail.name, detail.plan)
     executionStore.setPlan(transformed, detail.plan.scheduled_targets || [])
   } catch {
-    toastStore.error('Failed to load plan')
+    // planningStore.loadPlan already shows a toast on failure
   } finally {
     loadingPlanId.value = null
   }
