@@ -154,9 +154,9 @@ export const useCatalogStore = defineStore('catalog', {
         type: '',
         constellation: '',
         max_magnitude: '',
-        sort_by: 'name',
-        visible_now: false,
-        use_scoring: false,
+        sort_by: DEFAULT_SETTINGS.catalogSortBy,
+        visible_now: DEFAULT_SETTINGS.catalogVisibleNow,
+        use_scoring: DEFAULT_SETTINGS.catalogUseScoring,
       };
       this.currentPage = 1;
       this.prefetchCache.clear(); // Clear cache on clear filters
