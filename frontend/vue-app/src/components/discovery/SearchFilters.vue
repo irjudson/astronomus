@@ -134,13 +134,13 @@ import { useCatalogStore } from '@/stores/catalog'
 
 const catalogStore = useCatalogStore()
 
-const searchQuery = ref('')
-const selectedType = ref('')
-const selectedConstellation = ref('')
-const maxMagnitude = ref(null)
-const sortBy = ref('name')
-const visibleNow = ref(false)
-const useScoring = ref(false)
+const searchQuery = ref(catalogStore.filters.search)
+const selectedType = ref(catalogStore.filters.type)
+const selectedConstellation = ref(catalogStore.filters.constellation)
+const maxMagnitude = ref(catalogStore.filters.max_magnitude || null)
+const sortBy = ref(catalogStore.filters.sort_by)
+const visibleNow = ref(catalogStore.filters.visible_now)
+const useScoring = ref(catalogStore.filters.use_scoring)
 
 const constellations = [
   'Andromeda', 'Aquarius', 'Aquila', 'Aries', 'Auriga',
@@ -171,14 +171,14 @@ const applyFilters = () => {
 }
 
 const clearFilters = () => {
-  searchQuery.value = ''
-  selectedType.value = ''
-  selectedConstellation.value = ''
-  maxMagnitude.value = null
-  sortBy.value = 'name'
-  visibleNow.value = false
-  useScoring.value = false
   catalogStore.clearFilters()
+  searchQuery.value = catalogStore.filters.search
+  selectedType.value = catalogStore.filters.type
+  selectedConstellation.value = catalogStore.filters.constellation
+  maxMagnitude.value = catalogStore.filters.max_magnitude || null
+  sortBy.value = catalogStore.filters.sort_by
+  visibleNow.value = catalogStore.filters.visible_now
+  useScoring.value = catalogStore.filters.use_scoring
 }
 
 onMounted(() => {
