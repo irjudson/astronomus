@@ -126,22 +126,15 @@ export const useCatalogStore = defineStore('catalog', {
     /**
      * Apply new filters and reset to first page
      */
-    initFromSettings(s) {
-      this.filters.sort_by = s.catalogSortBy ?? this.filters.sort_by
-      this.filters.visible_now = s.catalogVisibleNow ?? this.filters.visible_now
-      this.filters.use_scoring = s.catalogUseScoring ?? this.filters.use_scoring
+    initFromSettings(_s) {
+      // Catalog filter state (sort, visible tonight, scoring) is not persisted —
+      // it always starts from DEFAULT_SETTINGS so the view opens in a useful state.
     },
 
     applyFilters(newFilters) {
       this.filters = { ...this.filters, ...newFilters };
       this.currentPage = 1;
       this.prefetchCache.clear();
-      // Persist filter preferences (sort, visibility, scoring) to DB
-      useSettingsStore().save({
-        catalogSortBy: this.filters.sort_by,
-        catalogVisibleNow: this.filters.visible_now,
-        catalogUseScoring: this.filters.use_scoring,
-      }).catch(() => {})
       this.fetchCatalogData();
     },
 

@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS = {
   planAvoidMoon: true,
   planSetupMinutes: 30,
   planObjectTypes: ['galaxy', 'nebula', 'cluster', 'planetary_nebula'],
-  // Catalog filter defaults
+  // Catalog filter defaults (session-only, not persisted)
   catalogSortBy: 'score',
   catalogVisibleNow: true,
   catalogUseScoring: true,
