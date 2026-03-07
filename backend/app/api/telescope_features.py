@@ -253,6 +253,20 @@ async def reset_focuser_factory(telescope: SeestarClient = Depends(get_current_t
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/focus/position")
+async def get_focuser_position(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """Get current focuser position."""
+
+    try:
+        response = await telescope._send_command("get_focuser_position", {})
+        position = response.get("result", 0)
+        if isinstance(position, dict):
+            position = position.get("step", 0)
+        return {"position": int(position)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==========================================
 # Hardware Features
 # ==========================================
