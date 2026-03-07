@@ -15,28 +15,35 @@
         class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
         :class="$route.path === '/' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
       >
-        Discovery
+        Tonight
+      </router-link>
+      <router-link
+        to="/sky"
+        class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
+        :class="$route.path.startsWith('/sky') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
+      >
+        Sky
       </router-link>
       <router-link
         to="/plan"
         class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
         :class="$route.path.startsWith('/plan') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
       >
-        Planning
+        Plan
       </router-link>
       <router-link
-        to="/execute"
+        to="/observe"
         class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
-        :class="$route.path.startsWith('/execute') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
+        :class="$route.path.startsWith('/observe') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
       >
-        Execution
+        Observe
       </router-link>
       <router-link
-        to="/process"
+        to="/archive"
         class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
-        :class="$route.path.startsWith('/process') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
+        :class="$route.path.startsWith('/archive') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
       >
-        Processing
+        Archive
       </router-link>
     </nav>
 
