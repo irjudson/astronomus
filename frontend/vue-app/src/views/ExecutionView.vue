@@ -1,259 +1,288 @@
 <template>
-  <PanelContainer
-    v-model:left-panel-visible="leftPanelVisible"
-    :console-visible="false"
-  >
+  <PanelContainer v-model:left-panel-visible="leftPanelVisible" :console-visible="false">
+
     <!-- Left panel header -->
     <template #left-header>
-      <div>
-        <h3 class="text-sm font-semibold text-gray-200">Controls</h3>
-      </div>
+      <h3 class="text-sm font-semibold text-gray-200">Telescope</h3>
     </template>
+    <template #left-label>Scope</template>
 
-    <!-- Left panel label (for peek tab) -->
-    <template #left-label>Controls</template>
-
-    <!-- Left: All Controls -->
+    <!-- Left: Telescope connection + Messages -->
     <template #left>
       <div class="p-4 space-y-4">
-
-        <!-- Connection & Control (collapsed by default; glows when not connected) -->
-        <div>
-          <button
-            @click="controlOpen = !controlOpen"
-            class="flex items-center justify-between w-full text-left mb-3 group"
-          >
-            <div class="flex items-center gap-2">
-              <h4 class="text-xs font-semibold uppercase tracking-wide transition-colors"
-                :class="executionStore.connected ? 'text-gray-500 group-hover:text-gray-300' : 'text-blue-400 group-hover:text-blue-300'"
-              >Connection & Control</h4>
-              <span v-if="!executionStore.connected && !controlOpen"
-                class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
-              />
-            </div>
-            <ChevronDownIcon
-              class="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-all"
-              :class="controlOpen ? 'rotate-0' : '-rotate-90'"
-            />
-          </button>
-          <TelescopePanel v-show="controlOpen" />
-        </div>
-
-        <!-- Object Tracking (collapsible, collapsed by default) -->
+        <TelescopePanel />
         <div class="border-t border-gray-800 pt-4">
           <button
-            @click="trackingOpen = !trackingOpen"
-            class="flex items-center justify-between w-full text-left mb-3 group"
+            @click="msgOpen = !msgOpen"
+            class="flex items-center justify-between w-full text-left mb-2 group"
           >
-            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Object Tracking</h4>
+            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Messages</h4>
             <ChevronDownIcon
               class="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-all"
-              :class="trackingOpen ? 'rotate-0' : '-rotate-90'"
+              :class="msgOpen ? 'rotate-0' : '-rotate-90'"
             />
           </button>
-          <ObjectTrackingPanel v-show="trackingOpen" />
+          <MessagesPanel v-show="msgOpen" />
         </div>
-
-        <!-- Movement -->
-        <div>
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Movement</h4>
-          <DirectionalControlPanel />
-        </div>
-
-        <!-- Plan Execution -->
-        <div class="border-t border-gray-800 pt-4">
-          <button
-            @click="planOpen = !planOpen"
-            class="flex items-center justify-between w-full text-left mb-3 group"
-          >
-            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition-colors">Plan Execution</h4>
-            <ChevronDownIcon
-              class="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-all"
-              :class="planOpen ? 'rotate-0' : '-rotate-90'"
-            />
-          </button>
-          <div v-show="planOpen" class="space-y-3">
-            <PlanExecutionPanel />
-
-            <!-- Saved Plans Browser -->
-            <div class="border-t border-gray-800 pt-3">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs text-gray-500 uppercase tracking-wide font-semibold">Saved Plans</span>
-                <button @click="refreshPlans" class="text-xs text-gray-600 hover:text-gray-400 transition-colors">Refresh</button>
-              </div>
-
-              <div v-if="plansLoading" class="text-xs text-gray-500 text-center py-2">Loading...</div>
-              <div v-else-if="planningStore.savedPlans.length === 0" class="text-xs text-gray-500 text-center py-2">
-                No saved plans. Generate and save one from Planning.
-              </div>
-              <div v-else class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                <div
-                  v-for="plan in planningStore.savedPlans"
-                  :key="plan.id"
-                  class="p-2 bg-gray-800 rounded border border-gray-700 hover:border-gray-600 transition-colors"
-                >
-                  <div class="text-xs font-medium text-gray-200 truncate">{{ plan.name }}</div>
-                  <div class="text-xs text-gray-500">{{ plan.observing_date }} · {{ plan.total_targets }} targets</div>
-                  <button
-                    @click="loadAndStagePlan(plan.id)"
-                    :disabled="loadingPlanId === plan.id"
-                    class="mt-1.5 w-full px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs rounded transition-colors"
-                  >
-                    {{ loadingPlanId === plan.id ? 'Loading...' : 'Load Plan' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Messages -->
-        <div class="border-t border-gray-800 pt-4">
-          <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Messages</h4>
-          <MessagesPanel />
-        </div>
-
       </div>
     </template>
 
-    <!-- Main: Live Preview & Imaging -->
+    <!-- Main -->
     <template #main>
       <div class="flex flex-col h-full">
-        <!-- View Header -->
+
+        <!-- Header -->
         <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-2 flex-none">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex-shrink-0">
-              <h2 class="text-base font-semibold text-gray-200 leading-tight">Live Execution</h2>
-              <p class="text-xs text-gray-500 leading-tight">{{ executionStore.currentTarget?.name || 'Ready' }}</p>
+          <div class="flex items-center gap-4 flex-wrap">
+            <h2 class="text-base font-semibold text-gray-200 flex-shrink-0">Live Execution</h2>
+
+            <!-- Mode toggle -->
+            <div class="flex rounded-lg overflow-hidden border border-gray-700 flex-shrink-0 text-xs">
+              <button
+                @click="setMode('plan')"
+                :class="activeMode === 'plan' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'"
+                class="px-3 py-1.5 transition-colors font-medium"
+              >
+                Plan Mode
+              </button>
+              <button
+                @click="setMode('manual')"
+                :class="activeMode === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'"
+                class="px-3 py-1.5 transition-colors font-medium border-l border-gray-700"
+              >
+                Manual
+              </button>
             </div>
 
-            <!-- Status Info — single row, no wrap -->
-            <div v-if="executionStore.connected" class="flex items-center gap-2 text-xs min-w-0 overflow-hidden">
-              <!-- Position -->
-              <div class="flex items-center gap-2">
-                <div class="text-center">
-                  <div class="text-gray-500">RA</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.ra != null ? formatRA(executionStore.position.ra) : '--:--:--' }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-gray-500">Dec</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.dec != null ? formatDec(executionStore.position.dec) : '--°' }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-gray-500">Alt</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.alt != null ? executionStore.position.alt.toFixed(1) + '°' : '--°' }}</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-gray-500">Az</div>
-                  <div class="font-mono text-gray-200">{{ executionStore.position?.az != null ? executionStore.position.az.toFixed(1) + '°' : '--°' }}</div>
-                </div>
+            <!-- Status strip -->
+            <div v-if="executionStore.connected" class="flex items-center gap-2 text-xs min-w-0 overflow-hidden ml-auto">
+              <div class="text-center">
+                <div class="text-gray-500">RA</div>
+                <div class="font-mono text-gray-200">{{ executionStore.position?.ra != null ? formatRA(executionStore.position.ra) : '--:--:--' }}</div>
               </div>
-
-              <div class="h-6 w-px bg-gray-700 flex-shrink-0"></div>
-
-              <!-- Orientation -->
-              <div class="flex items-center gap-2">
-                <div class="text-center">
-                  <div class="text-gray-500">Mode</div>
-                  <div class="font-mono" :class="executionStore.hardware.mountMode === 'equatorial' ? 'text-blue-400' : 'text-gray-200'">
-                    {{ executionStore.hardware.mountMode === 'equatorial' ? 'EQ' : 'Alt/Az' }}
-                  </div>
-                </div>
-                <div class="text-center">
-                  <div class="text-gray-500">Hdg</div>
-                  <div class="font-mono text-gray-200">
-                    {{ executionStore.compass.heading != null ? executionStore.compass.heading + '°' + cardinalDir(executionStore.compass.heading) : '--' }}
-                  </div>
-                </div>
-                <div class="text-center">
-                  <div class="text-gray-500">Level</div>
-                  <div class="font-mono" :class="levelClass(executionStore.balance.angle)">
-                    {{ executionStore.balance.angle != null ? executionStore.balance.angle.toFixed(1) + '°' : '--' }}
-                  </div>
-                </div>
+              <div class="text-center">
+                <div class="text-gray-500">Dec</div>
+                <div class="font-mono text-gray-200">{{ executionStore.position?.dec != null ? formatDec(executionStore.position.dec) : '--°' }}</div>
               </div>
-
-              <div class="h-6 w-px bg-gray-700 flex-shrink-0"></div>
-
-              <!-- Hardware Status -->
-              <div class="flex items-center gap-2">
-                <div class="text-center">
-                  <div class="text-gray-500">Track</div>
-                  <div class="font-mono"
-                    :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : executionStore.hardware.trackingStatus === 'Parked' ? 'text-yellow-400' : 'text-gray-400'">
-                    {{ executionStore.hardware.trackingStatus }}
-                  </div>
+              <div class="text-center">
+                <div class="text-gray-500">Alt</div>
+                <div class="font-mono text-gray-200">{{ executionStore.position?.alt != null ? executionStore.position.alt.toFixed(1) + '°' : '--°' }}</div>
+              </div>
+              <div class="text-center">
+                <div class="text-gray-500">Az</div>
+                <div class="font-mono text-gray-200">{{ executionStore.position?.az != null ? executionStore.position.az.toFixed(1) + '°' : '--°' }}</div>
+              </div>
+              <div class="h-6 w-px bg-gray-700 flex-shrink-0" />
+              <div class="text-center">
+                <div class="text-gray-500">Track</div>
+                <div
+                  class="font-mono"
+                  :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400'
+                    : executionStore.hardware.trackingStatus === 'Parked' ? 'text-yellow-400'
+                    : 'text-gray-400'"
+                >
+                  {{ executionStore.hardware.trackingStatus }}
                 </div>
               </div>
             </div>
+            <div v-else class="ml-auto text-xs text-gray-600">Not connected</div>
           </div>
         </div>
 
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
-          <!-- Live Preview -->
-          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <h3 class="text-base font-semibold text-gray-100 mb-3">Live Preview</h3>
-            <LivePreviewPanel />
-          </div>
+        <div class="flex-1 overflow-y-auto">
 
-          <!-- Imaging Controls -->
-          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <h3 class="text-base font-semibold text-gray-100 mb-3">Imaging</h3>
-            <ImagingPanel />
-          </div>
+          <!-- PLAN MODE -->
+          <template v-if="activeMode === 'plan'">
+
+            <!-- Plan loaded -->
+            <template v-if="planningStore.currentPlan">
+              <!-- PlanTimeline full width -->
+              <div class="px-4 pt-4 pb-2">
+                <PlanTimeline
+                  :plan="planningStore.currentPlan"
+                  @select-target="() => {}"
+                />
+              </div>
+
+              <!-- Two-column: preview + now-playing -->
+              <div class="flex gap-4 px-4 pb-4" style="min-height: 320px">
+                <div style="flex: 0 0 55%; min-width: 0">
+                  <LivePreviewPanel />
+                </div>
+                <div style="flex: 0 0 45%; min-width: 0">
+                  <NowPlayingPanel />
+                </div>
+              </div>
+            </template>
+
+            <!-- No plan loaded -->
+            <template v-else>
+              <div class="p-6">
+                <p class="text-gray-500 text-sm mb-4">No plan loaded for tonight.</p>
+
+                <div v-if="planningStore.savedPlans.length > 0" class="space-y-2 mb-6 max-w-lg">
+                  <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Saved Plans</h3>
+                  <div
+                    v-for="plan in planningStore.savedPlans"
+                    :key="plan.id"
+                    class="flex items-center justify-between p-3 bg-gray-900 border border-gray-800 rounded-lg hover:border-gray-700 transition-colors"
+                  >
+                    <div>
+                      <div class="text-sm font-medium text-gray-200">{{ plan.name }}</div>
+                      <div class="text-xs text-gray-500">{{ plan.observing_date }} · {{ plan.total_targets }} targets</div>
+                    </div>
+                    <button
+                      @click="loadAndStagePlan(plan.id)"
+                      :disabled="loadingPlanId === plan.id"
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:opacity-50"
+                    >
+                      {{ loadingPlanId === plan.id ? 'Loading...' : 'Load' }}
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="text-sm text-gray-500 mb-6">No saved plans yet.</div>
+
+                <router-link
+                  to="/plan"
+                  class="inline-flex items-center gap-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg border border-gray-700 transition-colors"
+                >
+                  → Go to Planning
+                </router-link>
+              </div>
+            </template>
+          </template>
+
+          <!-- MANUAL MODE -->
+          <template v-else>
+            <div class="flex gap-4 p-4" style="min-height: 400px">
+
+              <!-- Live preview -->
+              <div style="flex: 0 0 55%; min-width: 0">
+                <LivePreviewPanel />
+              </div>
+
+              <!-- Manual controls -->
+              <div class="flex flex-col gap-4 min-w-0" style="flex: 0 0 45%">
+
+                <!-- Goto -->
+                <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
+                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Goto</h4>
+                  <div class="flex gap-2">
+                    <input
+                      v-model="gotoInput"
+                      placeholder="Object name or RA Dec"
+                      class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-blue-500 focus:outline-none"
+                      @keydown.enter="doSlew"
+                    />
+                    <button
+                      @click="doSlew"
+                      :disabled="!executionStore.connected || !gotoInput.trim()"
+                      class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Slew
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Capture -->
+                <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
+                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Capture</h4>
+                  <ImagingPanel />
+                </div>
+
+                <!-- Status -->
+                <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
+                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Status</h4>
+                  <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div>
+                      <span class="text-gray-500">Mode:</span>
+                      <span class="text-gray-300 ml-1">{{ executionStore.hardware.mountMode === 'equatorial' ? 'EQ' : 'Alt/Az' }}</span>
+                    </div>
+                    <div>
+                      <span class="text-gray-500">Track:</span>
+                      <span
+                        class="ml-1"
+                        :class="executionStore.hardware.trackingStatus === 'Active' ? 'text-green-400' : 'text-gray-400'"
+                      >{{ executionStore.hardware.trackingStatus }}</span>
+                    </div>
+                    <div>
+                      <span class="text-gray-500">Heading:</span>
+                      <span class="text-gray-300 ml-1">{{ executionStore.compass.heading != null ? executionStore.compass.heading + '° ' + cardinalDir(executionStore.compass.heading) : '—' }}</span>
+                    </div>
+                    <div>
+                      <span class="text-gray-500">Level:</span>
+                      <span class="ml-1" :class="levelClass(executionStore.balance.angle)">{{ executionStore.balance.angle != null ? executionStore.balance.angle.toFixed(1) + '°' : '—' }}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </template>
+
         </div>
       </div>
     </template>
-
   </PanelContainer>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { ChevronDownIcon } from 'lucide-vue-next'
 import { useExecutionStore } from '@/stores/execution'
 import { usePlanningStore } from '@/stores/planning'
+import { useToastStore } from '@/stores/toast'
 import PanelContainer from '@/components/layout/PanelContainer.vue'
 import TelescopePanel from '@/components/execution/TelescopePanel.vue'
-import ObjectTrackingPanel from '@/components/execution/ObjectTrackingPanel.vue'
-import DirectionalControlPanel from '@/components/execution/DirectionalControlPanel.vue'
 import ImagingPanel from '@/components/execution/ImagingPanel.vue'
 import LivePreviewPanel from '@/components/execution/LivePreviewPanel.vue'
-import PlanExecutionPanel from '@/components/execution/PlanExecutionPanel.vue'
 import MessagesPanel from '@/components/execution/MessagesPanel.vue'
+import NowPlayingPanel from '@/components/execution/NowPlayingPanel.vue'
+import PlanTimeline from '@/components/planning/PlanTimeline.vue'
 
 const executionStore = useExecutionStore()
 const planningStore = usePlanningStore()
+const toastStore = useToastStore()
+
 const leftPanelVisible = ref(true)
-const controlOpen = ref(false)
-const trackingOpen = ref(false)
-const planOpen = ref(true)
-const plansLoading = ref(false)
+const msgOpen = ref(false)
+const gotoInput = ref('')
 const loadingPlanId = ref(null)
 
-const refreshPlans = async () => {
-  plansLoading.value = true
-  await planningStore.loadSavedPlans()
-  plansLoading.value = false
+// Mode toggle — persisted to localStorage
+const activeMode = ref(localStorage.getItem('execMode') || 'plan')
+const setMode = (m) => {
+  activeMode.value = m
+  localStorage.setItem('execMode', m)
+}
+
+// Alert when connection drops during an active plan
+watch(() => executionStore.connected, (newVal, oldVal) => {
+  if (oldVal && !newVal && executionStore.executionStatus === 'running') {
+    toastStore.error('Telescope connection lost during plan execution')
+  }
+})
+
+const doSlew = async () => {
+  const input = gotoInput.value.trim()
+  if (!input || !executionStore.connected) return
+  await executionStore.slewToTarget({ name: input, ra: null, dec: null })
 }
 
 const PLANETARY_TYPES = new Set(['planet', 'moon', 'sun'])
 
-// Transform an ObservingPlan from the API into the flat format execution store expects
 const transformPlan = (name, observingPlan) => ({
   name,
   targets: (observingPlan.scheduled_targets || []).map(st => ({
     name: st.target.common_name || st.target.name || st.target.catalog_id,
-    ra: st.target.ra_hours * 15,   // hours → degrees
+    ra: st.target.ra_hours * 15,
     dec: st.target.dec_degrees,
     exposure: st.recommended_exposure || 10,
     frames: st.recommended_frames || 50,
     gain: 80,
     object_type: st.target.object_type,
-    imaging_mode: PLANETARY_TYPES.has((st.target.object_type || '').toLowerCase())
-      ? 'planetary'
-      : 'deep-sky',
+    imaging_mode: PLANETARY_TYPES.has((st.target.object_type || '').toLowerCase()) ? 'planetary' : 'deep-sky',
   })),
 })
 
@@ -262,19 +291,20 @@ const loadAndStagePlan = async (id) => {
   try {
     const detail = await planningStore.loadPlan(id)
     const transformed = transformPlan(detail.name, detail.plan)
-    // Pass original scheduled_targets so executePlan can submit them to the backend
     executionStore.setPlan(transformed, detail.plan.scheduled_targets || [])
-  } catch (err) {
-    console.error('Failed to load plan:', err)
+  } catch {
+    toastStore.error('Failed to load plan')
   } finally {
     loadingPlanId.value = null
   }
 }
 
-onMounted(refreshPlans)
+onMounted(async () => {
+  await planningStore.loadSavedPlans()
+})
 
 function cardinalDir(deg) {
-  const dirs = ['N','NE','E','SE','S','SW','W','NW']
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
   return dirs[Math.round(deg / 45) % 8]
 }
 
