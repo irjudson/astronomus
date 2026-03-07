@@ -682,8 +682,9 @@ async def search_catalog(
         exact_match_objects = []
         if search:
             import re as _re
+
             # If user types "M31", also try zero-padded "M031" to match common_name storage format
-            _m = _re.match(r'^([A-Za-z]+)(\d+)$', search.strip(), _re.IGNORECASE)
+            _m = _re.match(r"^([A-Za-z]+)(\d+)$", search.strip(), _re.IGNORECASE)
             padded_search = f"{_m.group(1)}{_m.group(2).zfill(3)}" if _m else search
 
             # Check for exact matches (case-insensitive) - these bypass all filters
