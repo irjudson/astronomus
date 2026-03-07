@@ -8,6 +8,7 @@
     <!-- Error state -->
     <div v-else-if="error" class="p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
       {{ error }}
+      <button @click="loadData" class="mt-2 block text-xs text-red-300 underline hover:text-red-200">Retry</button>
     </div>
 
     <!-- Content -->
@@ -127,21 +128,25 @@ function toggleWishlist(obj) {
   }
 }
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true
+  error.value = null
   try {
     const { latitude, longitude } = settingsStore.settings
     const params = {}
     if (latitude != null) params.lat = latitude
     if (longitude != null) params.lon = longitude
 
-    const response = await axios.get('/api/solar-system/objects', { params })
+    const response = await axios.get('/api/solar-system/objects', { params, timeout: 15000 })
     objects.value = response.data.objects || []
   } catch (err) {
     error.value = 'Failed to load solar system data: ' + (err.response?.data?.detail || err.message)
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadData)
 
 // Inline card component
 const SolarSystemCard = defineComponent({

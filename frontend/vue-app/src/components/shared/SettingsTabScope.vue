@@ -286,7 +286,10 @@
 
     <!-- Hardware Info -->
     <section v-if="executionStore.connected">
-      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Hardware Info</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide">Hardware Info</h3>
+        <button @click="executionStore.fetchSystemInfo()" class="text-xs text-gray-500 hover:text-gray-300 transition-colors">Refresh</button>
+      </div>
       <div class="bg-gray-800 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm">
         <div>
           <div class="text-gray-500 text-xs mb-0.5">Board Temp</div>
