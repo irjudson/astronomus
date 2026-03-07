@@ -24,9 +24,9 @@ export const DEFAULT_SETTINGS = {
   planSetupMinutes: 30,
   planObjectTypes: ['galaxy', 'nebula', 'cluster', 'planetary_nebula'],
   // Catalog filter defaults
-  catalogSortBy: 'name',
-  catalogVisibleNow: false,
-  catalogUseScoring: false,
+  catalogSortBy: 'score',
+  catalogVisibleNow: true,
+  catalogUseScoring: true,
   // Imaging
   imagingMode: 'deep-sky',
   annotationsEnabled: false,
