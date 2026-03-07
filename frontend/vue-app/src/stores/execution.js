@@ -455,6 +455,53 @@ export const useExecutionStore = defineStore('execution', {
       }
     },
 
+    async skipTarget() {
+      if (this.executionStatus !== 'running') return
+      if (this.currentTargetIndex + 1 >= this.scheduledTargets.length) return
+      try { await axios.post('/api/telescope/abort') } catch { /* best-effort */ }
+      this.stopProgressPolling()
+      this.currentTargetIndex++
+      this.resumeOffset = this.currentTargetIndex
+      const remaining = this.scheduledTargets.slice(this.currentTargetIndex)
+      if (!remaining.length) {
+        this.executionStatus = 'completed'
+        this.addMessage('Plan completed')
+        return
+      }
+      this.executionStatus = 'running'
+      this.addMessage(`Skipped to ${this.currentPlan.targets[this.currentTargetIndex]?.name || 'next target'}`)
+      try {
+        await axios.post('/api/telescope/execute', { scheduled_targets: remaining, park_when_done: true })
+        this.startProgressPolling()
+      } catch (err) {
+        this.executionStatus = 'idle'
+        this.error = 'Failed to skip: ' + (err.response?.data?.detail || err.message)
+      }
+    },
+
+    async extendTarget(minutes) {
+      if (this.executionStatus !== 'running') return
+      const st = this.scheduledTargets[this.currentTargetIndex]
+      if (!st) return
+      const newEndMs = new Date(st.end_time).getTime() + minutes * 60000
+      st.end_time = new Date(newEndMs).toISOString()
+      st.duration_minutes = (st.duration_minutes || 0) + minutes
+      try { await axios.post('/api/telescope/abort') } catch { /* best-effort */ }
+      this.stopProgressPolling()
+      const remaining = this.scheduledTargets.slice(this.currentTargetIndex)
+      this.resumeOffset = this.currentTargetIndex
+      this.executionStatus = 'running'
+      const name = this.currentPlan?.targets[this.currentTargetIndex]?.name || 'current target'
+      this.addMessage(`+${minutes} min added to ${name}`)
+      try {
+        await axios.post('/api/telescope/execute', { scheduled_targets: remaining, park_when_done: true })
+        this.startProgressPolling()
+      } catch (err) {
+        this.executionStatus = 'idle'
+        this.error = 'Failed to extend: ' + (err.response?.data?.detail || err.message)
+      }
+    },
+
     async stopPlan() {
       try {
         await axios.post('/api/telescope/abort')
