@@ -220,6 +220,9 @@ const svgRef = ref(null)
 const dragState = ref(null)
 // dragState shape: { index, mode: 'move'|'left'|'right', startClientX, origStartMs, origEndMs }
 
+const nowTick = ref(Date.now())
+let _nowTickInterval = null
+
 const EDGE_PX = 8        // viewBox pixels for left/right drag handle zones
 const MIN_DUR_MS = 5 * 60 * 1000
 
@@ -267,10 +270,12 @@ onMounted(() => {
   fetchAllCurves()
   document.addEventListener('mousemove', onDocMousemove)
   document.addEventListener('mouseup',   onDocMouseup)
+  _nowTickInterval = setInterval(() => { nowTick.value = Date.now() }, 60_000)
 })
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDocMousemove)
   document.removeEventListener('mouseup',   onDocMouseup)
+  if (_nowTickInterval) clearInterval(_nowTickInterval)
 })
 watch(() => props.plan?.session?.imaging_start, fetchAllCurves)
 
@@ -488,7 +493,7 @@ const gaps = computed(() => {
 // Blue "now" line if current time is within the session window
 const nowX = computed(() => {
   if (!sessionDur.value) return null
-  const now = Date.now()
+  const now = nowTick.value
   if (now < sessionStart.value || now > sessionEnd.value) return null
   return ML + ((now - sessionStart.value) / sessionDur.value) * CW
 })
