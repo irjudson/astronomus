@@ -18,8 +18,8 @@
       <rect
         :x="windowX" :y="0"
         :width="windowWidth" :height="H"
-        :fill="scoreColor + '30'"
-        :stroke="scoreColor"
+        :fill="lineColor + '30'"
+        :stroke="lineColor"
         stroke-width="1"
         style="pointer-events: none"
       />
@@ -62,7 +62,8 @@
     <path
       :d="displayCurvePath"
       fill="none"
-      :stroke="fetchedPoints ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)'"
+      :stroke="lineColor"
+      :stroke-opacity="fetchedPoints ? 0.9 : 0.5"
       :stroke-width="fetchedPoints ? 1.5 : 1"
       stroke-linejoin="round"
       :clip-path="`url(#${clipId})`"
@@ -70,7 +71,7 @@
 
     <!-- Start dot (visual, non-interactive) + large hit area for drag -->
     <g v-if="windowWidth > 0 && startDotY !== null">
-      <circle :cx="windowX" :cy="startDotY" r="2.5" :fill="scoreColor" style="pointer-events: none" />
+      <circle :cx="windowX" :cy="startDotY" r="2.5" :fill="lineColor" style="pointer-events: none" />
       <circle
         v-if="index != null"
         :cx="windowX" :cy="startDotY" r="7"
@@ -81,7 +82,7 @@
 
     <!-- End dot (visual, non-interactive) + large hit area for drag -->
     <g v-if="windowWidth > 0 && endDotY !== null">
-      <circle :cx="windowX + windowWidth" :cy="endDotY" r="2.5" :fill="scoreColor" style="pointer-events: none" />
+      <circle :cx="windowX + windowWidth" :cy="endDotY" r="2.5" :fill="lineColor" style="pointer-events: none" />
       <circle
         v-if="index != null"
         :cx="windowX + windowWidth" :cy="endDotY" r="7"
@@ -118,6 +119,7 @@ const props = defineProps({
   minAlt:   { type: Number, default: 20 },
   bodyName: { type: String, default: null },   // solar system body name (overrides ra/dec fetch)
   index:    { type: Number, default: null },   // null = read-only (discovery/solar system cards)
+  color:    { type: String, default: null },   // object color from palette; falls back to scoreColor
 })
 
 const planningStore = usePlanningStore()
@@ -240,12 +242,14 @@ const endDotY = computed(() => {
   return alt != null ? ay(alt) : null
 })
 
-// Score → stroke color
+// Score → stroke color (fallback when no object color provided)
 const scoreColor = computed(() => {
   const s = props.target.score?.total_score
   if (s == null) return '#6b7280'
   return s >= 0.7 ? '#22c55e' : s >= 0.4 ? '#f59e0b' : '#ef4444'
 })
+
+const lineColor = computed(() => props.color ?? scoreColor.value)
 
 // "10:30 PM – 11:45 PM" label
 const scheduledLabel = computed(() => {

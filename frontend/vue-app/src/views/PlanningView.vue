@@ -108,11 +108,10 @@
                 :key="target.target?.catalog_id || index"
                 :ref="el => { if (el) targetRefs[index] = el }"
                 :class="[
-                  'bg-gray-900 border rounded-lg p-4 transition-colors',
-                  selectedTargetIndex === index
-                    ? 'border-blue-600'
-                    : 'border-gray-800 hover:border-gray-700'
+                  'bg-gray-900 border border-l-4 rounded-lg p-4 transition-colors',
+                  selectedTargetIndex === index ? 'border-gray-700' : 'border-gray-800 hover:border-gray-700'
                 ]"
+              :style="{ borderLeftColor: objectColor(index) }"
               >
                 <div class="flex items-start gap-2">
                   <!-- Reorder buttons -->
@@ -182,13 +181,14 @@
                         :location="planningStore.currentPlan.location"
                         :min-alt="planningStore.constraints.min_altitude_degrees"
                         :index="index"
+                        :color="objectColor(index)"
                       />
                     </div>
                   </div>
 
                   <!-- Right: index + remove -->
                   <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                    <div class="text-2xl font-bold text-blue-500 leading-none">{{ index + 1 }}</div>
+                    <div class="text-2xl font-bold leading-none" :style="{ color: objectColor(index) }">{{ index + 1 }}</div>
                     <button
                       @click="planningStore.removeFromPlan(index)"
                       class="mt-1 px-1.5 py-0.5 text-gray-600 hover:text-red-400 hover:bg-red-900/20 rounded text-xs transition-colors"
@@ -282,6 +282,7 @@ import PanelContainer from '@/components/layout/PanelContainer.vue'
 import PlanningControls from '@/components/planning/PlanningControls.vue'
 import PlanTimeline from '@/components/planning/PlanTimeline.vue'
 import TargetVisibilityMini from '@/components/planning/TargetVisibilityMini.vue'
+import { objectColor } from '@/utils/objectColors'
 
 const router = useRouter()
 const planningStore = usePlanningStore()

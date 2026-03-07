@@ -154,7 +154,8 @@
           v-for="(target, i) in targets" :key="'curve' + (target.target?.catalog_id || i)"
           :d="pointsToPath(fullCurves[target.target?.catalog_id] ?? target.altitude_points)"
           fill="none"
-          :stroke="fullCurves[target.target?.catalog_id] ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)'"
+          :stroke="objectColor(i)"
+          :stroke-opacity="fullCurves[target.target?.catalog_id] ? 0.9 : 0.5"
           stroke-width="1.5"
           stroke-linejoin="round"
           style="pointer-events: none"
@@ -176,7 +177,8 @@
           :x="(tx(target.start_time) + tx(target.end_time)) / 2"
           :y="MT + CH + 13"
           text-anchor="middle"
-          fill="#9ca3af"
+          :fill="objectColor(i)"
+          fill-opacity="0.85"
           font-size="8"
           font-family="ui-sans-serif,system-ui,sans-serif"
           style="pointer-events: none"
@@ -407,7 +409,7 @@ function windowColor(i) {
   if (c === 'overlap') return '#ef4444'  // red
   if (c === 'gap')     return '#f97316'  // orange
   if (c === 'lowalt')  return '#eab308'  // yellow
-  return scoreColor(targets.value[i].score?.total_score)
+  return objectColor(i)
 }
 
 function onWindowMousedown(e, i, mode) {
@@ -460,6 +462,8 @@ const edgePx = (i) => {
   const w = tx(targets.value[i].end_time) - tx(targets.value[i].start_time)
   return Math.min(EDGE_PX, Math.floor(w / 3))
 }
+
+import { objectColor } from '@/utils/objectColors'
 
 const scoreColor = (score) =>
   score == null ? '#6b7280' : score >= 0.7 ? '#22c55e' : score >= 0.4 ? '#f59e0b' : '#ef4444'
