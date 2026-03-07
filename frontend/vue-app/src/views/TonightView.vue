@@ -112,7 +112,7 @@
         class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col items-center gap-2 hover:border-indigo-600 transition-colors cursor-pointer"
       >
         <span class="text-2xl">&#x1F5C2;&#xFE0F;</span>
-        <span class="text-sm font-medium text-gray-300">Archive</span>
+        <span class="text-sm font-medium text-gray-300">Review</span>
       </router-link>
     </div>
   </div>

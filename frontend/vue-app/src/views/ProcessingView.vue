@@ -6,7 +6,7 @@
     <!-- Left panel header -->
     <template #left-header>
       <div>
-        <h3 class="text-sm font-semibold text-gray-200">Files & Archive</h3>
+        <h3 class="text-sm font-semibold text-gray-200">Files & Review</h3>
       </div>
     </template>
 
@@ -35,7 +35,7 @@
       <div class="flex flex-col h-full">
         <!-- View Header -->
         <div class="bg-gray-900/50 border-b border-gray-800 px-4 py-3 flex-none">
-          <h2 class="text-lg font-semibold text-gray-200">Archive</h2>
+          <h2 class="text-lg font-semibold text-gray-200">Review</h2>
           <p class="text-sm text-gray-500">
             {{ processingStore.previewImage ? 'Image ready' : 'Select a file to preview' }}
           </p>

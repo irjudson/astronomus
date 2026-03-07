@@ -43,7 +43,7 @@
         class="px-4 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
         :class="$route.path.startsWith('/archive') ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'"
       >
-        Archive
+        Review
       </router-link>
     </nav>
 
