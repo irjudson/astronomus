@@ -65,7 +65,7 @@
         <input
           type="range"
           min="0"
-          max="10000"
+          max="32767"
           v-model.number="focusTarget"
           @change="applyFocusMove"
           class="w-full h-1.5 rounded-full appearance-none bg-gray-700 accent-indigo-500 cursor-pointer"
@@ -79,7 +79,7 @@
           <div class="flex items-center gap-2">
             <span v-if="dewEnabled" class="text-xs text-gray-400">{{ dewPower }}%</span>
             <button
-              @click="dewEnabled = !dewEnabled; applyDewHeater()"
+              @click="toggleDewHeater"
               class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
               :class="dewEnabled ? 'bg-blue-600' : 'bg-gray-700'"
             >
@@ -194,6 +194,20 @@ async function applyFocusMove() {
   }
 }
 
+async function toggleDewHeater() {
+  dewEnabled.value = !dewEnabled.value
+  try {
+    await axios.post(`${BASE}/hardware/dew-heater`, {
+      enabled: dewEnabled.value,
+      power_level: dewPower.value,
+    })
+  } catch (err) {
+    dewEnabled.value = !dewEnabled.value  // revert on failure
+    const msg = err.response?.data?.detail || err.message || 'Dew heater update failed'
+    toastStore.error(msg)
+  }
+}
+
 async function applyDewHeater() {
   try {
     await axios.post(`${BASE}/hardware/dew-heater`, {
@@ -201,7 +215,7 @@ async function applyDewHeater() {
       power_level: dewPower.value,
     })
   } catch (err) {
-    const msg = err.response?.data?.detail || err.message || 'Dew heater update failed'
+    const msg = err.response?.data?.detail || err.message || 'Dew heater power update failed'
     toastStore.error(msg)
   }
 }
