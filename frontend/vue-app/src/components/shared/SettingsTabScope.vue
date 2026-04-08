@@ -178,45 +178,21 @@
           </div>
         </template>
 
-        <!-- Step 2: Rotate to face North -->
+        <!-- Step 2: Rotate to face North / aim at Polaris -->
         <template v-else-if="polarStep === 2">
-          <p class="text-xs text-gray-400 mb-3 font-medium">Step 2 — Rotate scope (base only) to face North</p>
-          <div class="flex items-start gap-4">
-            <svg viewBox="0 0 100 100" class="w-24 h-24 flex-shrink-0">
-              <circle cx="50" cy="50" r="46" fill="#111827" stroke="#374151" stroke-width="1.5"/>
-              <g stroke="#374151" stroke-width="1">
-                <line x1="50" y1="6" x2="50" y2="14"/>  <line x1="50" y1="86" x2="50" y2="94"/>
-                <line x1="6" y1="50" x2="14" y2="50"/>  <line x1="86" y1="50" x2="94" y2="50"/>
-              </g>
-              <text x="50" y="15" fill="#D1FAE5" font-size="11" text-anchor="middle" font-weight="bold">N</text>
-              <text x="50" y="93" fill="#6B7280" font-size="8" text-anchor="middle">S</text>
-              <text x="92" y="54" fill="#6B7280" font-size="8" text-anchor="middle">E</text>
-              <text x="8" y="54" fill="#6B7280" font-size="8" text-anchor="middle">W</text>
-              <line x1="50" y1="50" x2="50" y2="20" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/>
-              <polygon points="50,16 46,22 54,22" fill="#22C55E"/>
-              <template v-if="executionStore.compass.heading !== null">
-                <line x1="50" y1="50" :x2="headingX2" :y2="headingY2" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-dasharray="4,2"/>
-                <polygon :points="headingArrow2" fill="#F97316"/>
-              </template>
-              <circle cx="50" cy="50" r="3" :fill="compassReady ? '#22C55E' : '#F97316'"/>
-            </svg>
-            <div class="flex-1 space-y-2 pt-1">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full flex-shrink-0"
-                      :class="compassReady ? 'bg-green-500' : executionStore.compass.heading === null ? 'bg-gray-500' : 'bg-orange-500 animate-pulse'"></span>
-                <span class="text-sm font-medium" :class="compassStatusClass">{{ compassStatusText }}</span>
-              </div>
-              <p class="text-xs text-gray-500 leading-tight">Green = North target<br>Orange dashed = current heading</p>
-              <p v-if="executionStore.compass.heading === null" class="text-xs text-yellow-600 leading-tight">
-                No compass data — you can use Polaris or a compass app to aim North, then skip.
-              </p>
-            </div>
+          <p class="text-xs text-gray-400 mb-3 font-medium">Step 2 — Point scope toward Polaris (rotate base only)</p>
+          <div class="bg-blue-900/20 border border-blue-800 rounded-lg p-3 mb-3">
+            <p class="text-xs text-blue-300 leading-relaxed font-medium mb-1">Aim at Polaris, not the compass</p>
+            <p class="text-xs text-blue-200 leading-relaxed">Once tilted, the onboard compass reads along the tilted plane — it no longer equals geographic North. Use Polaris (the North Star) or a phone compass app to rotate the base until the scope points toward true North.</p>
           </div>
-          <div class="flex gap-2 mt-3">
+          <div v-if="executionStore.compass.heading !== null" class="flex items-center gap-2 mb-2">
+            <span class="text-xs text-gray-500">Compass heading (for reference only):</span>
+            <span class="text-xs font-mono text-gray-300">{{ executionStore.compass.heading.toFixed(0) }}°</span>
+          </div>
+          <div class="flex gap-2 mt-1">
             <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">← Back</button>
-            <button @click="goToPolarStep(3)" class="flex-1 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                    :class="compassReady ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-              {{ compassReady ? '→ Next: Measure' : 'Skip →' }}
+            <button @click="goToPolarStep(3)" class="flex-1 px-3 py-2 text-sm rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+              Aimed at Polaris → Measure
             </button>
           </div>
         </template>
