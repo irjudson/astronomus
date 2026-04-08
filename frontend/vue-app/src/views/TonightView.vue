@@ -78,8 +78,22 @@
           </router-link>
         </div>
       </template>
+      <template v-else-if="planningStore.savedPlans.length">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-base font-semibold text-white mb-1">{{ planningStore.savedPlans[0].name }}</div>
+            <div class="text-sm text-gray-400">Most recent saved plan</div>
+          </div>
+          <button
+            class="flex-shrink-0 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+            @click="loadMostRecent"
+          >
+            Load Plan &rarr;
+          </button>
+        </div>
+      </template>
       <template v-else>
-        <p class="text-sm text-gray-500 mb-2">No plan loaded.</p>
+        <p class="text-sm text-gray-500 mb-2">No plan yet.</p>
         <router-link
           to="/plan"
           class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -177,6 +191,11 @@ const sessionTimeRange = computed(() => {
   if (!start || !end) return null
   return `${start} – ${end}`
 })
+
+async function loadMostRecent() {
+  const plan = planningStore.savedPlans[0]
+  if (plan) await planningStore.loadPlan(plan.id)
+}
 
 onMounted(async () => {
   await weatherStore.fetchLocalWeather()
