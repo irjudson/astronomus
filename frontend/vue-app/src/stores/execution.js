@@ -36,7 +36,7 @@ export const useExecutionStore = defineStore('execution', {
     polarAlignment: { active: false, status: 'idle', errorArcmin: null },
 
     // Compass calibration state
-    compass: { status: 'idle', heading: null },
+    compass: { status: 'idle', heading: null, x: null, y: null, z: null },
 
     // Object tracking state
     tracking: { active: false, objectType: null, objectId: null },
@@ -732,6 +732,10 @@ export const useExecutionStore = defineStore('execution', {
         // heading field name varies by firmware: 'direction' (confirmed), 'heading', 'angle', 'yaw'
         const heading = d.direction ?? d.heading ?? d.angle ?? d.yaw ?? null
         if (heading !== null) this.compass.heading = Math.round(heading)
+        // Store raw magnetometer components for tilt-compensated heading calculation
+        if (d.x != null) this.compass.x = d.x
+        if (d.y != null) this.compass.y = d.y
+        if (d.z != null) this.compass.z = d.z
       } catch { /* silent */ }
     },
 

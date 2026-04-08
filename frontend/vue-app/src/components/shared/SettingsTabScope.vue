@@ -181,15 +181,46 @@
         <!-- Step 2: Rotate to face North / aim at Polaris -->
         <template v-else-if="polarStep === 2">
           <p class="text-xs text-gray-400 mb-3 font-medium">Step 2 — Point scope toward Polaris (rotate base only)</p>
-          <div class="bg-blue-900/20 border border-blue-800 rounded-lg p-3 mb-3">
-            <p class="text-xs text-blue-300 leading-relaxed font-medium mb-1">Aim at Polaris, not the compass</p>
-            <p class="text-xs text-blue-200 leading-relaxed">Once tilted, the onboard compass reads along the tilted plane — it no longer equals geographic North. Use Polaris (the North Star) or a phone compass app to rotate the base until the scope points toward true North.</p>
+
+          <!-- Tilt-compensated compass rose, or fallback message -->
+          <div v-if="headingForDisplay !== null" class="flex items-start gap-4 mb-3">
+            <svg viewBox="0 0 100 100" class="w-24 h-24 flex-shrink-0">
+              <circle cx="50" cy="50" r="46" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+              <g stroke="#374151" stroke-width="1">
+                <line x1="50" y1="6" x2="50" y2="14"/>  <line x1="50" y1="86" x2="50" y2="94"/>
+                <line x1="6" y1="50" x2="14" y2="50"/>  <line x1="86" y1="50" x2="94" y2="50"/>
+              </g>
+              <text x="50" y="15" fill="#D1FAE5" font-size="11" text-anchor="middle" font-weight="bold">N</text>
+              <text x="50" y="93" fill="#6B7280" font-size="8" text-anchor="middle">S</text>
+              <text x="92" y="54" fill="#6B7280" font-size="8" text-anchor="middle">E</text>
+              <text x="8" y="54" fill="#6B7280" font-size="8" text-anchor="middle">W</text>
+              <line x1="50" y1="50" x2="50" y2="20" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round"/>
+              <polygon points="50,16 46,22 54,22" fill="#22C55E"/>
+              <line x1="50" y1="50"
+                    :x2="(50 + 30 * Math.sin(headingForDisplay * Math.PI / 180)).toFixed(1)"
+                    :y2="(50 - 30 * Math.cos(headingForDisplay * Math.PI / 180)).toFixed(1)"
+                    stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-dasharray="4,2"/>
+              <circle cx="50" cy="50" r="3" :fill="northReady ? '#22C55E' : '#F97316'"/>
+            </svg>
+            <div class="flex-1 space-y-2 pt-1">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="northReady ? 'bg-green-500' : 'bg-orange-500 animate-pulse'"></span>
+                <span class="text-sm font-medium" :class="northReady ? 'text-green-400' : 'text-orange-400'">
+                  {{ northStatusText }}
+                </span>
+              </div>
+              <p class="text-xs font-mono text-gray-400">{{ headingForDisplay }}° ({{ headingSourceLabel }})</p>
+              <p class="text-xs text-yellow-600 leading-tight">
+                Approximation only — confirm by centering Polaris in the eyepiece or using a phone compass.
+              </p>
+            </div>
           </div>
-          <div v-if="executionStore.compass.heading !== null" class="flex items-center gap-2 mb-2">
-            <span class="text-xs text-gray-500">Compass heading (for reference only):</span>
-            <span class="text-xs font-mono text-gray-300">{{ executionStore.compass.heading.toFixed(0) }}°</span>
+          <div v-else class="bg-gray-900 rounded-lg p-3 mb-3">
+            <p class="text-xs text-gray-400 leading-relaxed">No sensor data. Use Polaris (North Star) or a phone compass to rotate the base toward true North.</p>
           </div>
-          <div class="flex gap-2 mt-1">
+
+          <div class="flex gap-2">
             <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">← Back</button>
             <button @click="goToPolarStep(3)" class="flex-1 px-3 py-2 text-sm rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
               Aimed at Polaris → Measure
@@ -480,6 +511,47 @@ const polarInstructionText = computed(() => {
   return 'Significant error. Larger adjustment needed to elevation and/or azimuth screw.'
 })
 
+// ── Tilt-compensated heading ──────────────────────────────────────────────────
+// Projects the magnetometer vector onto the horizontal plane using the
+// accelerometer gravity vector, giving a valid heading even when the scope
+// is tilted to latitude degrees.
+//
+// Math: standard 2-step tilt compensation (Freescale AN4248)
+//   roll  = atan2(ay, az)
+//   pitch = atan2(-ax, sqrt(ay²+az²))
+//   Bx    = mx·cos(pitch) + mz·sin(pitch)
+//   By    = mx·sin(roll)·sin(pitch) + my·cos(roll) − mz·sin(roll)·cos(pitch)
+//   heading = atan2(-By, Bx)   [negated By because Y increases clockwise on S50]
+//
+// Returns null when raw sensor components are unavailable.
+const tiltCompensatedHeading = computed(() => {
+  const { x: mx, y: my, z: mz } = executionStore.compass
+  const { x: ax, y: ay, z: az } = executionStore.balance
+  if (mx == null || my == null || mz == null) return null
+  if (ax == null && ay == null) return null   // no accel data — can't compensate
+
+  // Accelerometer values are in raw ADC counts from the S50;
+  // we only need ratios (normalised direction), not absolute units.
+  const roll  = Math.atan2(ay ?? 0, az ?? 1)
+  const pitch = Math.atan2(-(ax ?? 0), Math.sqrt((ay ?? 0) ** 2 + (az ?? 1) ** 2))
+
+  const Bx = mx * Math.cos(pitch) + mz * Math.sin(pitch)
+  const By = mx * Math.sin(roll) * Math.sin(pitch)
+           + my * Math.cos(roll)
+           - mz * Math.sin(roll) * Math.cos(pitch)
+
+  let heading = Math.atan2(-By, Bx) * 180 / Math.PI
+  if (heading < 0) heading += 360
+  return Math.round(heading)
+})
+
+const headingForDisplay = computed(() =>
+  tiltCompensatedHeading.value ?? executionStore.compass.heading
+)
+const headingSourceLabel = computed(() =>
+  tiltCompensatedHeading.value != null ? 'tilt-compensated' : 'raw (tilt not compensated)'
+)
+
 // ── Compass step SVG computed ─────────────────────────────────────────────────
 const headingX2 = computed(() => {
   if (executionStore.compass.heading === null) return 50
@@ -497,23 +569,20 @@ const headingArrow2 = computed(() => {
   const bx = 50 + 28 * sin, by = 50 - 28 * cos
   return `${tx},${ty} ${(bx + 4*cos).toFixed(1)},${(by + 4*sin).toFixed(1)} ${(bx - 4*cos).toFixed(1)},${(by - 4*sin).toFixed(1)}`
 })
-const compassReady = computed(() => {
-  if (executionStore.compass.heading === null) return false
-  const h = executionStore.compass.heading
-  return (h <= 180 ? h : 360 - h) < 15
+// northReady / northStatusText use the tilt-compensated heading when available,
+// falling back to raw heading. Step 2 no longer gates "Next" on this — it's an
+// approximation and the user always decides when they're satisfied.
+const northReady = computed(() => {
+  const h = headingForDisplay.value
+  if (h === null) return false
+  return (h <= 180 ? h : 360 - h) < 10
 })
-const compassStatusText = computed(() => {
-  if (executionStore.compass.heading === null) return 'No heading data'
-  const h = executionStore.compass.heading
+const northStatusText = computed(() => {
+  const h = headingForDisplay.value
+  if (h === null) return 'No heading data'
   const delta = h <= 180 ? h : 360 - h
-  if (delta < 10) return `Facing North (${h}°) ✓`
-  return `Rotate ${h <= 180 ? 'left' : 'right'} ${Math.round(delta)}° to face North`
-})
-const compassStatusClass = computed(() => {
-  if (executionStore.compass.heading === null) return 'text-gray-400'
-  if (compassReady.value) return 'text-green-400'
-  const h = executionStore.compass.heading
-  return (h <= 180 ? h : 360 - h) < 45 ? 'text-yellow-400' : 'text-orange-400'
+  if (delta < 10) return `Approximately North (${h}°) ✓`
+  return `Rotate ${h <= 180 ? 'left' : 'right'} ~${Math.round(delta)}° toward North`
 })
 
 // ── Elevation step SVG computed ───────────────────────────────────────────────
