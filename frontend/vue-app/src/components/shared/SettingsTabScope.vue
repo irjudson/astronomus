@@ -212,7 +212,7 @@
               </div>
               <p class="text-xs font-mono text-gray-400">{{ headingForDisplay }}° ({{ headingSourceLabel }})</p>
               <p class="text-xs text-yellow-600 leading-tight">
-                Approximation only — confirm by centering Polaris in the eyepiece or using a phone compass.
+                Approximation only — confirm by centering Polaris in the live preview or using a phone compass.
               </p>
             </div>
           </div>
