@@ -112,7 +112,7 @@
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Polar Alignment</h3>
 
       <div v-if="polarStep > 0" class="flex items-center justify-center mb-4">
-        <template v-for="(s, i) in [{l:'North'},{l:'Elevation'},{l:'Measure'},{l:'Results'}]" :key="i">
+        <template v-for="(s, i) in [{l:'Tilt'},{l:'North'},{l:'Measure'},{l:'Adjust'}]" :key="i">
           <div class="flex flex-col items-center">
             <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
                  :class="polarStep > i+1 ? 'bg-green-700 text-green-100' : polarStep === i+1 ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-gray-700 text-gray-500'">
@@ -142,9 +142,45 @@
           </div>
         </template>
 
-        <!-- Step 1: Point toward North -->
+        <!-- Step 1: Tilt to latitude elevation -->
         <template v-else-if="polarStep === 1">
-          <p class="text-xs text-gray-400 mb-3 font-medium">Step 1 — Rotate scope to face North</p>
+          <p class="text-xs text-gray-400 mb-3 font-medium">Step 1 — Tilt scope to {{ elevationTarget.toFixed(1) }}° (power button UP)</p>
+          <div class="flex items-start gap-4">
+            <svg viewBox="0 0 105 80" class="w-28 h-20 flex-shrink-0">
+              <line x1="5" y1="65" x2="100" y2="65" stroke="#4B5563" stroke-width="1.5"/>
+              <line x1="10" :x2="elevTargetEndX" y1="65" :y2="elevTargetEndY"
+                    stroke="#22C55E" stroke-width="1.5" stroke-dasharray="4,2" stroke-linecap="round"/>
+              <text :x="Number(elevTargetEndX)+2" :y="Number(elevTargetEndY)-1" fill="#22C55E" font-size="7">★{{ elevationTarget.toFixed(0) }}°</text>
+              <line x1="10" :x2="elevCurrentEndX" y1="65" :y2="elevCurrentEndY"
+                    :stroke="elevationReady ? '#22C55E' : '#60A5FA'" stroke-width="3" stroke-linecap="round"/>
+              <path :d="elevCurrentArcPath" fill="none" :stroke="elevationReady ? '#86EFAC' : '#93C5FD'" stroke-width="1"/>
+              <text :x="elevCurrentLabelX" :y="elevCurrentLabelY"
+                    :fill="elevationReady ? '#86EFAC' : '#93C5FD'" font-size="9" text-anchor="middle">{{ elevationCurrent.toFixed(1) }}°</text>
+            </svg>
+            <div class="flex-1 space-y-2 pt-1">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full flex-shrink-0"
+                      :class="elevationReady ? 'bg-green-500' : elevationCurrent === 0 ? 'bg-gray-500' : 'bg-orange-500 animate-pulse'"></span>
+                <span class="text-sm font-medium" :class="elevStatusClass">{{ elevStatusText }}</span>
+              </div>
+              <p class="text-xs text-gray-500 leading-tight">
+                Green dashed = target {{ elevationTarget.toFixed(1) }}°<br>Blue solid = current angle
+              </p>
+              <p class="text-xs text-yellow-600 leading-tight">Power button should face UP (toward sky).</p>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button @click="goToPolarStep(0)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">Cancel</button>
+            <button @click="goToPolarStep(2)" class="flex-1 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                    :class="elevationReady ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+              {{ elevationReady ? '→ Next: Point North' : 'Skip →' }}
+            </button>
+          </div>
+        </template>
+
+        <!-- Step 2: Rotate to face North -->
+        <template v-else-if="polarStep === 2">
+          <p class="text-xs text-gray-400 mb-3 font-medium">Step 2 — Rotate scope (base only) to face North</p>
           <div class="flex items-start gap-4">
             <svg viewBox="0 0 100 100" class="w-24 h-24 flex-shrink-0">
               <circle cx="50" cy="50" r="46" fill="#111827" stroke="#374151" stroke-width="1.5"/>
@@ -172,50 +208,15 @@
               </div>
               <p class="text-xs text-gray-500 leading-tight">Green = North target<br>Orange dashed = current heading</p>
               <p v-if="executionStore.compass.heading === null" class="text-xs text-yellow-600 leading-tight">
-                No compass data — calibrate compass above first.
-              </p>
-            </div>
-          </div>
-          <div class="flex gap-2 mt-3">
-            <button @click="goToPolarStep(0)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">Cancel</button>
-            <button @click="goToPolarStep(2)" class="flex-1 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                    :class="compassReady ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-              {{ compassReady ? '→ Next: Set Elevation' : 'Skip →' }}
-            </button>
-          </div>
-        </template>
-
-        <!-- Step 2: Tilt to latitude elevation -->
-        <template v-else-if="polarStep === 2">
-          <p class="text-xs text-gray-400 mb-3 font-medium">Step 2 — Tilt scope to {{ elevationTarget.toFixed(1) }}° elevation</p>
-          <div class="flex items-start gap-4">
-            <svg viewBox="0 0 105 80" class="w-28 h-20 flex-shrink-0">
-              <line x1="5" y1="65" x2="100" y2="65" stroke="#4B5563" stroke-width="1.5"/>
-              <line x1="10" :x2="elevTargetEndX" y1="65" :y2="elevTargetEndY"
-                    stroke="#22C55E" stroke-width="1.5" stroke-dasharray="4,2" stroke-linecap="round"/>
-              <text :x="Number(elevTargetEndX)+2" :y="Number(elevTargetEndY)-1" fill="#22C55E" font-size="7">★{{ elevationTarget.toFixed(0) }}°</text>
-              <line x1="10" :x2="elevCurrentEndX" y1="65" :y2="elevCurrentEndY"
-                    :stroke="elevationReady ? '#22C55E' : '#60A5FA'" stroke-width="3" stroke-linecap="round"/>
-              <path :d="elevCurrentArcPath" fill="none" :stroke="elevationReady ? '#86EFAC' : '#93C5FD'" stroke-width="1"/>
-              <text :x="elevCurrentLabelX" :y="elevCurrentLabelY"
-                    :fill="elevationReady ? '#86EFAC' : '#93C5FD'" font-size="9" text-anchor="middle">{{ elevationCurrent.toFixed(1) }}°</text>
-            </svg>
-            <div class="flex-1 space-y-2 pt-1">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full flex-shrink-0"
-                      :class="elevationReady ? 'bg-green-500' : elevationCurrent === 0 ? 'bg-gray-500' : 'bg-orange-500 animate-pulse'"></span>
-                <span class="text-sm font-medium" :class="elevStatusClass">{{ elevStatusText }}</span>
-              </div>
-              <p class="text-xs text-gray-500 leading-tight">
-                Green dashed = target {{ elevationTarget.toFixed(1) }}°<br>Blue solid = current angle
+                No compass data — you can use Polaris or a compass app to aim North, then skip.
               </p>
             </div>
           </div>
           <div class="flex gap-2 mt-3">
             <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">← Back</button>
             <button @click="goToPolarStep(3)" class="flex-1 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
-                    :class="elevationReady ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
-              {{ elevationReady ? '→ Next: Run Alignment' : 'Skip →' }}
+                    :class="compassReady ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'">
+              {{ compassReady ? '→ Next: Measure' : 'Skip →' }}
             </button>
           </div>
         </template>
@@ -259,10 +260,10 @@
           </template>
         </template>
 
-        <!-- Step 4: Results -->
+        <!-- Step 4: Adjust & remeasure -->
         <template v-else-if="polarStep === 4">
-          <p class="text-xs text-gray-400 mb-3 font-medium">Step 4 — Results</p>
-          <div class="flex items-center gap-4">
+          <p class="text-xs text-gray-400 mb-3 font-medium">Step 4 — Adjust until within tolerance</p>
+          <div class="flex items-center gap-4 mb-3">
             <PolarAlignVisual :errorArcmin="executionStore.polarAlignment.errorArcmin" :active="false" :size="110" />
             <div class="flex-1 space-y-2">
               <div v-if="executionStore.polarAlignment.errorArcmin !== null">
@@ -271,14 +272,31 @@
                 <span class="ml-2 text-xs" :class="polarErrorClass">{{ polarQualityLabel }}</span>
               </div>
               <div v-else class="text-sm text-gray-400">No measurement data received.</div>
-              <p class="text-xs text-gray-400 leading-relaxed">{{ polarInstructionText }}</p>
             </div>
           </div>
-          <div class="flex gap-2 mt-4">
-            <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">↺ Start Over</button>
-            <button @click="handlePolarMeasureAgain" class="flex-1 px-3 py-1.5 text-xs rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Measure Again</button>
-            <button @click="handlePolarDone" class="px-3 py-1.5 text-xs rounded-lg font-medium bg-green-700 hover:bg-green-600 text-white transition-colors">✓ Done</button>
-          </div>
+
+          <!-- Within tolerance: done -->
+          <template v-if="polarAlignmentGood">
+            <div class="bg-green-900/30 border border-green-800 rounded-lg p-3 mb-3">
+              <p class="text-xs text-green-300 leading-relaxed">Excellent alignment — no adjustment needed.</p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">↺ Start Over</button>
+              <button @click="handlePolarDone" class="flex-1 px-3 py-2 text-sm rounded-lg font-medium bg-green-700 hover:bg-green-600 text-white transition-colors">✓ Done</button>
+            </div>
+          </template>
+
+          <!-- Needs adjustment -->
+          <template v-else>
+            <div class="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3 mb-3">
+              <p class="text-xs text-yellow-300 font-medium mb-1">{{ polarInstructionText }}</p>
+              <p class="text-xs text-gray-400 leading-relaxed">Make a small adjustment to the elevation or azimuth screws, then measure again. Repeat until error is below 5'.</p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="goToPolarStep(1)" class="px-3 py-1.5 text-xs rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">↺ Start Over</button>
+              <button @click="handlePolarMeasureAgain" class="flex-1 px-3 py-2 text-sm rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Remeasure →</button>
+            </div>
+          </template>
         </template>
 
       </div>
@@ -417,11 +435,13 @@ const goToPolarStep = (step) => {
   polarStep.value = step
   if (!executionStore.connected) return
   if (step === 1) {
-    executionStore.fetchCompassState()
-    polarCompassTimer = setInterval(() => executionStore.fetchCompassState(), 1000)
-  } else if (step === 2) {
+    // Step 1: tilt to latitude — monitor balance sensor
     executionStore.fetchBalance()
     polarBalanceTimer = setInterval(() => executionStore.fetchBalance(), 500)
+  } else if (step === 2) {
+    // Step 2: rotate to North — monitor compass
+    executionStore.fetchCompassState()
+    polarCompassTimer = setInterval(() => executionStore.fetchCompassState(), 1000)
   }
 }
 
@@ -472,12 +492,16 @@ const polarQualityLabel = computed(() => {
   if (e === null) return ''
   return e < 5 ? '● Excellent' : e < 15 ? '● Good' : e < 30 ? '● Fair' : '● Poor'
 })
+const polarAlignmentGood = computed(() => {
+  const e = executionStore.polarAlignment.errorArcmin
+  return e !== null && e < 5
+})
 const polarInstructionText = computed(() => {
   const e = executionStore.polarAlignment.errorArcmin
-  if (e !== null && e < 5) return 'Excellent alignment! No adjustment needed.'
-  if (e !== null && e < 15) return "Good alignment. Fine-tune the mount's altitude and azimuth bolts slightly."
-  if (e !== null) return "Significant error. Adjust the mount's altitude and azimuth bolts, then measure again."
-  return 'Measurement complete.'
+  if (e === null) return 'No measurement received.'
+  if (e < 5) return 'Excellent — within tolerance.'
+  if (e < 15) return 'Good. Make a small adjustment to the elevation or azimuth screw.'
+  return 'Significant error. Larger adjustment needed to elevation and/or azimuth screw.'
 })
 
 // ── Compass step SVG computed ─────────────────────────────────────────────────
