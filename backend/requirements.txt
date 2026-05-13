@@ -34,3 +34,9 @@ opencv-python-headless>=4.8.0  # For RTMP stream capture and image processing
 # Fuzzy string matching for target name normalization
 thefuzz>=0.20.0  # Fuzzy string matching for catalog target names
 python-Levenshtein>=0.20.0  # Faster fuzzy matching backend for thefuzz
+
+sgp4>=2.22
+
+# seestar-api is installed at container startup from /opt/seestar-api
+# (bind-mounted in docker-compose.yml, installed in docker/start.sh).
+# It cannot be pinned here because its source lives outside the build context.

@@ -433,6 +433,47 @@ async def update_wishlist(wishlist: List[dict], db: Session = Depends(get_db)):
     return {"message": "Wishlist updated successfully", "count": len(wishlist)}
 
 
+@router.get("/horizon-profile")
+async def get_horizon_profile(db: Session = Depends(get_db)):
+    """Get user's local horizon profile."""
+    import json
+
+    setting = db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()
+
+    if not setting:
+        return []
+
+    try:
+        return json.loads(setting.value)
+    except json.JSONDecodeError:
+        return []
+
+
+@router.put("/horizon-profile")
+async def update_horizon_profile(profile: List[dict], db: Session = Depends(get_db)):
+    """Save user's local horizon profile as list of {az, alt} points."""
+    import json
+
+    setting = db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()
+
+    profile_json = json.dumps(profile)
+
+    if setting:
+        setting.value = profile_json
+    else:
+        setting = AppSetting(
+            key="user.horizon_profile",
+            value=profile_json,
+            value_type="json",
+            category="user",
+            description="User's local horizon profile as az/alt points",
+        )
+        db.add(setting)
+
+    db.commit()
+    return {"message": "Horizon profile updated", "count": len(profile)}
+
+
 # ========================================================================
 # User Profile Settings (location + preferences as a single document)
 # ========================================================================
