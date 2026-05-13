@@ -57,6 +57,8 @@ services:
       # Development: mount source code for live reload
       - ./backend/app:/app/app
       - ./frontend:/app/frontend
+      # seestar-api library — installed at startup by docker/start.sh
+      - /home/irjudson/Projects/seestar-api:/opt/seestar-api:ro
       # Mount MPS directories for GPU sharing
       - /tmp/nvidia-mps:/tmp/nvidia-mps
       - /tmp/nvidia-log:/tmp/nvidia-log
