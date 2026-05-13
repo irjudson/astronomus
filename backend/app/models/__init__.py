@@ -14,6 +14,7 @@ from .models import (
     ExportFormat,
     GapAlternative,
     GapFillStats,
+    HorizonPoint,
     Location,
     ObservingConstraints,
     ObservingPlan,
@@ -32,6 +33,7 @@ from .models import (
 from .processing_models import ProcessingFile, ProcessingJob, ProcessingPipeline
 
 __all__ = [
+    "HorizonPoint",
     "Location",
     "ObservingConstraints",
     "PlanRequest",

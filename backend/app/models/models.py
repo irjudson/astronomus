@@ -26,6 +26,13 @@ class Location(BaseModel):
     timezone: str = Field(default="America/Denver", description="IANA timezone")
 
 
+class HorizonPoint(BaseModel):
+    """Single point in a local horizon profile."""
+
+    az: float = Field(ge=0, lt=360, description="Azimuth in degrees (0=N, 90=E, 180=S, 270=W)")
+    alt: float = Field(default=0.0, ge=0, le=90, description="Altitude above horizon in degrees")
+
+
 class ObservingConstraints(BaseModel):
     """Constraints for observing session."""
 
@@ -38,6 +45,9 @@ class ObservingConstraints(BaseModel):
     planning_mode: str = Field(default="balanced", description="Planning mode: balanced, quality, or quantity")
     daytime_planning: bool = Field(
         default=False, description="Enable daytime planning mode (for Sun, Moon, Venus observations)"
+    )
+    horizon_profile: Optional[List["HorizonPoint"]] = Field(
+        default=None, description="Per-azimuth altitude minimums. None means use min_altitude everywhere."
     )
 
 
