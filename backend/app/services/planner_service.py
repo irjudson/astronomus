@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 import pytz
 from sqlalchemy.orm import Session
 
-from app.models import GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
+from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
 from app.services.image_preview_service import ImagePreviewService
 from app.services.light_pollution_service import LightPollutionService
+from app.services.planetary_ephemeris import PlanetaryEphemeris
 
 
 class PlannerService:
@@ -31,6 +32,7 @@ class PlannerService:
         self.exporter = ExportService()
         self.light_pollution = LightPollutionService()
         self.image_preview = ImagePreviewService(db=db)
+        self.planetary_ephemeris = PlanetaryEphemeris()
 
     def generate_plan(self, request: PlanRequest) -> ObservingPlan:
         """
@@ -193,6 +195,39 @@ class PlannerService:
             except Exception as e:
                 # Log error but don't fail the entire plan
                 logger.warning("Failed to add comets to plan: %s", e)
+
+        # Inject solar system wishlist targets as schedulable pseudo-targets
+        if request.solar_targets:
+            midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
+            midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
+            for planet_name in request.solar_targets:
+                try:
+                    pos = self.planetary_ephemeris.get_position(
+                        planet_name.lower(),
+                        latitude=request.location.latitude,
+                        longitude=request.location.longitude,
+                        elevation=request.location.elevation,
+                        time=midpoint_naive,
+                    )
+                    duration_hint = 5 if planet_name.lower() == "moon" else 10
+                    planet_target = DSOTarget(
+                        name=planet_name,
+                        catalog_id=f"PLANET:{planet_name}",
+                        object_type="moon" if planet_name.lower() == "moon" else "planet",
+                        ra_hours=pos["ra_hours"],
+                        dec_degrees=pos["dec_degrees"],
+                        magnitude=pos.get("magnitude", 0.0) or 0.0,
+                        size_arcmin=(pos.get("angular_diameter_arcsec") or 0.0) / 60.0,
+                        description=f"Solar system target ({duration_hint} min)",
+                        preferred_duration_minutes=duration_hint,
+                    )
+                    targets.append(planet_target)
+                    logger.debug(
+                        "Added solar target %s at RA=%.2fh Dec=%.1f°",
+                        planet_name, pos["ra_hours"], pos["dec_degrees"],
+                    )
+                except Exception as e:
+                    logger.warning("Failed to add solar target %s: %s", planet_name, e)
 
         # Get weather forecast
         t2 = time.time()

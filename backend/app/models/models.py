@@ -61,6 +61,10 @@ class PlanRequest(BaseModel):
     preferred_gap_fillers: Optional[List[str]] = Field(
         None, description="Catalog IDs (wishlist) to prioritize when filling schedule gaps"
     )
+    solar_targets: Optional[List[str]] = Field(
+        default=None,
+        description="Planet/moon names from wishlist to schedule as imaging targets (e.g. ['Jupiter', 'Moon'])"
+    )
 
     @field_validator("observing_date")
     @classmethod
@@ -88,6 +92,9 @@ class DSOTarget(BaseModel):
     visibility: Optional["TargetVisibility"] = Field(None, description="Real-time visibility info (if calculated)")
     capture_history: Optional[Dict[str, Any]] = Field(
         None, description="Capture history for this target (if available)"
+    )
+    preferred_duration_minutes: Optional[int] = Field(
+        default=None, description="Requested imaging duration; scheduler caps at this value if set"
     )
 
 

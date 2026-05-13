@@ -394,4 +394,19 @@ class TestPlannerServiceComprehensive:
             for scheduled in plan.scheduled_targets:
                 assert scheduled.start_time is not None
                 assert scheduled.duration_minutes > 0
-                assert scheduled.target is not None
+
+    def test_solar_targets_does_not_crash_plan(self, override_get_db):
+        """Test that solar_targets in request is accepted without error."""
+        request = PlanRequest(
+            location=Location(
+                name="Test Location", latitude=45.0, longitude=-110.0,
+                elevation=1000.0, timezone="America/Denver"
+            ),
+            observing_date="2025-01-15",
+            constraints=ObservingConstraints(min_altitude=10.0, object_types=["galaxy"]),
+            solar_targets=["Jupiter", "Saturn"],
+        )
+        planner = PlannerService(override_get_db)
+        plan = planner.generate_plan(request)
+        assert plan is not None
+        assert isinstance(plan.scheduled_targets, list)

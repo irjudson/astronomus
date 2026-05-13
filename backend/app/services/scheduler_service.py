@@ -118,6 +118,12 @@ class SchedulerService:
             if duration > max_duration:
                 duration = max_duration
 
+            # Respect per-target duration hint (planets: 10 min, Moon: 5 min)
+            if best_target.preferred_duration_minutes is not None:
+                pref = timedelta(minutes=best_target.preferred_duration_minutes)
+                if duration > pref:
+                    duration = pref
+
             # Calculate positions and field rotation
             start_alt, start_az = self.ephemeris.calculate_position(best_target, location, current_time)
             end_time = current_time + duration
