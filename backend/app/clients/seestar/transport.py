@@ -36,10 +36,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from seestar import SeestarClient as _SeestarClient
 from seestar.models import EventMessage
 
 from app.core.config import get_settings
-from seestar import SeestarClient as _SeestarClient
 
 from .types import (
     CommandError,
