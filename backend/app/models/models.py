@@ -49,6 +49,10 @@ class ObservingConstraints(BaseModel):
     horizon_profile: Optional[List["HorizonPoint"]] = Field(
         default=None, description="Per-azimuth altitude minimums. None means use min_altitude everywhere."
     )
+    avoid_satellites: bool = Field(
+        default=False,
+        description="Avoid scheduling imaging during bright satellite passes (ISS, Starlink chain, etc.)"
+    )
 
 
 class PlanRequest(BaseModel):
