@@ -108,6 +108,18 @@ class PlannerService:
         except Exception as e:
             logger.warning("Failed to get sky quality: %s", e)
 
+        # Load horizon profile from user settings
+        import json as _json
+        from app.models.settings_models import AppSetting
+        from app.models.models import HorizonPoint
+        try:
+            hp_setting = self.db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()
+            if hp_setting and hp_setting.value:
+                raw_profile = _json.loads(hp_setting.value)
+                request.constraints.horizon_profile = [HorizonPoint(**pt) for pt in raw_profile]
+        except Exception as e:
+            logger.warning("Failed to load horizon profile: %s", e)
+
         # Get candidate targets
         t0 = time.time()
         if request.custom_targets:
