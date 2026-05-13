@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
-from app.services.satellite_avoidance_service import SatelliteAvoidanceService
 from app.services.image_preview_service import ImagePreviewService
 from app.services.light_pollution_service import LightPollutionService
 from app.services.planetary_ephemeris import PlanetaryEphemeris
+from app.services.satellite_avoidance_service import SatelliteAvoidanceService
 
 
 class PlannerService:
@@ -110,8 +110,9 @@ class PlannerService:
 
         # Load horizon profile from user settings
         import json as _json
-        from app.models.settings_models import AppSetting
+
         from app.models.models import HorizonPoint
+        from app.models.settings_models import AppSetting
 
         try:
             hp_setting = self.db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()

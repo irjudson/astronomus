@@ -1,6 +1,7 @@
 """Tests for horizon profile model."""
 
 import pytest
+
 from app.models.models import HorizonPoint, ObservingConstraints
 
 

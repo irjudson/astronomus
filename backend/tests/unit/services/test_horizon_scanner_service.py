@@ -1,8 +1,10 @@
 """Tests for horizon scanner service brightness analysis."""
 
 import io
+
 import pytest
 from PIL import Image
+
 from app.services.horizon_scanner_service import HorizonScannerService, analyze_frame_brightness
 
 

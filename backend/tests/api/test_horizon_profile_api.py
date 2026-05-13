@@ -1,6 +1,7 @@
 """Tests for horizon profile settings endpoints."""
 
 import json
+
 import pytest
 
 pytestmark = pytest.mark.integration
