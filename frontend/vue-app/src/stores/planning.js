@@ -17,6 +17,7 @@ export const usePlanningStore = defineStore('planning', {
       min_altitude_degrees: DEFAULT_SETTINGS.planMinAltitude,
       max_altitude_degrees: DEFAULT_SETTINGS.planMaxAltitude,
       avoid_moon: DEFAULT_SETTINGS.planAvoidMoon,
+      avoid_satellites: false,
       setup_time_minutes: DEFAULT_SETTINGS.planSetupMinutes,
       object_types: [...DEFAULT_SETTINGS.planObjectTypes],
       daytime_planning: false,
@@ -58,6 +59,7 @@ export const usePlanningStore = defineStore('planning', {
       this.constraints.min_altitude_degrees = s.planMinAltitude ?? this.constraints.min_altitude_degrees
       this.constraints.max_altitude_degrees = s.planMaxAltitude ?? this.constraints.max_altitude_degrees
       this.constraints.avoid_moon = s.planAvoidMoon ?? this.constraints.avoid_moon
+      this.constraints.avoid_satellites = s.planAvoidSatellites ?? this.constraints.avoid_satellites
       this.constraints.setup_time_minutes = s.planSetupMinutes ?? this.constraints.setup_time_minutes
       if (s.planObjectTypes?.length) this.constraints.object_types = s.planObjectTypes
     },
@@ -67,6 +69,7 @@ export const usePlanningStore = defineStore('planning', {
         planMinAltitude: this.constraints.min_altitude_degrees,
         planMaxAltitude: this.constraints.max_altitude_degrees,
         planAvoidMoon: this.constraints.avoid_moon,
+        planAvoidSatellites: this.constraints.avoid_satellites,
         planSetupMinutes: this.constraints.setup_time_minutes,
         planObjectTypes: this.constraints.object_types,
       })
@@ -102,6 +105,7 @@ export const usePlanningStore = defineStore('planning', {
             min_altitude_degrees: this.constraints.min_altitude_degrees,
             max_altitude_degrees: this.constraints.max_altitude_degrees,
             avoid_moon: this.constraints.avoid_moon,
+            avoid_satellites: this.constraints.avoid_satellites,
             setup_time_minutes: this.constraints.setup_time_minutes,
             object_types: this.constraints.object_types,
             daytime_planning: this.constraints.daytime_planning
@@ -176,6 +180,7 @@ export const usePlanningStore = defineStore('planning', {
           if (minAlt != null) this.constraints.min_altitude_degrees = minAlt
           if (maxAlt != null) this.constraints.max_altitude_degrees = maxAlt
           if (c.avoid_moon != null) this.constraints.avoid_moon = c.avoid_moon
+          if (c.avoid_satellites != null) this.constraints.avoid_satellites = c.avoid_satellites
           if (c.setup_time_minutes != null) this.constraints.setup_time_minutes = c.setup_time_minutes
           if (c.object_types?.length) this.constraints.object_types = c.object_types
         }
