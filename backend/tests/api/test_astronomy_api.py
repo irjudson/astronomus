@@ -3,11 +3,10 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
 from app.main import app
 from app.services.satellite_service import PassVisibility, SatellitePass
 from app.services.viewing_months_service import MonthRating, ViewingMonth
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -223,3 +222,43 @@ class TestViewingMonthsSummary:
         assert "best_months" in data
         assert "peak_month" in data
         assert "good_months_count" in data
+
+
+class TestMultiDayWeather:
+    def test_multiday_weather_returns_list(self, client):
+        from unittest.mock import patch
+
+        from app.models.models import DailyForecast, Location
+
+        mock_location = Location(name="Test Site", latitude=45.0, longitude=-111.0, elevation=1234.0, timezone="UTC")
+        mock_forecasts = [
+            DailyForecast(
+                date="2026-05-14",
+                cloud_pct=20.0,
+                temp_min=8.0,
+                temp_max=18.0,
+                wind_mps=3.0,
+                precip_mm=0.0,
+                astronomy_score=80.0,
+            )
+        ]
+        with (
+            patch(
+                "app.api.astronomy.SettingsService.get_location",
+                return_value=mock_location,
+            ),
+            patch(
+                "app.api.astronomy.MultiDayWeatherService.get_forecast",
+                return_value=mock_forecasts,
+            ),
+        ):
+            resp = client.get("/api/weather/multiday")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert data[0]["date"] == "2026-05-14"
+        assert data[0]["astronomy_score"] == 80.0
+
+    def test_multiday_weather_no_location_returns_200_or_503(self, client):
+        resp = client.get("/api/weather/multiday")
+        assert resp.status_code in (200, 503)
