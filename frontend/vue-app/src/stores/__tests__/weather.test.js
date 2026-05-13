@@ -67,4 +67,21 @@ describe('Weather Store', () => {
     const store = useWeatherStore()
     expect(store.weatherQuality).toBe('Unknown')
   })
+
+  it('fetchMultiDayForecast populates multiDayForecast', async () => {
+    const mockData = [
+      { date: '2026-05-14', cloud_pct: 20, temp_min: 8, temp_max: 18, wind_mps: 3, precip_mm: 0, astronomy_score: 80 }
+    ]
+    axios.get.mockResolvedValue({ data: mockData })
+    const store = useWeatherStore()
+    await store.fetchMultiDayForecast()
+    expect(store.multiDayForecast).toEqual(mockData)
+  })
+
+  it('fetchMultiDayForecast handles error gracefully', async () => {
+    axios.get.mockRejectedValue(new Error('net error'))
+    const store = useWeatherStore()
+    await store.fetchMultiDayForecast()
+    expect(store.multiDayForecast).toEqual([])
+  })
 })
