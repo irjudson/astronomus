@@ -47,6 +47,7 @@ class SchedulerService:
         session: SessionInfo,
         constraints: ObservingConstraints,
         weather_forecasts: List,
+        blocked_intervals: Optional[List] = None,
     ) -> List[ScheduledTarget]:
         """
         Schedule targets for an observing session using greedy algorithm.
@@ -113,6 +114,19 @@ class SchedulerService:
                 # No suitable targets, advance time
                 current_time += timedelta(minutes=5)
                 continue
+
+            # Skip time slots overlapping a satellite pass
+            if blocked_intervals and best_target is not None:
+                from app.services.satellite_avoidance_service import SatelliteAvoidanceService
+                _sat_svc = SatelliteAvoidanceService()
+                slot_end = current_time + duration
+                if _sat_svc.overlaps_blocked(current_time, slot_end, blocked_intervals):
+                    blocking = next(
+                        (b for b in blocked_intervals if current_time < b.end_time and slot_end > b.start_time),
+                        None,
+                    )
+                    current_time = (blocking.end_time + timedelta(seconds=30)) if blocking else (current_time + timedelta(minutes=5))
+                    continue
 
             # Cap duration based on planning mode
             if duration > max_duration:
@@ -578,6 +592,7 @@ class SchedulerService:
         weather_forecasts: List,
         observed_targets: set,
         scheduled_types: Optional[set] = None,
+        blocked_intervals: Optional[List] = None,
     ) -> List[ScheduledTarget]:
         """
         Fill schedule gaps with suitable targets.
@@ -617,6 +632,14 @@ class SchedulerService:
 
             if best_candidate:
                 target, duration, score_data, alternatives = best_candidate
+
+                # Skip this gap if it overlaps a satellite pass
+                if blocked_intervals:
+                    from app.services.satellite_avoidance_service import SatelliteAvoidanceService
+                    _sat_svc = SatelliteAvoidanceService()
+                    if _sat_svc.overlaps_blocked(gap.start_time, gap.start_time + duration, blocked_intervals):
+                        logger.debug("Skipping gap at %s due to satellite pass", gap.start_time)
+                        continue
 
                 # Calculate positions and field rotation
                 start_alt, start_az = self.ephemeris.calculate_position(target, location, gap.start_time)

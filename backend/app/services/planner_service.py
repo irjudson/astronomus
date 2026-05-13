@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
+from app.services.satellite_avoidance_service import SatelliteAvoidanceService
 from app.services.image_preview_service import ImagePreviewService
 from app.services.light_pollution_service import LightPollutionService
 from app.services.planetary_ephemeris import PlanetaryEphemeris
@@ -234,6 +235,20 @@ class PlannerService:
         weather_forecast = self.weather.get_forecast(request.location, session.imaging_start, session.imaging_end)
         logger.debug("[TIMING] Weather forecast: %.2fs", time.time() - t2)
 
+        # Compute satellite blocked intervals if avoid_satellites is enabled
+        blocked_intervals = []
+        if request.constraints.avoid_satellites:
+            try:
+                sat_svc = SatelliteAvoidanceService()
+                blocked_intervals = sat_svc.get_blocked_intervals(
+                    location=request.location,
+                    session_start=session.imaging_start,
+                    session_end=session.imaging_end,
+                )
+                logger.info("Satellite avoidance: %d blocked intervals", len(blocked_intervals))
+            except Exception as e:
+                logger.warning("Satellite avoidance failed, proceeding without it: %s", e)
+
         # Schedule targets
         t3 = time.time()
         scheduled_targets = self.scheduler.schedule_session(
@@ -242,6 +257,7 @@ class PlannerService:
             session=session,
             constraints=request.constraints,
             weather_forecasts=weather_forecast,
+            blocked_intervals=blocked_intervals,
         )
         logger.debug("[TIMING] Scheduler: %.2fs (%d scheduled)", time.time() - t3, len(scheduled_targets))
 
@@ -292,6 +308,7 @@ class PlannerService:
                 weather_forecasts=weather_forecast,
                 observed_targets=observed_targets,
                 scheduled_types=scheduled_types,
+                blocked_intervals=blocked_intervals,
             )
             logger.debug("[TIMING] Gap filling: %.2fs (%d gap fillers)", time.time() - t5, len(gap_fillers))
 
