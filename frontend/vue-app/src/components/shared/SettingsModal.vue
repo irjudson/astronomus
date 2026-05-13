@@ -37,6 +37,9 @@
         v-else-if="activeTab === 'planning'"
         v-model="planningSettings"
       />
+      <div v-else-if="activeTab === 'horizon'" class="flex-1 overflow-y-auto p-6">
+        <HorizonProfileEditor :min-altitude="settingsStore.settings.planMinAltitude" />
+      </div>
 
       <!-- Footer (General and Planning only — Scope has no save) -->
       <div
@@ -63,6 +66,7 @@ import { useSettingsStore } from '@/stores/settings'
 import SettingsTabGeneral from './SettingsTabGeneral.vue'
 import SettingsTabScope from './SettingsTabScope.vue'
 import SettingsTabPlanning from './SettingsTabPlanning.vue'
+import HorizonProfileEditor from './HorizonProfileEditor.vue'
 
 const props = defineProps({ isOpen: { type: Boolean, required: true } })
 const emit = defineEmits(['close', 'save'])
@@ -73,6 +77,7 @@ const tabs = [
   { id: 'general', label: 'General' },
   { id: 'scope', label: 'Scope' },
   { id: 'planning', label: 'Planning' },
+  { id: 'horizon', label: 'Horizon' },
 ]
 
 const localSettings = ref({ ...settingsStore.settings })

@@ -26,6 +26,13 @@ class Location(BaseModel):
     timezone: str = Field(default="America/Denver", description="IANA timezone")
 
 
+class HorizonPoint(BaseModel):
+    """Single point in a local horizon profile."""
+
+    az: float = Field(ge=0, lt=360, description="Azimuth in degrees (0=N, 90=E, 180=S, 270=W)")
+    alt: float = Field(default=0.0, ge=0, le=90, description="Altitude above horizon in degrees")
+
+
 class ObservingConstraints(BaseModel):
     """Constraints for observing session."""
 
@@ -39,6 +46,12 @@ class ObservingConstraints(BaseModel):
     daytime_planning: bool = Field(
         default=False, description="Enable daytime planning mode (for Sun, Moon, Venus observations)"
     )
+    horizon_profile: Optional[List["HorizonPoint"]] = Field(
+        default=None, description="Per-azimuth altitude minimums. None means use min_altitude everywhere."
+    )
+    avoid_satellites: bool = Field(
+        default=False, description="Avoid scheduling imaging during bright satellite passes (ISS, Starlink chain, etc.)"
+    )
 
 
 class PlanRequest(BaseModel):
@@ -50,6 +63,10 @@ class PlanRequest(BaseModel):
     custom_targets: Optional[List[str]] = Field(None, description="Custom list of catalog IDs to schedule")
     preferred_gap_fillers: Optional[List[str]] = Field(
         None, description="Catalog IDs (wishlist) to prioritize when filling schedule gaps"
+    )
+    solar_targets: Optional[List[str]] = Field(
+        default=None,
+        description="Planet/moon names from wishlist to schedule as imaging targets (e.g. ['Jupiter', 'Moon'])",
     )
 
     @field_validator("observing_date")
@@ -78,6 +95,9 @@ class DSOTarget(BaseModel):
     visibility: Optional["TargetVisibility"] = Field(None, description="Real-time visibility info (if calculated)")
     capture_history: Optional[Dict[str, Any]] = Field(
         None, description="Capture history for this target (if available)"
+    )
+    preferred_duration_minutes: Optional[int] = Field(
+        default=None, description="Requested imaging duration; scheduler caps at this value if set"
     )
 
 

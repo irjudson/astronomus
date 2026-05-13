@@ -15,6 +15,8 @@ from app.services import CatalogService, EphemerisService, ExportService, Schedu
 from app.services.comet_service import CometService
 from app.services.image_preview_service import ImagePreviewService
 from app.services.light_pollution_service import LightPollutionService
+from app.services.planetary_ephemeris import PlanetaryEphemeris
+from app.services.satellite_avoidance_service import SatelliteAvoidanceService
 
 
 class PlannerService:
@@ -31,6 +33,7 @@ class PlannerService:
         self.exporter = ExportService()
         self.light_pollution = LightPollutionService()
         self.image_preview = ImagePreviewService(db=db)
+        self.planetary_ephemeris = PlanetaryEphemeris()
 
     def generate_plan(self, request: PlanRequest) -> ObservingPlan:
         """
@@ -104,6 +107,20 @@ class PlannerService:
             sky_quality_dict = sky_quality.model_dump()
         except Exception as e:
             logger.warning("Failed to get sky quality: %s", e)
+
+        # Load horizon profile from user settings
+        import json as _json
+
+        from app.models.models import HorizonPoint
+        from app.models.settings_models import AppSetting
+
+        try:
+            hp_setting = self.db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()
+            if hp_setting and hp_setting.value:
+                raw_profile = _json.loads(hp_setting.value)
+                request.constraints.horizon_profile = [HorizonPoint(**pt) for pt in raw_profile]
+        except Exception as e:
+            logger.warning("Failed to load horizon profile: %s", e)
 
         # Get candidate targets
         t0 = time.time()
@@ -194,10 +211,59 @@ class PlannerService:
                 # Log error but don't fail the entire plan
                 logger.warning("Failed to add comets to plan: %s", e)
 
+        # Inject solar system wishlist targets as schedulable pseudo-targets
+        if request.solar_targets:
+            midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
+            midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
+            for planet_name in request.solar_targets:
+                try:
+                    pos = self.planetary_ephemeris.get_position(
+                        planet_name.lower(),
+                        latitude=request.location.latitude,
+                        longitude=request.location.longitude,
+                        elevation=request.location.elevation,
+                        time=midpoint_naive,
+                    )
+                    duration_hint = 5 if planet_name.lower() == "moon" else 10
+                    planet_target = DSOTarget(
+                        name=planet_name,
+                        catalog_id=f"PLANET:{planet_name}",
+                        object_type="moon" if planet_name.lower() == "moon" else "planet",
+                        ra_hours=pos["ra_hours"],
+                        dec_degrees=pos["dec_degrees"],
+                        magnitude=pos.get("magnitude", 0.0) or 0.0,
+                        size_arcmin=(pos.get("angular_diameter_arcsec") or 0.0) / 60.0,
+                        description=f"Solar system target ({duration_hint} min)",
+                        preferred_duration_minutes=duration_hint,
+                    )
+                    targets.append(planet_target)
+                    logger.debug(
+                        "Added solar target %s at RA=%.2fh Dec=%.1f°",
+                        planet_name,
+                        pos["ra_hours"],
+                        pos["dec_degrees"],
+                    )
+                except Exception as e:
+                    logger.warning("Failed to add solar target %s: %s", planet_name, e)
+
         # Get weather forecast
         t2 = time.time()
         weather_forecast = self.weather.get_forecast(request.location, session.imaging_start, session.imaging_end)
         logger.debug("[TIMING] Weather forecast: %.2fs", time.time() - t2)
+
+        # Compute satellite blocked intervals if avoid_satellites is enabled
+        blocked_intervals = []
+        if request.constraints.avoid_satellites:
+            try:
+                sat_svc = SatelliteAvoidanceService()
+                blocked_intervals = sat_svc.get_blocked_intervals(
+                    location=request.location,
+                    session_start=session.imaging_start,
+                    session_end=session.imaging_end,
+                )
+                logger.info("Satellite avoidance: %d blocked intervals", len(blocked_intervals))
+            except Exception as e:
+                logger.warning("Satellite avoidance failed, proceeding without it: %s", e)
 
         # Schedule targets
         t3 = time.time()
@@ -207,6 +273,7 @@ class PlannerService:
             session=session,
             constraints=request.constraints,
             weather_forecasts=weather_forecast,
+            blocked_intervals=blocked_intervals,
         )
         logger.debug("[TIMING] Scheduler: %.2fs (%d scheduled)", time.time() - t3, len(scheduled_targets))
 
@@ -257,6 +324,7 @@ class PlannerService:
                 weather_forecasts=weather_forecast,
                 observed_targets=observed_targets,
                 scheduled_types=scheduled_types,
+                blocked_intervals=blocked_intervals,
             )
             logger.debug("[TIMING] Gap filling: %.2fs (%d gap fillers)", time.time() - t5, len(gap_fillers))
 

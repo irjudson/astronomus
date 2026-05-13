@@ -86,3 +86,31 @@ async def stream_preview(
         media_type="multipart/x-mixed-replace; boundary=frame",
         headers={"Cache-Control": "no-cache, no-store"},
     )
+
+
+@router.get("/snapshot")
+async def get_preview_snapshot(
+    client: SeestarClient = Depends(get_current_telescope),
+):
+    """Capture a single JPEG snapshot (alias for /frame, used by horizon scanner)."""
+    service = _get_rtsp_service(client)
+
+    if service.latest_frame is None:
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            if service.latest_frame is not None:
+                break
+
+    frame_bytes = service.get_latest_frame_jpeg(quality=85)
+
+    if frame_bytes is None:
+        raise HTTPException(
+            status_code=503,
+            detail="No preview frames available - RTSP stream may not be active yet",
+        )
+
+    return Response(
+        content=frame_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-cache, no-store"},
+    )

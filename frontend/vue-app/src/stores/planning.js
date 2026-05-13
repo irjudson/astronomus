@@ -17,6 +17,7 @@ export const usePlanningStore = defineStore('planning', {
       min_altitude_degrees: DEFAULT_SETTINGS.planMinAltitude,
       max_altitude_degrees: DEFAULT_SETTINGS.planMaxAltitude,
       avoid_moon: DEFAULT_SETTINGS.planAvoidMoon,
+      avoid_satellites: false,
       setup_time_minutes: DEFAULT_SETTINGS.planSetupMinutes,
       object_types: [...DEFAULT_SETTINGS.planObjectTypes],
       daytime_planning: false,
@@ -58,6 +59,7 @@ export const usePlanningStore = defineStore('planning', {
       this.constraints.min_altitude_degrees = s.planMinAltitude ?? this.constraints.min_altitude_degrees
       this.constraints.max_altitude_degrees = s.planMaxAltitude ?? this.constraints.max_altitude_degrees
       this.constraints.avoid_moon = s.planAvoidMoon ?? this.constraints.avoid_moon
+      this.constraints.avoid_satellites = s.planAvoidSatellites ?? this.constraints.avoid_satellites
       this.constraints.setup_time_minutes = s.planSetupMinutes ?? this.constraints.setup_time_minutes
       if (s.planObjectTypes?.length) this.constraints.object_types = s.planObjectTypes
     },
@@ -67,6 +69,7 @@ export const usePlanningStore = defineStore('planning', {
         planMinAltitude: this.constraints.min_altitude_degrees,
         planMaxAltitude: this.constraints.max_altitude_degrees,
         planAvoidMoon: this.constraints.avoid_moon,
+        planAvoidSatellites: this.constraints.avoid_satellites,
         planSetupMinutes: this.constraints.setup_time_minutes,
         planObjectTypes: this.constraints.object_types,
       })
@@ -102,6 +105,7 @@ export const usePlanningStore = defineStore('planning', {
             min_altitude_degrees: this.constraints.min_altitude_degrees,
             max_altitude_degrees: this.constraints.max_altitude_degrees,
             avoid_moon: this.constraints.avoid_moon,
+            avoid_satellites: this.constraints.avoid_satellites,
             setup_time_minutes: this.constraints.setup_time_minutes,
             object_types: this.constraints.object_types,
             daytime_planning: this.constraints.daytime_planning
@@ -111,41 +115,23 @@ export const usePlanningStore = defineStore('planning', {
         // Wishlist DSO items are preferred gap-fillers (not primary targets)
         // The planner auto-selects the best objects for the night, then fills gaps
         // preferring wishlist items when possible.
+        // Solar system wishlist items are sent as solar_targets and scheduled as real time-blocks.
         const wishlist = useCatalogStore().wishlist
-        const SOLAR_TYPES = new Set(['planet', 'moon', 'sun'])
+        const SOLAR_TYPES = new Set(['planet', 'moon', 'star'])
         const dsoTargets = wishlist.filter(t => !SOLAR_TYPES.has(t.type)).map(t => t.name)
-        const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type))
+        const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type)).map(t => t.name)
 
         if (dsoTargets.length > 0) {
           request.preferred_gap_fillers = dsoTargets
+        }
+        if (solarTargets.length > 0) {
+          request.solar_targets = solarTargets
         }
 
         const response = await axios.post('/api/plan', request)
         this.currentPlan = response.data
         const date = this.observationDate || new Date().toISOString().split('T')[0]
         this.planName = `Observation Plan ${date}`
-
-        // Fetch visibility for solar system wishlist items and attach to plan
-        if (solarTargets.length > 0) {
-          try {
-            const solarResponse = await axios.get('/api/solar-system/objects', {
-              params: { lat: location.latitude, lon: location.longitude }
-            })
-            const allSolar = solarResponse.data.objects || []
-            const wishlistNames = new Set(solarTargets.map(t => t.name))
-            const minAlt = this.constraints.min_altitude_degrees
-            this.currentPlan.solar_system_targets = allSolar.filter(o =>
-              wishlistNames.has(o.name) &&
-              o.altitude_deg != null &&
-              o.altitude_deg >= minAlt
-            )
-          } catch (err) {
-            console.warn('Failed to fetch solar system targets for plan:', err)
-            this.currentPlan.solar_system_targets = []
-          }
-        } else {
-          this.currentPlan.solar_system_targets = []
-        }
       } catch (err) {
         this.error = 'Failed to generate plan: ' + (err.response?.data?.detail || err.message)
         useToastStore().error('Failed to generate plan: ' + (err.response?.data?.detail || err.message))
@@ -194,6 +180,7 @@ export const usePlanningStore = defineStore('planning', {
           if (minAlt != null) this.constraints.min_altitude_degrees = minAlt
           if (maxAlt != null) this.constraints.max_altitude_degrees = maxAlt
           if (c.avoid_moon != null) this.constraints.avoid_moon = c.avoid_moon
+          if (c.avoid_satellites != null) this.constraints.avoid_satellites = c.avoid_satellites
           if (c.setup_time_minutes != null) this.constraints.setup_time_minutes = c.setup_time_minutes
           if (c.object_types?.length) this.constraints.object_types = c.object_types
         }
