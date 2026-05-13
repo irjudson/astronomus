@@ -1,4 +1,5 @@
 """Tests for horizon scanner service brightness analysis."""
+
 import io
 import pytest
 from PIL import Image

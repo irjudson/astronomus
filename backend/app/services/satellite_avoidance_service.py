@@ -72,11 +72,13 @@ class SatelliteAvoidanceService:
                         for j in range(i + 1, len(events)):
                             if events[j] == 2:  # set
                                 set_t = times[j].utc_datetime().replace(tzinfo=pytz.UTC)
-                                intervals.append(BlockedInterval(
-                                    start_time=rise_t - timedelta(seconds=30),
-                                    end_time=set_t + timedelta(seconds=30),
-                                    satellite_name=sat.name,
-                                ))
+                                intervals.append(
+                                    BlockedInterval(
+                                        start_time=rise_t - timedelta(seconds=30),
+                                        end_time=set_t + timedelta(seconds=30),
+                                        satellite_name=sat.name,
+                                    )
+                                )
                                 break
                     i += 1
             except Exception as e:

@@ -1,4 +1,5 @@
 """Tests for satellite avoidance service."""
+
 from datetime import datetime, timedelta
 from unittest.mock import patch
 

@@ -244,9 +244,7 @@ class SeestarTransport:
             raise ConnectionError("Not connected")
 
         try:
-            resp = await self._seestar.send_command(
-                method, params, timeout=timeout or self.COMMAND_TIMEOUT
-            )
+            resp = await self._seestar.send_command(method, params, timeout=timeout or self.COMMAND_TIMEOUT)
         except asyncio.TimeoutError as exc:
             raise TimeoutError(f"Command {method!r} timed out") from exc
         except BaseException as exc:
@@ -377,9 +375,7 @@ class SeestarTransport:
             self.unsubscribe_event(EventType.STATE_CHANGE, state_callback)
         return success
 
-    async def wait_for_focus_complete(
-        self, timeout: float = 120.0
-    ) -> tuple[bool, Optional[float]]:
+    async def wait_for_focus_complete(self, timeout: float = 120.0) -> tuple[bool, Optional[float]]:
         """Wait for autofocus to complete via OPERATION_COMPLETE events."""
         completion_event = asyncio.Event()
         success = False

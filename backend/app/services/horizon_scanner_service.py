@@ -12,7 +12,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-SKY_RATIO_THRESHOLD = 1.2   # top/bottom brightness ratio above this = sky
+SKY_RATIO_THRESHOLD = 1.2  # top/bottom brightness ratio above this = sky
 TERRAIN_RATIO_THRESHOLD = 0.9
 SETTLE_SECONDS = 1.8
 BINARY_SEARCH_ITERATIONS = 5
@@ -117,10 +117,7 @@ class HorizonScannerService:
 
         # Use the Seestar JSON-RPC protocol directly
         reader, writer = await asyncio.open_connection(self.host, self.port)
-        cmd = _json.dumps({
-            "id": 1, "method": "scope_move_to_horizon",
-            "params": [azimuth, altitude]
-        }) + "\r\n"
+        cmd = _json.dumps({"id": 1, "method": "scope_move_to_horizon", "params": [azimuth, altitude]}) + "\r\n"
         writer.write(cmd.encode())
         await writer.drain()
         await asyncio.sleep(0.2)

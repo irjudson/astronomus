@@ -118,6 +118,7 @@ class SchedulerService:
             # Skip time slots overlapping a satellite pass
             if blocked_intervals and best_target is not None:
                 from app.services.satellite_avoidance_service import SatelliteAvoidanceService
+
                 _sat_svc = SatelliteAvoidanceService()
                 slot_end = current_time + duration
                 if _sat_svc.overlaps_blocked(current_time, slot_end, blocked_intervals):
@@ -125,7 +126,11 @@ class SchedulerService:
                         (b for b in blocked_intervals if current_time < b.end_time and slot_end > b.start_time),
                         None,
                     )
-                    current_time = (blocking.end_time + timedelta(seconds=30)) if blocking else (current_time + timedelta(minutes=5))
+                    current_time = (
+                        (blocking.end_time + timedelta(seconds=30))
+                        if blocking
+                        else (current_time + timedelta(minutes=5))
+                    )
                     continue
 
             # Cap duration based on planning mode
@@ -245,7 +250,11 @@ class SchedulerService:
 
             # Check if target is visible now
             if not self.ephemeris.is_target_visible(
-                target, location, current_time, constraints.min_altitude, constraints.max_altitude,
+                target,
+                location,
+                current_time,
+                constraints.min_altitude,
+                constraints.max_altitude,
                 horizon_profile=constraints.horizon_profile,
             ):
                 continue
@@ -293,14 +302,22 @@ class SchedulerService:
         """
         # First check if target is visible at start (should be, but verify)
         if not self.ephemeris.is_target_visible(
-            target, location, start_time, constraints.min_altitude, constraints.max_altitude,
+            target,
+            location,
+            start_time,
+            constraints.min_altitude,
+            constraints.max_altitude,
             horizon_profile=constraints.horizon_profile,
         ):
             return timedelta(0)
 
         # Check if target stays visible until session end
         if self.ephemeris.is_target_visible(
-            target, location, end_time, constraints.min_altitude, constraints.max_altitude,
+            target,
+            location,
+            end_time,
+            constraints.min_altitude,
+            constraints.max_altitude,
             horizon_profile=constraints.horizon_profile,
         ):
             return end_time - start_time
@@ -315,7 +332,11 @@ class SchedulerService:
             mid = low + (high - low) / 2
 
             if self.ephemeris.is_target_visible(
-                target, location, mid, constraints.min_altitude, constraints.max_altitude,
+                target,
+                location,
+                mid,
+                constraints.min_altitude,
+                constraints.max_altitude,
                 horizon_profile=constraints.horizon_profile,
             ):
                 # Still visible at mid, search later half
@@ -445,11 +466,19 @@ class SchedulerService:
             return 0.0
 
         is_visible_now = self.ephemeris.is_target_visible(
-            target, location, current_time, constraints.min_altitude, constraints.max_altitude,
+            target,
+            location,
+            current_time,
+            constraints.min_altitude,
+            constraints.max_altitude,
             horizon_profile=constraints.horizon_profile,
         )
         is_visible_later = self.ephemeris.is_target_visible(
-            target, location, future_time, constraints.min_altitude, constraints.max_altitude,
+            target,
+            location,
+            future_time,
+            constraints.min_altitude,
+            constraints.max_altitude,
             horizon_profile=constraints.horizon_profile,
         )
 
@@ -642,6 +671,7 @@ class SchedulerService:
                 # Skip this gap if it overlaps a satellite pass
                 if blocked_intervals:
                     from app.services.satellite_avoidance_service import SatelliteAvoidanceService
+
                     _sat_svc = SatelliteAvoidanceService()
                     if _sat_svc.overlaps_blocked(gap.start_time, gap.start_time + duration, blocked_intervals):
                         logger.debug("Skipping gap at %s due to satellite pass", gap.start_time)
@@ -734,7 +764,11 @@ class SchedulerService:
 
             # Check if target is visible during gap
             if not self.ephemeris.is_target_visible(
-                target, location, gap.start_time, constraints.min_altitude, constraints.max_altitude,
+                target,
+                location,
+                gap.start_time,
+                constraints.min_altitude,
+                constraints.max_altitude,
                 horizon_profile=constraints.horizon_profile,
             ):
                 continue

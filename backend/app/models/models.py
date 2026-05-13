@@ -50,8 +50,7 @@ class ObservingConstraints(BaseModel):
         default=None, description="Per-azimuth altitude minimums. None means use min_altitude everywhere."
     )
     avoid_satellites: bool = Field(
-        default=False,
-        description="Avoid scheduling imaging during bright satellite passes (ISS, Starlink chain, etc.)"
+        default=False, description="Avoid scheduling imaging during bright satellite passes (ISS, Starlink chain, etc.)"
     )
 
 
@@ -67,7 +66,7 @@ class PlanRequest(BaseModel):
     )
     solar_targets: Optional[List[str]] = Field(
         default=None,
-        description="Planet/moon names from wishlist to schedule as imaging targets (e.g. ['Jupiter', 'Moon'])"
+        description="Planet/moon names from wishlist to schedule as imaging targets (e.g. ['Jupiter', 'Moon'])",
     )
 
     @field_validator("observing_date")

@@ -27,12 +27,14 @@ async def start_horizon_scan(
     async def _run():
         svc = HorizonScannerService(telescope_host, telescope_port, az_step=az_step)
         async for progress in svc.scan():
-            _scans[scan_id].update({
-                "status": progress.status,
-                "progress": progress.progress_percent,
-                "current_az": progress.current_az,
-                "points": progress.points,
-            })
+            _scans[scan_id].update(
+                {
+                    "status": progress.status,
+                    "progress": progress.progress_percent,
+                    "current_az": progress.current_az,
+                    "points": progress.points,
+                }
+            )
 
     asyncio.create_task(_run())
     return {"scan_id": scan_id, "message": "Horizon scan started"}

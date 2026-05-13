@@ -112,6 +112,7 @@ class PlannerService:
         import json as _json
         from app.models.settings_models import AppSetting
         from app.models.models import HorizonPoint
+
         try:
             hp_setting = self.db.query(AppSetting).filter(AppSetting.key == "user.horizon_profile").first()
             if hp_setting and hp_setting.value:
@@ -237,7 +238,9 @@ class PlannerService:
                     targets.append(planet_target)
                     logger.debug(
                         "Added solar target %s at RA=%.2fh Dec=%.1f°",
-                        planet_name, pos["ra_hours"], pos["dec_degrees"],
+                        planet_name,
+                        pos["ra_hours"],
+                        pos["dec_degrees"],
                     )
                 except Exception as e:
                     logger.warning("Failed to add solar target %s: %s", planet_name, e)

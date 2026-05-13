@@ -399,8 +399,7 @@ class TestPlannerServiceComprehensive:
         """Test that solar_targets in request is accepted without error."""
         request = PlanRequest(
             location=Location(
-                name="Test Location", latitude=45.0, longitude=-110.0,
-                elevation=1000.0, timezone="America/Denver"
+                name="Test Location", latitude=45.0, longitude=-110.0, elevation=1000.0, timezone="America/Denver"
             ),
             observing_date="2025-01-15",
             constraints=ObservingConstraints(min_altitude=10.0, object_types=["galaxy"]),

@@ -254,8 +254,13 @@ class EphemerisService:
         return max(flat_min, self.interpolate_horizon_altitude(azimuth, profile))
 
     def is_target_visible(
-        self, target: DSOTarget, location: Location, time: datetime, min_alt: float, max_alt: float,
-        horizon_profile=None
+        self,
+        target: DSOTarget,
+        location: Location,
+        time: datetime,
+        min_alt: float,
+        max_alt: float,
+        horizon_profile=None,
     ) -> bool:
         """
         Check if a target is visible (within altitude constraints).
