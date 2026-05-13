@@ -111,41 +111,23 @@ export const usePlanningStore = defineStore('planning', {
         // Wishlist DSO items are preferred gap-fillers (not primary targets)
         // The planner auto-selects the best objects for the night, then fills gaps
         // preferring wishlist items when possible.
+        // Solar system wishlist items are sent as solar_targets and scheduled as real time-blocks.
         const wishlist = useCatalogStore().wishlist
-        const SOLAR_TYPES = new Set(['planet', 'moon', 'sun'])
+        const SOLAR_TYPES = new Set(['planet', 'moon', 'star'])
         const dsoTargets = wishlist.filter(t => !SOLAR_TYPES.has(t.type)).map(t => t.name)
-        const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type))
+        const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type)).map(t => t.name)
 
         if (dsoTargets.length > 0) {
           request.preferred_gap_fillers = dsoTargets
+        }
+        if (solarTargets.length > 0) {
+          request.solar_targets = solarTargets
         }
 
         const response = await axios.post('/api/plan', request)
         this.currentPlan = response.data
         const date = this.observationDate || new Date().toISOString().split('T')[0]
         this.planName = `Observation Plan ${date}`
-
-        // Fetch visibility for solar system wishlist items and attach to plan
-        if (solarTargets.length > 0) {
-          try {
-            const solarResponse = await axios.get('/api/solar-system/objects', {
-              params: { lat: location.latitude, lon: location.longitude }
-            })
-            const allSolar = solarResponse.data.objects || []
-            const wishlistNames = new Set(solarTargets.map(t => t.name))
-            const minAlt = this.constraints.min_altitude_degrees
-            this.currentPlan.solar_system_targets = allSolar.filter(o =>
-              wishlistNames.has(o.name) &&
-              o.altitude_deg != null &&
-              o.altitude_deg >= minAlt
-            )
-          } catch (err) {
-            console.warn('Failed to fetch solar system targets for plan:', err)
-            this.currentPlan.solar_system_targets = []
-          }
-        } else {
-          this.currentPlan.solar_system_targets = []
-        }
       } catch (err) {
         this.error = 'Failed to generate plan: ' + (err.response?.data?.detail || err.message)
         useToastStore().error('Failed to generate plan: ' + (err.response?.data?.detail || err.message))
