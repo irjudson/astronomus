@@ -4,7 +4,6 @@ import asyncio
 import io
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import AsyncGenerator, List, Optional
 
 import httpx
@@ -64,7 +63,7 @@ class HorizonScannerService:
         self.az_step = az_step
         self.alt_min = alt_min
         self.alt_max = alt_max
-        self._snapshot_url = f"http://localhost:9247/api/telescope/preview/snapshot"
+        self._snapshot_url = "http://localhost:9247/api/telescope/preview/snapshot"
 
     def _is_sky(self, ratio: float) -> bool:
         return ratio >= SKY_RATIO_THRESHOLD

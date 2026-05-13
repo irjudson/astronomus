@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 import pytz
 from sqlalchemy.orm import Session
 
-from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
+from app.models import GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
 from app.services.image_preview_service import ImagePreviewService
