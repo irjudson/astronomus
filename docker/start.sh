@@ -56,6 +56,17 @@ echo "Starting Redis..."
 redis-server --daemonize yes --port 6379 --requirepass "${REDIS_PASS}"
 echo "Redis started"
 
+# Install seestar-api from the bind-mounted source tree.
+# Non-editable so the read-only mount is fine and nothing writes back to the host.
+if [ -d "/opt/seestar-api" ]; then
+    echo "Installing seestar-api from /opt/seestar-api..."
+    python3.11 -m pip install --no-deps --quiet /opt/seestar-api \
+        && echo "seestar-api installed" \
+        || echo "Warning: seestar-api install failed"
+else
+    echo "Warning: /opt/seestar-api not mounted; seestar-api unavailable"
+fi
+
 # Set database URL for alembic and services
 export DATABASE_URL="postgresql://pg:${PG_PASSWORD}@localhost:5432/astronomus"
 
