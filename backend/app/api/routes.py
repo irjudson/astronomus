@@ -19,6 +19,7 @@ from app.api.captures import router as captures_router
 
 # Import comet, asteroid, planet, processing, plans, astronomy, and settings routers
 from app.api.comets import router as comet_router
+from app.api.horizon import router as horizon_router
 from app.api.planets import router as planet_router
 from app.api.plans import router as plans_router
 from app.api.processing import router as processing_router
@@ -35,6 +36,7 @@ from app.services.planner_service import PlannerService
 router = APIRouter()
 
 router.include_router(comet_router)
+router.include_router(horizon_router)
 router.include_router(asteroid_router)
 router.include_router(planet_router)
 router.include_router(processing_router)
@@ -725,13 +727,10 @@ async def search_catalog(
             # take top candidates, THEN calculate visibility for only those
             # This is much faster than calculating visibility for all results
 
-            # Sort by magnitude (brightness) first to get best candidates
-            query = query.order_by(DSOCatalog.magnitude.asc().nullslast())
-
-            # Get top candidates for visibility checking
-            # Check top 100 brightest to have good chance of finding visible ones
-            # This is still fast (< 1 second) and much better than checking all results
-            candidate_limit = max(100, page_size * 10)
+            # Get candidates for visibility checking — do not pre-filter by magnitude,
+            # as the brightest objects may all be in winter constellations that are setting.
+            # Check a broad sample so we find what's actually well-positioned tonight.
+            candidate_limit = max(1000, page_size * 50)
             candidates = query.limit(candidate_limit).all()
 
             # Get default location for visibility calculations
@@ -823,7 +822,7 @@ async def search_catalog(
                 # Calculate altitude at observing time (current time or tonight's twilight)
                 try:
                     altitude, _ = ephemeris.calculate_position(target, location, observing_time)
-                    if altitude > 30.0:  # Minimum altitude threshold
+                    if altitude > 20.0:  # Minimum altitude threshold for catalog browsing
                         if use_scoring or sort_by == "score":
                             # Use comprehensive scheduler scoring
                             duration = scheduler._calculate_visibility_duration(

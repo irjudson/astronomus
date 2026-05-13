@@ -214,8 +214,53 @@ class EphemerisService:
 
         return rate_per_minute
 
+    def interpolate_horizon_altitude(self, azimuth: float, profile: list) -> float:
+        """Linear interpolation of local horizon altitude at given azimuth."""
+        if not profile:
+            return 0.0
+        sorted_pts = sorted(profile, key=lambda p: p.az)
+        for i, pt in enumerate(sorted_pts):
+            if pt.az == azimuth:
+                return pt.alt
+            if pt.az > azimuth:
+                prev = sorted_pts[i - 1] if i > 0 else sorted_pts[-1]
+                next_pt = pt
+                az0, alt0 = prev.az, prev.alt
+                az1, alt1 = next_pt.az, next_pt.alt
+                if az0 > az1:  # wraparound (e.g. prev=350, next=10)
+                    span = (360 - az0) + az1
+                    pos = azimuth - az0 if azimuth >= az0 else (360 - az0) + azimuth
+                else:
+                    span = az1 - az0
+                    pos = azimuth - az0
+                if span == 0:
+                    return alt0
+                return alt0 + (alt1 - alt0) * (pos / span)
+        # azimuth is past the last point — interpolate between last and first (wraparound)
+        prev = sorted_pts[-1]
+        next_pt = sorted_pts[0]
+        az0, alt0 = prev.az, prev.alt
+        az1, alt1 = next_pt.az, next_pt.alt
+        span = (360 - az0) + az1
+        pos = azimuth - az0 if azimuth >= az0 else (360 - az0) + azimuth
+        if span == 0:
+            return alt0
+        return alt0 + (alt1 - alt0) * (pos / span)
+
+    def get_effective_min_altitude(self, azimuth: float, flat_min: float, profile) -> float:
+        """Return max(flat_min, local horizon altitude at azimuth)."""
+        if not profile:
+            return flat_min
+        return max(flat_min, self.interpolate_horizon_altitude(azimuth, profile))
+
     def is_target_visible(
-        self, target: DSOTarget, location: Location, time: datetime, min_alt: float, max_alt: float
+        self,
+        target: DSOTarget,
+        location: Location,
+        time: datetime,
+        min_alt: float,
+        max_alt: float,
+        horizon_profile=None,
     ) -> bool:
         """
         Check if a target is visible (within altitude constraints).
@@ -226,12 +271,14 @@ class EphemerisService:
             time: Time for check
             min_alt: Minimum altitude in degrees
             max_alt: Maximum altitude in degrees
+            horizon_profile: Optional list of HorizonPoint objects for per-azimuth minimums
 
         Returns:
             True if target is visible
         """
-        alt, _ = self.calculate_position(target, location, time)
-        return min_alt <= alt <= max_alt
+        alt, az = self.calculate_position(target, location, time)
+        effective_min = self.get_effective_min_altitude(az, min_alt, horizon_profile)
+        return effective_min <= alt <= max_alt
 
     def get_best_viewing_time(
         self, target: DSOTarget, location: Location, start_time: datetime, end_time: datetime
