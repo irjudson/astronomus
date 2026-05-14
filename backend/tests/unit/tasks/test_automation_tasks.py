@@ -92,3 +92,82 @@ def test_auto_execute_starts_execution():
         result = auto_execute_plan_task(plan_id=5, retry_count=0)
     assert result["status"] == "started"
     mock_exec.apply_async.assert_called_once()
+
+
+def test_weather_watchdog_skips_daytime():
+    from app.tasks.automation_tasks import weather_watchdog_task
+    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, \
+         patch("app.tasks.automation_tasks._is_astronomical_night", return_value=False):
+        mock_sl.return_value = MagicMock()
+        result = weather_watchdog_task()
+    assert result["status"] == "skipped"
+    assert result["reason"] == "daytime"
+
+
+def test_weather_watchdog_skips_no_execution():
+    from app.tasks.automation_tasks import weather_watchdog_task
+    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, \
+         patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True):
+        db = MagicMock()
+        db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        mock_sl.return_value = db
+        result = weather_watchdog_task()
+    assert result["status"] == "skipped"
+    assert result["reason"] == "no_active_execution"
+
+
+def test_weather_watchdog_aborts_on_rain():
+    from app.tasks.automation_tasks import weather_watchdog_task
+    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, \
+         patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True), \
+         patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls, \
+         patch("app.tasks.automation_tasks.abort_observation_plan_task") as mock_abort, \
+         patch("app.tasks.automation_tasks.WebhookService") as mock_wh_cls:
+        db = MagicMock()
+        execution = MagicMock()
+        execution.execution_id = "abc123"
+        execution.targets_completed = 2
+        db.query.return_value.filter.return_value.order_by.return_value.first.return_value = execution
+        abort_setting = MagicMock(); abort_setting.value = "true"
+        wind_setting = MagicMock(); wind_setting.value = "25.0"
+        humid_setting = MagicMock(); humid_setting.value = "95"
+        db.query.return_value.filter.return_value.first.side_effect = [
+            abort_setting, wind_setting, humid_setting
+        ]
+        mock_sl.return_value = db
+        wx = MagicMock()
+        wx.is_raining = True
+        wx.rain_rate_in_hr = 0.12
+        wx.wind_speed_mph = 5.0
+        wx.humidity_pct = 70
+        mock_wx_cls.return_value.get_current.return_value = wx
+        mock_abort.delay = MagicMock()
+        wh_instance = MagicMock()
+        wh_instance.is_configured.return_value = False
+        mock_wh_cls.return_value = wh_instance
+        result = weather_watchdog_task()
+    assert result["status"] == "aborted"
+    assert "Rain" in result["reason"]
+    mock_abort.delay.assert_called_once_with("abc123")
+
+
+def test_weather_watchdog_ok_when_clear():
+    from app.tasks.automation_tasks import weather_watchdog_task
+    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, \
+         patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True), \
+         patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls:
+        db = MagicMock()
+        execution = MagicMock(); execution.execution_id = "xyz"
+        db.query.return_value.filter.return_value.order_by.return_value.first.return_value = execution
+        abort_s = MagicMock(); abort_s.value = "true"
+        wind_s = MagicMock(); wind_s.value = "25.0"
+        humid_s = MagicMock(); humid_s.value = "95"
+        db.query.return_value.filter.return_value.first.side_effect = [abort_s, wind_s, humid_s]
+        mock_sl.return_value = db
+        wx = MagicMock()
+        wx.is_raining = False
+        wx.wind_speed_mph = 8.0
+        wx.humidity_pct = 55
+        mock_wx_cls.return_value.get_current.return_value = wx
+        result = weather_watchdog_task()
+    assert result["status"] == "ok"

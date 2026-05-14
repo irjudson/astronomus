@@ -13,10 +13,12 @@ from app.database import SessionLocal
 from app.models import Location
 from app.models.plan_models import SavedPlan
 from app.models.settings_models import AppSetting, ObservingLocation
+from app.models.telescope_models import TelescopeExecution
 from app.services.ephemeris_service import EphemerisService
+from app.services.local_weather_service import LocalWeatherService
 from app.services.webhook_service import WebhookService
 from app.tasks.celery_app import celery_app
-from app.tasks.telescope_tasks import execute_observation_plan_task
+from app.tasks.telescope_tasks import abort_observation_plan_task, execute_observation_plan_task
 
 logger = logging.getLogger(__name__)
 
@@ -182,3 +184,70 @@ def _send_scope_unreachable_webhook(db, plan_name: str) -> None:
             svc.send_scope_unreachable_notification(plan_name=plan_name)
     except Exception as exc:
         logger.warning(f"Webhook send failed (scope_unreachable): {exc}")
+
+
+@celery_app.task(name="weather_watchdog")
+def weather_watchdog_task() -> dict:
+    """
+    Run every 10 min — abort active telescope execution if weather deteriorates.
+
+    Only acts during astronomical night and only when an execution is running.
+    Checks local WS-2902 station via wx-service. If unavailable, skips silently.
+    """
+    db = SessionLocal()
+    try:
+        if not _is_astronomical_night(db):
+            return {"status": "skipped", "reason": "daytime"}
+
+        execution = (
+            db.query(TelescopeExecution)
+            .filter(TelescopeExecution.state.in_(["starting", "running"]))
+            .order_by(TelescopeExecution.started_at.desc())
+            .first()
+        )
+        if not execution:
+            return {"status": "skipped", "reason": "no_active_execution"}
+
+        abort_on_rain = _get_setting(db, "weather.abort_on_rain", "true").lower() in ("true", "1", "yes")
+        max_wind = float(_get_setting(db, "weather.abort_wind_mph", "25.0"))
+        max_humidity = int(_get_setting(db, "weather.abort_humidity_pct", "95"))
+
+        wx = LocalWeatherService().get_current()
+        if wx is None:
+            logger.debug("wx-service unavailable; weather watchdog skipping check")
+            return {"status": "skipped", "reason": "wx_unavailable"}
+
+        abort_reason: Optional[str] = None
+        if abort_on_rain and wx.is_raining:
+            abort_reason = f"Rain detected ({wx.rain_rate_in_hr:.2f} in/hr)"
+        elif wx.wind_speed_mph > max_wind:
+            abort_reason = f"High wind ({wx.wind_speed_mph:.0f} mph > {max_wind:.0f} mph limit)"
+        elif wx.humidity_pct >= max_humidity:
+            abort_reason = f"Extreme humidity ({wx.humidity_pct}% >= {max_humidity}%)"
+
+        if not abort_reason:
+            return {
+                "status": "ok",
+                "wind_mph": wx.wind_speed_mph,
+                "humidity_pct": wx.humidity_pct,
+                "raining": wx.is_raining,
+            }
+
+        logger.warning(f"Weather abort triggered: {abort_reason} (execution {execution.execution_id})")
+        abort_observation_plan_task.delay(execution.execution_id)
+
+        svc = WebhookService()
+        if svc.is_configured():
+            svc.send_weather_abort_notification(
+                execution_id=execution.execution_id,
+                reason=abort_reason,
+                targets_completed=execution.targets_completed or 0,
+            )
+
+        return {"status": "aborted", "reason": abort_reason, "execution_id": execution.execution_id}
+
+    except Exception as e:
+        logger.error(f"weather_watchdog_task failed: {e}", exc_info=True)
+        raise
+    finally:
+        db.close()

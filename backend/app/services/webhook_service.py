@@ -145,6 +145,56 @@ class WebhookService:
                 return False
         return False
 
+    def send_weather_abort_notification(
+        self,
+        execution_id: str,
+        reason: str,
+        targets_completed: int,
+    ) -> bool:
+        """Send webhook notification when an execution is aborted due to weather.
+
+        Args:
+            execution_id: ID of the aborted execution
+            reason: Human-readable abort reason (e.g. "Rain detected (0.12 in/hr)")
+            targets_completed: Number of targets completed before abort
+
+        Returns:
+            True if webhook sent successfully, False otherwise
+        """
+        if not self.webhook_url:
+            logger.debug("No webhook URL configured, skipping weather_abort notification")
+            return False
+
+        payload = {
+            "event": "weather_abort",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "execution": {
+                "id": execution_id,
+                "reason": reason,
+                "targets_completed": targets_completed,
+            },
+        }
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.post(
+                    self.webhook_url,
+                    json=payload,
+                    timeout=self.timeout,
+                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
+                )
+                response.raise_for_status()
+                logger.info(f"weather_abort webhook sent for execution '{execution_id}'")
+                return True
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"weather_abort webhook attempt {attempt + 1} failed: {e}")
+                if attempt == self.max_retries:
+                    return False
+            except Exception as e:
+                logger.error(f"Unexpected error sending weather_abort webhook: {e}")
+                return False
+        return False
+
     def is_configured(self) -> bool:
         """Check if webhook URL is configured."""
         return bool(self.webhook_url)
