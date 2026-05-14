@@ -3,10 +3,8 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
 import pytz
-
-from app.models import DSOTarget, Location, TargetVisibility
+from app.models import DSOTarget, Location
 from app.services.catalog_service import CatalogService
 from app.services.ephemeris_service import EphemerisService
 
@@ -104,9 +102,8 @@ class TestUserTargetModel:
         assert UserTarget.__tablename__ == "user_targets"
 
     def test_user_target_columns(self):
-        from sqlalchemy import inspect
-
         from app.models.catalog_models import UserTarget
+        from sqlalchemy import inspect
 
         mapper = inspect(UserTarget)
         col_names = [c.key for c in mapper.columns]

@@ -4,9 +4,8 @@ from datetime import datetime
 
 import pytest
 import pytz
-from pydantic import ValidationError
-
 from app.models import TargetVisibility, VisibilityStatus
+from pydantic import ValidationError
 
 
 def test_target_visibility_model():
@@ -69,7 +68,6 @@ def test_dso_target_with_visibility():
     from datetime import datetime
 
     import pytz
-
     from app.models import DSOTarget, TargetVisibility, VisibilityStatus
 
     tz = pytz.timezone("America/Denver")
@@ -117,6 +115,7 @@ def test_dso_target_with_visibility():
 class TestDailyForecast:
     def test_daily_forecast_fields(self):
         from app.models.models import DailyForecast
+
         f = DailyForecast(
             date="2026-05-14",
             cloud_pct=25.0,
@@ -130,10 +129,14 @@ class TestDailyForecast:
 
     def test_daily_forecast_score_clamp(self):
         from app.models.models import DailyForecast
+
         f = DailyForecast(
             date="2026-05-14",
             cloud_pct=0.0,
-            temp_min=0.0, temp_max=0.0, wind_mps=0.0, precip_mm=0.0,
+            temp_min=0.0,
+            temp_max=0.0,
+            wind_mps=0.0,
+            precip_mm=0.0,
             astronomy_score=0.0,
         )
         assert f.astronomy_score >= 0.0

@@ -5,7 +5,7 @@ Provides dynamic endpoints for telescope-specific functionality
 that goes beyond the generic telescope interface.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -136,7 +136,9 @@ def _plan_to_seestar_format(plan_data: dict) -> dict:
 
     scheduled_targets = plan_data.get("scheduled_targets", [])
     session = plan_data.get("session", {})
-    observing_date = session.get("observing_date", "") if isinstance(session, dict) else getattr(session, "observing_date", "")
+    observing_date = (
+        session.get("observing_date", "") if isinstance(session, dict) else getattr(session, "observing_date", "")
+    )
     plan_name = f"{observing_date}-plan" if observing_date else "plan"
 
     seestar_targets = []
