@@ -5,6 +5,7 @@ They are marked as integration tests and skipped on macOS CI.
 """
 
 import pytest
+
 from app.models.catalog_models import DSOCatalog
 from app.services.catalog_service import CatalogService
 

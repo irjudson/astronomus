@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
 from app.api import telescope as telescope_module
 from app.clients.seestar_client import SeestarClient
 from app.main import app

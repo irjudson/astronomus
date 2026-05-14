@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from app.models.models import DailyForecast, Location
 from app.services.multi_day_weather_service import MultiDayWeatherService
 

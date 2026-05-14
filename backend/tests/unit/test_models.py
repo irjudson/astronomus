@@ -4,8 +4,9 @@ from datetime import datetime
 
 import pytest
 import pytz
-from app.models import TargetVisibility, VisibilityStatus
 from pydantic import ValidationError
+
+from app.models import TargetVisibility, VisibilityStatus
 
 
 def test_target_visibility_model():
@@ -68,6 +69,7 @@ def test_dso_target_with_visibility():
     from datetime import datetime
 
     import pytz
+
     from app.models import DSOTarget, TargetVisibility, VisibilityStatus
 
     tz = pytz.timezone("America/Denver")

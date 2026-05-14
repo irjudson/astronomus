@@ -3,10 +3,11 @@
 from datetime import datetime
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
 from app.main import app
 from app.services.satellite_service import PassVisibility, SatellitePass
 from app.services.viewing_months_service import MonthRating, ViewingMonth
-from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
