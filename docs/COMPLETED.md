@@ -4,6 +4,49 @@ Chronological record of shipped features. Plans are archived in `docs/archive/`.
 
 ---
 
+## 2026-05 — Multi-Day Weather, Custom Targets, S50 Plan Upload
+
+### Multi-Day Weather Forecast
+7-day daily forecast from Open-Meteo (free, no API key). `MultiDayWeatherService` fetches cloud %, temps, wind, precip, and derives an astronomy score (100 − cloud_pct, clamped). `GET /api/weather/multiday` endpoint.
+`DailyWeatherStrip.vue` — color-coded 7-column strip (green ≥70, yellow 40–69, red <40) embedded in TonightView between conditions grid and Active Plan card.
+Weather store gains `multiDayForecast` state + `fetchMultiDayForecast()` action.
+*PR #11*
+
+### Custom Catalog Targets
+User-defined observing targets stored in `user_targets` PostgreSQL table (`UserTarget` SQLAlchemy model, Alembic migration).
+`CatalogService` merges user targets into `filter_targets()` and `get_all_targets()` — they appear in the Sky tab grid with a purple "Custom" badge.
+CRUD API at `/api/targets/custom/`. `CustomTargetsPanel.vue` with add/delete form, plus "My Targets" tab added to `DiscoveryView`.
+*PR #11*
+
+### S50 Plan Upload (Send to Scope)
+`list_plan()`, `set_plan()`, `delete_plan()` methods added to `SeestarObservationMixin`. Three new endpoints in telescope features API: `GET /api/telescope/features/plan/list`, `POST /api/telescope/features/plan/upload` (converts saved plan to Seestar wire format with RA hours→decimal degrees), `DELETE /api/telescope/features/plan/{name}`.
+"Send to Scope" button in PlanningView toolbar (enabled after saving a plan). `planningStore.sendToTelescope(planId)` action.
+*PR #11*
+
+---
+
+## 2026-04 — Planet Scheduling, Satellite Avoidance, Horizon Scanner & Profile
+
+### Planet / Moon Wishlist Scheduling
+Solar system wishlist items now appear as real time-block entries in the observing plan alongside DSOs (not just a sidebar list). `PlanRequest.solar_targets` field; `planner_service` computes ephemeris at session midpoint, creates `DSOTarget` pseudo-objects (`catalog_id="PLANET:Jupiter"`, `object_type="planet"`). Planets get 10 min, Moon gets 5 min. Planet magnitudes use Meeus Table 33.a with Saturn ring tilt correction.
+*PR #10*
+
+### Satellite Avoidance Constraint
+`avoid_satellites: bool` added to `ObservingConstraints`. `SatelliteAvoidanceService` downloads Celestrak "visual" TLEs (100 brightest, 24h cache), computes blocked intervals over the imaging window using sgp4/skyfield. Scheduler skips or splits targets that overlap a blocked interval. Frontend toggle in PlanningControls alongside "Avoid moon".
+*PR #10*
+
+### Horizon Scanner
+`HorizonScannerService` sweeps azimuths (15° steps), binary-searches altitude (5 iterations, 2°–45°) using Pillow top-third/bottom-third brightness ratio (sky:terrain ≥ 1.2 = sky). Telescope moves via `scope_move_to_horizon`, waits 1.8s, captures JPEG from RTSP preview stream.
+`POST /api/horizon/scan` starts background scan, `GET /api/horizon/scan/{id}/status` polls progress/points.
+`HorizonProfileEditor.vue` in Settings → Horizon tab: SVG preview chart (360×90 viewBox), point table, scan/add/remove/import/export.
+*PR #10*
+
+### Horizon Profile in Scheduler
+`HorizonPoint(az, alt)` model. `GET/PUT /api/settings/horizon-profile` endpoints (stored as AppSetting). `get_effective_min_altitude(az, profile)` interpolates linearly between breakpoints (wrapping at 0/360). Scheduler uses `max(constraints.min_altitude, effective_min_alt)` per target azimuth.
+*PR #10*
+
+---
+
 ## 2026-03 — IA Redesign + Execution + Timeline
 
 ### IA Redesign: Tonight / Sky / Plan / Observe / Archive
