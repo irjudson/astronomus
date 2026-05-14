@@ -105,6 +105,46 @@ class WebhookService:
 
         return False
 
+    def send_scope_unreachable_notification(self, plan_name: str) -> bool:
+        """Send webhook notification when telescope is unreachable after max retries.
+
+        Args:
+            plan_name: Name of the plan that could not be executed
+
+        Returns:
+            True if webhook sent successfully, False otherwise
+        """
+        if not self.webhook_url:
+            logger.debug("No webhook URL configured, skipping scope_unreachable notification")
+            return False
+
+        payload = {
+            "event": "scope_unreachable",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "plan_name": plan_name,
+            "message": f"Auto-execute aborted: telescope unreachable for plan '{plan_name}'",
+        }
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.post(
+                    self.webhook_url,
+                    json=payload,
+                    timeout=self.timeout,
+                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
+                )
+                response.raise_for_status()
+                logger.info(f"scope_unreachable webhook sent for plan '{plan_name}'")
+                return True
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"scope_unreachable webhook attempt {attempt + 1} failed: {e}")
+                if attempt == self.max_retries:
+                    return False
+            except Exception as e:
+                logger.error(f"Unexpected error sending scope_unreachable webhook: {e}")
+                return False
+        return False
+
     def is_configured(self) -> bool:
         """Check if webhook URL is configured."""
         return bool(self.webhook_url)

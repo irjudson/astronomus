@@ -16,7 +16,12 @@ celery_app = Celery(
     "astro_planner",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["app.tasks.processing_tasks", "app.tasks.planning_tasks", "app.tasks.telescope_tasks"],
+    include=[
+        "app.tasks.processing_tasks",
+        "app.tasks.planning_tasks",
+        "app.tasks.telescope_tasks",
+        "app.tasks.automation_tasks",
+    ],
 )
 
 # Configure Celery
@@ -43,6 +48,16 @@ celery_app.conf.beat_schedule = {
     "cleanup-old-jobs": {
         "task": "cleanup_old_jobs",
         "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM
+        "args": (),
+    },
+    "schedule-dusk-execution": {
+        "task": "schedule_dusk_execution",
+        "schedule": crontab(hour=15, minute=0),  # 3 PM daily — compute dusk, schedule auto-execute
+        "args": (),
+    },
+    "weather-watchdog": {
+        "task": "weather_watchdog",
+        "schedule": crontab(minute="*/10"),  # Every 10 min — abort if conditions deteriorate
         "args": (),
     },
 }
