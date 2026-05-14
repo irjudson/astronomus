@@ -167,4 +167,5 @@ class UserTarget(Base):
     size_arcmin = Column(Float, nullable=True)
     object_type = Column(String(50), nullable=False, default="other")
     notes = Column(Text, nullable=True)
+    image_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
