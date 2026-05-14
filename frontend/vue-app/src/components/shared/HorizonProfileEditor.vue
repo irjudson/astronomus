@@ -26,8 +26,8 @@
         Binary search
       </label>
       <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
-        <input type="radio" v-model="scanMode" value="sweep" class="text-blue-500" />
-        Full sweep
+        <input type="radio" v-model="scanMode" value="steps" class="text-blue-500" />
+        Fixed alt steps
       </label>
     </div>
 
