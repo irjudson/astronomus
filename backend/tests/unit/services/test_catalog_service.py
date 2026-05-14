@@ -379,6 +379,18 @@ class TestCatalogServiceComprehensive:
         assert all(t.magnitude <= 8.0 for t in bright if t.magnitude < 99)
 
 
+class TestCatalogServiceCaldwell:
+    def test_caldwell_object_returned_by_id(self, override_get_db):
+        """After seeding, C14 should be retrievable by ID."""
+        from scripts.seed_caldwell import seed_caldwell_if_needed
+
+        seed_caldwell_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("C14")
+        assert target is not None
+        assert "C14" in (target.catalog_id or "")
+
+
 class TestCatalogServiceUserTargets:
     def test_filter_targets_includes_user_targets(self, override_get_db):
         from app.models.catalog_models import UserTarget
