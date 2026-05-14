@@ -64,6 +64,15 @@
             />
           </label>
 
+          <label class="flex items-center justify-between p-3 bg-gray-800 rounded cursor-pointer hover:bg-gray-750 transition-colors">
+            <span class="text-sm text-gray-200">Include visible comets</span>
+            <input
+              v-model="planningStore.includeComets"
+              type="checkbox"
+              class="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-2 focus:ring-blue-500/50"
+            />
+          </label>
+
           <div>
             <label class="block text-xs text-gray-500 mb-2">Setup Time</label>
             <div class="flex items-center gap-2">

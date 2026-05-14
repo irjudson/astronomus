@@ -186,6 +186,26 @@ class CatalogService:
                 .filter(DSOCatalog.catalog_name == "IC", DSOCatalog.catalog_number == catalog_number)
                 .first()
             )
+        # Arp ID: ARP1 through ARP338
+        elif catalog_id_upper.startswith("ARP") and catalog_id_upper[3:].isdigit():
+            arp_num = int(catalog_id_upper[3:])
+            row = self.db.query(DSOCatalog).filter(DSOCatalog.arp_number == arp_num).first()
+            if row:
+                return self._db_row_to_target(row)
+            return None
+        # Sharpless ID: SH2-106 or SH106
+        elif catalog_id_upper.startswith("SH2-") and catalog_id_upper[4:].isdigit():
+            sh_num = int(catalog_id_upper[4:])
+            row = self.db.query(DSOCatalog).filter(DSOCatalog.sharpless_number == sh_num).first()
+            if row:
+                return self._db_row_to_target(row)
+            return None
+        elif catalog_id_upper.startswith("SH") and catalog_id_upper[2:].isdigit():
+            sh_num = int(catalog_id_upper[2:])
+            row = self.db.query(DSOCatalog).filter(DSOCatalog.sharpless_number == sh_num).first()
+            if row:
+                return self._db_row_to_target(row)
+            return None
         else:
             return None
 

@@ -22,6 +22,7 @@ export const usePlanningStore = defineStore('planning', {
       object_types: [...DEFAULT_SETTINGS.planObjectTypes],
       daytime_planning: false,
     },
+    includeComets: false,
     cometWishlist: [],
 
     // Execution state
@@ -124,6 +125,10 @@ export const usePlanningStore = defineStore('planning', {
             object_types: this.constraints.object_types,
             daytime_planning: this.constraints.daytime_planning
           }
+        }
+
+        if (this.includeComets) {
+          request.constraints.object_types = [...(request.constraints.object_types || []), 'comet']
         }
 
         // Wishlist DSO items are preferred gap-fillers (not primary targets)

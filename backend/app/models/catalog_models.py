@@ -17,6 +17,8 @@ class DSOCatalog(Base):
     catalog_number = Column(Integer, nullable=False, index=True)  # Indexed for search
     common_name = Column(String(100), nullable=True, index=True)  # M31, Andromeda Galaxy, etc. - indexed for search
     caldwell_number = Column(Integer, nullable=True)  # Caldwell catalog number (1-109)
+    arp_number = Column(Integer, nullable=True, index=True)  # Arp Atlas of Peculiar Galaxies number
+    sharpless_number = Column(Integer, nullable=True, index=True)  # Sharpless 2 catalog number
     ra_hours = Column(Float, nullable=False)  # Right ascension in hours
     dec_degrees = Column(Float, nullable=False, index=True)  # Declination in degrees - indexed for visibility queries
     object_type = Column(
@@ -165,4 +167,5 @@ class UserTarget(Base):
     size_arcmin = Column(Float, nullable=True)
     object_type = Column(String(50), nullable=False, default="other")
     notes = Column(Text, nullable=True)
+    image_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

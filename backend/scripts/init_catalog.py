@@ -118,6 +118,28 @@ def seed_catalog():
                     print("  Caldwell: already seeded, skipping.")
             except Exception as e:
                 print(f"  WARNING: Caldwell seeding failed: {e}", file=sys.stderr)
+            # Still run Arp seeding (idempotent — safe to call every startup)
+            try:
+                from scripts.seed_arp import seed_arp_if_needed
+
+                n = seed_arp_if_needed(db)
+                if n > 0:
+                    print(f"  Arp: processed {n} objects.")
+                else:
+                    print("  Arp: already seeded, skipping.")
+            except Exception as e:
+                print(f"  WARNING: Arp seeding failed: {e}", file=sys.stderr)
+            # Still run Sharpless seeding (idempotent — safe to call every startup)
+            try:
+                from scripts.seed_sharpless import seed_sharpless_if_needed
+
+                n = seed_sharpless_if_needed(db)
+                if n > 0:
+                    print(f"  Sharpless: seeded {n} objects.")
+                else:
+                    print("  Sharpless: already seeded, skipping.")
+            except Exception as e:
+                print(f"  WARNING: Sharpless seeding failed: {e}", file=sys.stderr)
             return
 
         print("Catalog is empty — seeding from pyongc...")
@@ -228,6 +250,30 @@ def seed_catalog():
                 print("  Caldwell: already seeded, skipping.")
         except Exception as e:
             print(f"  WARNING: Caldwell seeding failed: {e}", file=sys.stderr)
+
+        # Seed Arp Atlas objects (idempotent)
+        try:
+            from scripts.seed_arp import seed_arp_if_needed
+
+            n = seed_arp_if_needed(db)
+            if n > 0:
+                print(f"  Arp: processed {n} objects.")
+            else:
+                print("  Arp: already seeded, skipping.")
+        except Exception as e:
+            print(f"  WARNING: Arp seeding failed: {e}", file=sys.stderr)
+
+        # Seed Sharpless HII regions (idempotent)
+        try:
+            from scripts.seed_sharpless import seed_sharpless_if_needed
+
+            n = seed_sharpless_if_needed(db)
+            if n > 0:
+                print(f"  Sharpless: seeded {n} objects.")
+            else:
+                print("  Sharpless: already seeded, skipping.")
+        except Exception as e:
+            print(f"  WARNING: Sharpless seeding failed: {e}", file=sys.stderr)
 
     except Exception as e:
         db.rollback()
