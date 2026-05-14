@@ -8,10 +8,13 @@ that goes beyond the generic telescope interface.
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_telescope
 from app.clients.seestar_client import SeestarClient
+from app.database import get_db
+from app.models.plan_models import SavedPlan
 
 router = APIRouter()
 
@@ -97,6 +100,89 @@ class HorizonMoveRequest(BaseModel):
 
     azimuth: float
     altitude: float
+
+
+class PlanUploadRequest(BaseModel):
+    """Request to upload a saved plan to the telescope."""
+
+    plan_id: int = Field(description="Database ID of the SavedPlan to upload")
+
+
+# ==========================================
+# Plan Helpers
+# ==========================================
+
+
+def _plan_to_seestar_format(plan_data: dict) -> dict:
+    """Convert a saved plan's plan_data dict to the Seestar set_plan wire format.
+
+    The Seestar set_plan command expects:
+      {
+        "plan_name": "<name>",
+        "update_time_seestar": "<ISO timestamp>",
+        "list": [
+          {
+            "target_id": <int>,
+            "target_name": "<name>",
+            "target_ra_dec": [<ra_deg>, <dec_deg>],
+            "duration_min": <int>,
+            "stack_total_sec": <int>,
+            "lp_filter": <bool>,
+          }, ...
+        ]
+      }
+    """
+    from datetime import datetime, timezone
+
+    scheduled_targets = plan_data.get("scheduled_targets", [])
+    session = plan_data.get("session", {})
+    observing_date = (
+        session.get("observing_date", "") if isinstance(session, dict) else getattr(session, "observing_date", "")
+    )
+    plan_name = f"{observing_date}-plan" if observing_date else "plan"
+
+    seestar_targets = []
+    for idx, st in enumerate(scheduled_targets):
+        if isinstance(st, dict):
+            target = st.get("target", {})
+            duration_minutes = st.get("duration_minutes", 60)
+        else:
+            target = getattr(st, "target", {})
+            duration_minutes = getattr(st, "duration_minutes", 60)
+
+        if isinstance(target, dict):
+            name = target.get("name", f"Target {idx + 1}")
+            ra_hours = target.get("ra_hours", 0.0)
+            dec_degrees = target.get("dec_degrees", 0.0)
+        else:
+            name = getattr(target, "name", f"Target {idx + 1}")
+            ra_hours = getattr(target, "ra_hours", 0.0)
+            dec_degrees = getattr(target, "dec_degrees", 0.0)
+
+        # Convert RA hours to degrees (Seestar uses decimal degrees for RA)
+        ra_deg = ra_hours * 15.0
+        duration_min = int(duration_minutes)
+        stack_total_sec = max(duration_min * 60 - 180, 60)  # leave ~3 min for focus/slew
+
+        seestar_targets.append(
+            {
+                "target_id": idx + 1,
+                "target_name": name,
+                "target_ra_dec": [ra_deg, dec_degrees],
+                "duration_min": duration_min,
+                "stack_total_sec": stack_total_sec,
+                "lp_filter": False,
+                "state": "idle",
+                "code": None,
+                "error": None,
+            }
+        )
+
+    return {
+        "plan_name": plan_name,
+        "update_time_seestar": datetime.now(timezone.utc).isoformat(),
+        "list": seestar_targets,
+    }
 
 
 # ==========================================
@@ -853,5 +939,53 @@ async def check_verification_status(telescope: SeestarClient = Depends(get_curre
     try:
         is_verified = await telescope.check_client_verified()
         return {"verified": is_verified}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# PLAN MANAGEMENT
+# ==========================================
+
+
+@router.get("/plan/list")
+async def list_plans_on_telescope(telescope: SeestarClient = Depends(get_current_telescope)) -> Dict[str, Any]:
+    """List observation plans stored on the telescope."""
+    try:
+        plans = await telescope.list_plan()
+        return {"plans": plans if isinstance(plans, list) else []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/plan/upload")
+async def upload_plan_to_telescope(
+    request: PlanUploadRequest,
+    telescope: SeestarClient = Depends(get_current_telescope),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Upload a saved plan to the telescope."""
+    saved = db.query(SavedPlan).filter(SavedPlan.id == request.plan_id).first()
+    if not saved:
+        raise HTTPException(status_code=404, detail=f"Plan {request.plan_id} not found")
+    try:
+        seestar_payload = _plan_to_seestar_format(saved.plan_data)
+        success = await telescope.set_plan(**seestar_payload)
+        return _ok(success)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/plan/{plan_name}")
+async def delete_plan_from_telescope(
+    plan_name: str,
+    telescope: SeestarClient = Depends(get_current_telescope),
+) -> Dict[str, Any]:
+    """Delete a plan from the telescope by name."""
+    try:
+        success = await telescope.delete_plan(plan_name)
+        return _ok(success)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -337,6 +337,18 @@ class WeatherForecast(BaseModel):
     source: str = Field(default="openweathermap", description="Data source: openweathermap, 7timer, or composite")
 
 
+class DailyForecast(BaseModel):
+    """Seven-day daily forecast entry from Open-Meteo."""
+
+    date: str = Field(description="Date in YYYY-MM-DD format")
+    cloud_pct: float = Field(ge=0, le=100, description="Mean cloud cover percentage")
+    temp_min: float = Field(description="Minimum temperature in Celsius")
+    temp_max: float = Field(description="Maximum temperature in Celsius")
+    wind_mps: float = Field(ge=0, description="Max wind speed in m/s")
+    precip_mm: float = Field(ge=0, description="Total precipitation in mm")
+    astronomy_score: float = Field(ge=0, le=100, description="Astronomy suitability 0-100")
+
+
 class SessionInfo(BaseModel):
     """Information about the observing session."""
 

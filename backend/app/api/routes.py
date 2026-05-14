@@ -19,6 +19,7 @@ from app.api.captures import router as captures_router
 
 # Import comet, asteroid, planet, processing, plans, astronomy, and settings routers
 from app.api.comets import router as comet_router
+from app.api.custom_targets import router as custom_targets_router
 from app.api.horizon import router as horizon_router
 from app.api.planets import router as planet_router
 from app.api.plans import router as plans_router
@@ -36,6 +37,7 @@ from app.services.planner_service import PlannerService
 router = APIRouter()
 
 router.include_router(comet_router)
+router.include_router(custom_targets_router)
 router.include_router(horizon_router)
 router.include_router(asteroid_router)
 router.include_router(planet_router)

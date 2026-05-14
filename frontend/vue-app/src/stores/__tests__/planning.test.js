@@ -30,4 +30,20 @@ describe('Planning Store', () => {
     expect(store.currentPlan).toEqual(mockPlan)
     expect(store.loading).toBe(false)
   })
+
+  it('sendToTelescope posts plan_id to upload endpoint', async () => {
+    axios.post.mockResolvedValue({ data: { success: true } })
+    const store = usePlanningStore()
+    await store.sendToTelescope(42)
+    expect(axios.post).toHaveBeenCalledWith(
+      '/api/telescope/features/plan/upload',
+      { plan_id: 42 }
+    )
+  })
+
+  it('sendToTelescope throws on failure', async () => {
+    axios.post.mockRejectedValue({ response: { data: { detail: 'scope error' } } })
+    const store = usePlanningStore()
+    await expect(store.sendToTelescope(1)).rejects.toBeTruthy()
+  })
 })
