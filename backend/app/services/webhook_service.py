@@ -23,6 +23,29 @@ class WebhookService:
         self.timeout = 5  # seconds
         self.max_retries = 2
 
+    def _post(self, payload: dict) -> bool:
+        """POST payload to webhook_url with retries. Returns True on success."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.post(
+                    self.webhook_url,
+                    json=payload,
+                    timeout=self.timeout,
+                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
+                )
+                response.raise_for_status()
+                logger.info(f"Webhook sent successfully to {self.webhook_url}")
+                return True
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Webhook request failed: {e} (attempt {attempt + 1}/{self.max_retries + 1})")
+                if attempt == self.max_retries:
+                    logger.error(f"Webhook failed after {self.max_retries + 1} attempts: {e}")
+                    return False
+            except Exception as e:
+                logger.error(f"Unexpected error sending webhook: {e}")
+                return False
+        return False
+
     def send_plan_created_notification(
         self,
         plan_id: int,
@@ -69,41 +92,7 @@ class WebhookService:
         if session_end:
             payload["plan"]["session_end"] = session_end
 
-        # Send webhook with retries
-        for attempt in range(self.max_retries + 1):
-            try:
-                logger.info(f"Sending webhook to {self.webhook_url} (attempt {attempt + 1}/{self.max_retries + 1})")
-
-                response = requests.post(
-                    self.webhook_url,
-                    json=payload,
-                    timeout=self.timeout,
-                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
-                )
-
-                # Check response status
-                response.raise_for_status()
-
-                logger.info(f"Webhook sent successfully to {self.webhook_url}")
-                return True
-
-            except requests.exceptions.Timeout:
-                logger.warning(f"Webhook request timed out (attempt {attempt + 1}/{self.max_retries + 1})")
-                if attempt == self.max_retries:
-                    logger.error(f"Webhook failed after {self.max_retries + 1} attempts (timeout)")
-                    return False
-
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Webhook request failed: {e} (attempt {attempt + 1}/{self.max_retries + 1})")
-                if attempt == self.max_retries:
-                    logger.error(f"Webhook failed after {self.max_retries + 1} attempts: {e}")
-                    return False
-
-            except Exception as e:
-                logger.error(f"Unexpected error sending webhook: {e}")
-                return False
-
-        return False
+        return self._post(payload)
 
     def send_scope_unreachable_notification(self, plan_name: str) -> bool:
         """Send webhook notification when telescope is unreachable after max retries.
@@ -125,25 +114,7 @@ class WebhookService:
             "message": f"Auto-execute aborted: telescope unreachable for plan '{plan_name}'",
         }
 
-        for attempt in range(self.max_retries + 1):
-            try:
-                response = requests.post(
-                    self.webhook_url,
-                    json=payload,
-                    timeout=self.timeout,
-                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
-                )
-                response.raise_for_status()
-                logger.info(f"scope_unreachable webhook sent for plan '{plan_name}'")
-                return True
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"scope_unreachable webhook attempt {attempt + 1} failed: {e}")
-                if attempt == self.max_retries:
-                    return False
-            except Exception as e:
-                logger.error(f"Unexpected error sending scope_unreachable webhook: {e}")
-                return False
-        return False
+        return self._post(payload)
 
     def send_weather_abort_notification(
         self,
@@ -175,25 +146,80 @@ class WebhookService:
             },
         }
 
-        for attempt in range(self.max_retries + 1):
-            try:
-                response = requests.post(
-                    self.webhook_url,
-                    json=payload,
-                    timeout=self.timeout,
-                    headers={"Content-Type": "application/json", "User-Agent": "AstroPlanner/1.0"},
-                )
-                response.raise_for_status()
-                logger.info(f"weather_abort webhook sent for execution '{execution_id}'")
-                return True
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"weather_abort webhook attempt {attempt + 1} failed: {e}")
-                if attempt == self.max_retries:
-                    return False
-            except Exception as e:
-                logger.error(f"Unexpected error sending weather_abort webhook: {e}")
-                return False
-        return False
+        return self._post(payload)
+
+    def send_session_started_notification(
+        self,
+        execution_id: str,
+        plan_name: str,
+        target_count: int,
+        target_names: List[str],
+    ) -> bool:
+        """Send webhook notification when a telescope session begins executing.
+
+        Args:
+            execution_id: Unique execution ID
+            plan_name: Name or label of the plan being executed
+            target_count: Total number of targets in the session
+            target_names: List of target names
+
+        Returns:
+            True if webhook sent successfully, False otherwise
+        """
+        if not self.webhook_url:
+            return False
+        payload = {
+            "event": "session_started",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "execution": {
+                "id": execution_id,
+                "plan_name": plan_name,
+                "target_count": target_count,
+                "targets": target_names,
+            },
+        }
+        return self._post(payload)
+
+    def send_session_completed_notification(
+        self,
+        execution_id: str,
+        plan_name: str,
+        state: str,
+        targets_completed: int,
+        targets_failed: int,
+        total_targets: int,
+        duration_str: Optional[str] = None,
+    ) -> bool:
+        """Send webhook notification when a telescope session finishes.
+
+        Args:
+            execution_id: Unique execution ID
+            plan_name: Name or label of the plan that was executed
+            state: Final state string (e.g. "completed", "aborted", "error")
+            targets_completed: Number of targets successfully completed
+            targets_failed: Number of targets that failed
+            total_targets: Total targets in the session
+            duration_str: Optional human-readable elapsed duration
+
+        Returns:
+            True if webhook sent successfully, False otherwise
+        """
+        if not self.webhook_url:
+            return False
+        payload = {
+            "event": "session_completed",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "execution": {
+                "id": execution_id,
+                "plan_name": plan_name,
+                "state": state,
+                "targets_completed": targets_completed,
+                "targets_failed": targets_failed,
+                "total_targets": total_targets,
+                "duration": duration_str,
+            },
+        }
+        return self._post(payload)
 
     def is_configured(self) -> bool:
         """Check if webhook URL is configured."""
