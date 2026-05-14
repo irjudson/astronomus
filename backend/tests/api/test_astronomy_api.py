@@ -226,6 +226,8 @@ class TestViewingMonthsSummary:
 
 
 class TestMultiDayWeather:
+    pytestmark = pytest.mark.integration
+
     def test_multiday_weather_returns_list(self, client):
         from unittest.mock import patch
 
