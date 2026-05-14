@@ -149,3 +149,20 @@ class ImageSourceStats(Base):
     last_used = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+
+class UserTarget(Base):
+    """User-defined custom observing targets."""
+
+    __tablename__ = "user_targets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    catalog_id = Column(String(100), unique=True, nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    ra_hours = Column(Float, nullable=False)
+    dec_degrees = Column(Float, nullable=False)
+    magnitude = Column(Float, nullable=True)
+    size_arcmin = Column(Float, nullable=True)
+    object_type = Column(String(50), nullable=False, default="other")
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

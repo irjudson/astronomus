@@ -3,10 +3,9 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
 import pytz
 
-from app.models import DSOTarget, Location, TargetVisibility
+from app.models import DSOTarget, Location
 from app.services.catalog_service import CatalogService
 from app.services.ephemeris_service import EphemerisService
 
@@ -95,3 +94,22 @@ def test_add_visibility_info_at_horizon():
     assert enriched.visibility.current_altitude == 15.0
     # 15° altitude is in the "rising" category (between 0-30°)
     assert enriched.visibility.status == "rising"
+
+
+class TestUserTargetModel:
+    def test_user_target_tablename(self):
+        from app.models.catalog_models import UserTarget
+
+        assert UserTarget.__tablename__ == "user_targets"
+
+    def test_user_target_columns(self):
+        from sqlalchemy import inspect
+
+        from app.models.catalog_models import UserTarget
+
+        mapper = inspect(UserTarget)
+        col_names = [c.key for c in mapper.columns]
+        assert "catalog_id" in col_names
+        assert "name" in col_names
+        assert "ra_hours" in col_names
+        assert "dec_degrees" in col_names

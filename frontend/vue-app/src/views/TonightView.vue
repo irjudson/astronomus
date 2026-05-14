@@ -56,6 +56,12 @@
       </div>
     </div>
 
+    <!-- 7-day weather strip -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">7-Day Forecast</div>
+      <DailyWeatherStrip :forecasts="weatherStore.multiDayForecast" />
+    </div>
+
     <!-- Active Plan card (full width) -->
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
       <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Active Plan</div>
@@ -137,6 +143,7 @@ import { computed, onMounted } from 'vue'
 import { useWeatherStore } from '@/stores/weather'
 import { useExecutionStore } from '@/stores/execution'
 import { usePlanningStore } from '@/stores/planning'
+import DailyWeatherStrip from '@/components/shared/DailyWeatherStrip.vue'
 
 const weatherStore = useWeatherStore()
 const executionStore = useExecutionStore()
@@ -199,6 +206,7 @@ async function loadMostRecent() {
 
 onMounted(async () => {
   await weatherStore.fetchLocalWeather()
+  weatherStore.fetchMultiDayForecast()
   await planningStore.loadSavedPlans()
 })
 </script>

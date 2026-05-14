@@ -7,6 +7,7 @@ export const useWeatherStore = defineStore('weather', {
     current: null,
     local: null,       // real-time data from local WS-2902 station
     forecast: [],
+    multiDayForecast: [],
     seeing: null,
     loading: false,
     error: null,
@@ -134,6 +135,15 @@ export const useWeatherStore = defineStore('weather', {
         this.seeing = response.data
       } catch (err) {
         console.error('Seeing error:', err)
+      }
+    },
+
+    async fetchMultiDayForecast() {
+      try {
+        const resp = await axios.get('/api/weather/multiday')
+        this.multiDayForecast = resp.data ?? []
+      } catch {
+        this.multiDayForecast = []
       }
     },
 

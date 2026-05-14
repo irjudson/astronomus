@@ -12,30 +12,37 @@ describe('Weather Store', () => {
   })
 
   it('fetches current weather from API', async () => {
-    const mockWeather = {
-      temperature: 15,
-      humidity: 65,
-      cloud_cover: 20,
-      wind_speed: 5
-    }
-
-    axios.get.mockResolvedValue({ data: mockWeather })
+    // fetchCurrentWeather calls /api/weather/local and /api/weather/astronomy in parallel.
+    // Mock both: local returns null (ECONNREFUSED handled gracefully), astronomy returns a forecast.
+    axios.get.mockImplementation((url) => {
+      if (url.includes('/api/weather/local')) {
+        return Promise.reject(new Error('no local station'))
+      }
+      return Promise.resolve({
+        data: {
+          forecast: [
+            { temperature_c: 15, cloud_cover: 20, wind_speed_kmh: 5, seeing: 3, transparency: 3 }
+          ]
+        }
+      })
+    })
 
     const store = useWeatherStore()
     await store.fetchCurrentWeather()
 
-    expect(store.current).toEqual(mockWeather)
+    expect(store.current).toMatchObject({ temperature: 15, cloud_cover: 20 })
     expect(store.loading).toBe(false)
     expect(store.error).toBeNull()
   })
 
-  it('handles weather API errors', async () => {
+  it('handles weather API errors gracefully', async () => {
+    // When all requests fail, store.current remains null and loading returns to false.
     axios.get.mockRejectedValue(new Error('API error'))
 
     const store = useWeatherStore()
     await store.fetchCurrentWeather()
 
-    expect(store.error).toBeTruthy()
+    expect(store.current).toBeNull()
     expect(store.loading).toBe(false)
   })
 
@@ -66,5 +73,22 @@ describe('Weather Store', () => {
   it('returns Unknown quality when no weather data', () => {
     const store = useWeatherStore()
     expect(store.weatherQuality).toBe('Unknown')
+  })
+
+  it('fetchMultiDayForecast populates multiDayForecast', async () => {
+    const mockData = [
+      { date: '2026-05-14', cloud_pct: 20, temp_min: 8, temp_max: 18, wind_mps: 3, precip_mm: 0, astronomy_score: 80 }
+    ]
+    axios.get.mockResolvedValue({ data: mockData })
+    const store = useWeatherStore()
+    await store.fetchMultiDayForecast()
+    expect(store.multiDayForecast).toEqual(mockData)
+  })
+
+  it('fetchMultiDayForecast handles error gracefully', async () => {
+    axios.get.mockRejectedValue(new Error('net error'))
+    const store = useWeatherStore()
+    await store.fetchMultiDayForecast()
+    expect(store.multiDayForecast).toEqual([])
   })
 })
