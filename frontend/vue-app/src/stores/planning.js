@@ -285,6 +285,23 @@ export const usePlanningStore = defineStore('planning', {
       }
     },
 
+    async sendToTelescope(planId) {
+      if (!planId) throw new Error('No plan ID provided')
+      this.loading = true
+      this.error = null
+      try {
+        await axios.post('/api/telescope/features/plan/upload', { plan_id: planId })
+        useToastStore().success('Plan uploaded to telescope')
+      } catch (err) {
+        const msg = 'Failed to upload plan: ' + (err.response?.data?.detail || err.message || 'unknown error')
+        this.error = msg
+        useToastStore().error(msg)
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
     async abortExecution() {
       if (!this.executionId) return
 

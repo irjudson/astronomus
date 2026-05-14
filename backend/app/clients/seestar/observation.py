@@ -463,3 +463,41 @@ class SeestarObservationMixin:
 
         self.logger.info(f"Set auto exposure response: {response}")
         return response.get("result") == 0
+
+    # ========================================================================
+    # Plan Management
+    # ========================================================================
+
+    async def list_plan(self) -> list:
+        """List observation plans stored on the telescope.
+
+        Returns:
+            List of plan summary dicts (name, update_time, etc.)
+        """
+        response = await self._send_command("list_plan", {})
+        result = response.get("result", [])
+        return result if isinstance(result, list) else []
+
+    async def set_plan(self, **params: Any) -> bool:
+        """Upload / create a plan on the telescope.
+
+        Args:
+            **params: Plan payload (plan_name, list, update_time_seestar, …)
+
+        Returns:
+            True if the telescope accepted the plan.
+        """
+        response = await self._send_command("set_plan", params)
+        return response.get("result") == 0
+
+    async def delete_plan(self, name: str) -> bool:
+        """Delete a named plan from the telescope.
+
+        Args:
+            name: Plan name to delete.
+
+        Returns:
+            True if deleted successfully.
+        """
+        response = await self._send_command("delete_plan", {"name": name})
+        return response.get("result") == 0

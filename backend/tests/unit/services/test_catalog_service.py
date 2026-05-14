@@ -377,3 +377,50 @@ class TestCatalogServiceComprehensive:
         # Objects brighter than magnitude 8
         bright = service.filter_targets(max_magnitude=8.0, limit=50)
         assert all(t.magnitude <= 8.0 for t in bright if t.magnitude < 99)
+
+
+class TestCatalogServiceUserTargets:
+    def test_filter_targets_includes_user_targets(self, override_get_db):
+        from app.models.catalog_models import UserTarget
+        from app.services.catalog_service import CatalogService
+
+        db = override_get_db
+        ut = UserTarget(
+            catalog_id="USER:my_nebula",
+            name="My Nebula",
+            ra_hours=5.0,
+            dec_degrees=10.0,
+            object_type="nebula",
+        )
+        db.add(ut)
+        db.commit()
+        svc = CatalogService(db)
+        targets = svc.filter_targets()
+        ids = [t.catalog_id for t in targets]
+        assert "USER:my_nebula" in ids
+        # cleanup
+        db.delete(ut)
+        db.commit()
+
+    def test_user_target_description_contains_custom(self, override_get_db):
+        from app.models.catalog_models import UserTarget
+        from app.services.catalog_service import CatalogService
+
+        db = override_get_db
+        ut = UserTarget(
+            catalog_id="USER:test_galaxy",
+            name="Test Galaxy",
+            ra_hours=3.0,
+            dec_degrees=20.0,
+            object_type="galaxy",
+        )
+        db.add(ut)
+        db.commit()
+        svc = CatalogService(db)
+        targets = svc.filter_targets()
+        custom = next((t for t in targets if t.catalog_id == "USER:test_galaxy"), None)
+        assert custom is not None
+        assert "Custom" in (custom.description or "")
+        # cleanup
+        db.delete(ut)
+        db.commit()

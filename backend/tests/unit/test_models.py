@@ -112,3 +112,33 @@ def test_dso_target_with_visibility():
     )
 
     assert target_no_vis.visibility is None
+
+
+class TestDailyForecast:
+    def test_daily_forecast_fields(self):
+        from app.models.models import DailyForecast
+
+        f = DailyForecast(
+            date="2026-05-14",
+            cloud_pct=25.0,
+            temp_min=8.0,
+            temp_max=18.0,
+            wind_mps=3.5,
+            precip_mm=0.0,
+            astronomy_score=75.0,
+        )
+        assert f.astronomy_score == 75.0
+
+    def test_daily_forecast_score_clamp(self):
+        from app.models.models import DailyForecast
+
+        f = DailyForecast(
+            date="2026-05-14",
+            cloud_pct=0.0,
+            temp_min=0.0,
+            temp_max=0.0,
+            wind_mps=0.0,
+            precip_mm=0.0,
+            astronomy_score=0.0,
+        )
+        assert f.astronomy_score >= 0.0

@@ -3,13 +3,17 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.database import get_db
 from app.models import DSOTarget, Location
+from app.models.models import DailyForecast
 from app.services.ephemeris_service import EphemerisService
 from app.services.local_weather_service import LocalWeatherService
+from app.services.multi_day_weather_service import MultiDayWeatherService
 from app.services.satellite_service import SatelliteService
+from app.services.settings_service import SettingsService
 from app.services.seven_timer_service import SevenTimerService
 from app.services.viewing_months_service import ViewingMonthsService
 from app.services.weather_service import WeatherService
@@ -142,6 +146,22 @@ async def get_local_weather():
     if reading is None:
         raise HTTPException(status_code=503, detail="Local weather station unreachable")
     return reading.to_dict()
+
+
+@router.get("/weather/multiday", response_model=List[DailyForecast])
+async def get_multiday_weather(db=Depends(get_db)):
+    """Get 7-day daily astronomy forecast from Open-Meteo (free, no key).
+
+    Reads observer location from the default saved location in settings.
+    Returns an empty list if no location is configured.
+    """
+    settings_service = SettingsService(db)
+    location = settings_service.get_location()
+    if not location:
+        return []
+
+    svc = MultiDayWeatherService()
+    return svc.get_forecast(location)
 
 
 # ========================================================================
