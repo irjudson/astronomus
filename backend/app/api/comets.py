@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models import CometEphemeris, CometTarget, CometVisibility, Location
 from app.services.comet_service import CometService
 from app.services.horizons_service import HorizonsService
+from app.services.settings_service import SettingsService
 
 router = APIRouter(prefix="/comets", tags=["comets"])
 
@@ -56,6 +57,46 @@ async def list_comets(
         return comets
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing comets: {str(e)}")
+
+
+@router.get("/visible-tonight")
+async def get_visible_comets_tonight(
+    min_altitude: float = Query(20.0, ge=0, le=90),
+    max_magnitude: float = Query(12.0, ge=0, le=20),
+    db: Session = Depends(get_db),
+):
+    """Get comets visible tonight from the configured observer location."""
+    settings_svc = SettingsService(db)
+    location = settings_svc.get_location()
+
+    if location is None:
+        return []
+
+    now = datetime.utcnow()
+    comet_svc = CometService(db)
+
+    try:
+        visible = comet_svc.get_visible_comets(
+            location=location,
+            time_utc=now,
+            min_altitude=min_altitude,
+            max_magnitude=max_magnitude,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error computing comet visibility: {str(e)}")
+
+    return [
+        {
+            "designation": v.comet.designation,
+            "name": v.comet.name,
+            "magnitude": v.ephemeris.magnitude,
+            "altitude": round(v.altitude_deg, 1),
+            "azimuth": round(v.azimuth_deg, 1),
+            "ra_hours": v.ephemeris.ra_hours,
+            "dec_degrees": v.ephemeris.dec_degrees,
+        }
+        for v in visible
+    ]
 
 
 @router.get("/{designation}", response_model=CometTarget)

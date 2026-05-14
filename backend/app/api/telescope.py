@@ -330,7 +330,7 @@ async def get_execution_progress():
         execution = db.query(TelescopeExecution).order_by(TelescopeExecution.started_at.desc()).first()
 
         if not execution:
-            return {"state": "idle", "message": "No execution in progress"}
+            return {"state": "idle", "message": "No execution in progress", "active_plan_id": None}
 
         # Format elapsed time
         elapsed_time = None
@@ -347,6 +347,17 @@ async def get_execution_progress():
         if execution.error_log:
             errors = execution.error_log if isinstance(execution.error_log, list) else []
 
+        # Frames captured for the current target
+        frames_captured = 0
+        total_frames = 0
+        current_target = next(
+            (t for t in (execution.targets or []) if t.target_index == execution.current_target_index),
+            None,
+        )
+        if current_target:
+            frames_captured = current_target.actual_exposures or 0
+            total_frames = current_target.recommended_frames or 0
+
         return {
             "execution_id": execution.execution_id,
             "state": execution.state,
@@ -360,6 +371,9 @@ async def get_execution_progress():
             "elapsed_time": elapsed_time,
             "estimated_remaining": estimated_remaining,
             "errors": errors,
+            "frames_captured": frames_captured,
+            "total_frames": total_frames,
+            "active_plan_id": execution.saved_plan_id,
         }
 
     finally:

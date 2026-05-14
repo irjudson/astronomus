@@ -114,6 +114,24 @@
                   @set-status="s => updateCardStatus(item, s)"
                 />
               </div>
+              <!-- Nearby objects (shown when card expanded) -->
+              <div v-if="expandedCardId === cardKey(item)" class="border-t border-gray-700 pt-2 mt-2">
+                <p class="text-xs text-gray-500 mb-1">Nearby objects (2°)</p>
+                <div v-if="nearbyCache[cardKey(item)] === null" class="text-xs text-gray-600">Loading…</div>
+                <div v-else-if="!nearbyCache[cardKey(item)]?.length" class="text-xs text-gray-600">None within 2°</div>
+                <div v-else class="flex flex-wrap gap-1">
+                  <span
+                    v-for="nearby in nearbyCache[cardKey(item)]"
+                    :key="nearby.catalog_id"
+                    class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-800 rounded text-xs text-gray-300 cursor-pointer hover:bg-gray-700"
+                    :title="`${nearby.object_type} · ${nearby.separation_deg}° away`"
+                    @click="catalogStore.applyFilters({ search: nearby.name })"
+                  >
+                    <span>{{ nearby.name }}</span>
+                    <span class="text-gray-500">{{ nearby.separation_deg }}°</span>
+                  </span>
+                </div>
+              </div>
             </div>
             <div class="catalog-card-actions">
               <button
@@ -174,6 +192,26 @@ const gridEl = ref(null);
 const expandedCardId = ref(null);
 const viewingMonthsCache = ref({});
 const monthsLoading = ref(null);
+
+// --- Nearby objects cache (keyed by cardKey) ---
+const nearbyCache = ref({});
+
+async function fetchNearbyObjects(item) {
+  const key = cardKey(item);
+  if (nearbyCache.value[key] !== undefined) return; // Already fetched or loading
+  if (item.ra == null || item.dec == null) return;
+
+  nearbyCache.value[key] = null; // Loading sentinel
+
+  try {
+    const res = await axios.get('/api/targets/near', {
+      params: { ra_hours: item.ra, dec_degrees: item.dec, radius_deg: 2, limit: 5 },
+    });
+    nearbyCache.value[key] = res.data.filter((n) => n.separation_deg > 0.05);
+  } catch {
+    nearbyCache.value[key] = [];
+  }
+}
 
 // --- Altitude curve cache (keyed by cardKey) ---
 const altitudeCurveCache = ref({});
@@ -241,6 +279,7 @@ function toggleCard(item) {
     fetchViewingMonths(item);
   }
   fetchAltitudeCurve(item);
+  fetchNearbyObjects(item);
 }
 
 async function fetchViewingMonths(item) {

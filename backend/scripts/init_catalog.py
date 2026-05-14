@@ -107,6 +107,17 @@ def seed_catalog():
         count = db.query(DSOCatalog).count()
         if count > 0:
             print(f"Catalog already seeded ({count} objects). Skipping.")
+            # Still run Caldwell seeding (idempotent — safe to call every startup)
+            try:
+                from scripts.seed_caldwell import seed_caldwell_if_needed
+
+                n = seed_caldwell_if_needed(db)
+                if n > 0:
+                    print(f"  Caldwell: seeded {n} objects.")
+                else:
+                    print("  Caldwell: already seeded, skipping.")
+            except Exception as e:
+                print(f"  WARNING: Caldwell seeding failed: {e}", file=sys.stderr)
             return
 
         print("Catalog is empty — seeding from pyongc...")
@@ -205,6 +216,18 @@ def seed_catalog():
             db.commit()
 
         print(f"✓ Catalog seeded: {inserted} objects imported.")
+
+        # Seed Caldwell objects (idempotent)
+        try:
+            from scripts.seed_caldwell import seed_caldwell_if_needed
+
+            n = seed_caldwell_if_needed(db)
+            if n > 0:
+                print(f"  Caldwell: seeded {n} objects.")
+            else:
+                print("  Caldwell: already seeded, skipping.")
+        except Exception as e:
+            print(f"  WARNING: Caldwell seeding failed: {e}", file=sys.stderr)
 
     except Exception as e:
         db.rollback()

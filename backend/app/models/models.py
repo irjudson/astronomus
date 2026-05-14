@@ -68,6 +68,10 @@ class PlanRequest(BaseModel):
         default=None,
         description="Planet/moon names from wishlist to schedule as imaging targets (e.g. ['Jupiter', 'Moon'])",
     )
+    comet_targets: Optional[List[str]] = Field(
+        default=None,
+        description="Comet designations to schedule as imaging targets (e.g. ['C/2020 F3'])",
+    )
 
     @field_validator("observing_date")
     @classmethod

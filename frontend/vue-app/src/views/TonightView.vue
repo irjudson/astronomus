@@ -62,6 +62,32 @@
       <DailyWeatherStrip :forecasts="weatherStore.multiDayForecast" />
     </div>
 
+    <!-- Visible Comets card -->
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">Comets Visible Tonight</h3>
+      <div v-if="cometsLoading" class="text-xs text-gray-500">Loading…</div>
+      <div v-else-if="visibleComets.length === 0" class="text-xs text-gray-500 italic">
+        No comets above 20° tonight
+      </div>
+      <div v-else class="space-y-2">
+        <div v-for="c in visibleComets" :key="c.designation"
+          class="flex items-center justify-between text-sm">
+          <div>
+            <span class="text-gray-200 font-medium">{{ c.name || c.designation }}</span>
+            <span class="text-gray-500 text-xs ml-2">mag {{ c.magnitude?.toFixed(1) ?? '?' }}</span>
+            <span class="text-gray-500 text-xs ml-2">alt {{ c.altitude }}°</span>
+          </div>
+          <button @click="planningStore.toggleCometWishlist(c.designation)"
+            class="px-2 py-1 text-xs rounded transition-colors"
+            :class="planningStore.isCometWishlisted(c.designation)
+              ? 'bg-blue-600/30 text-blue-400 hover:bg-blue-600/50'
+              : 'bg-gray-700 text-gray-400 hover:text-blue-400'">
+            {{ planningStore.isCometWishlisted(c.designation) ? '&#x2713; Added' : '+ Plan' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Active Plan card (full width) -->
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
       <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Active Plan</div>
@@ -139,7 +165,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import axios from 'axios'
 import { useWeatherStore } from '@/stores/weather'
 import { useExecutionStore } from '@/stores/execution'
 import { usePlanningStore } from '@/stores/planning'
@@ -148,6 +175,22 @@ import DailyWeatherStrip from '@/components/shared/DailyWeatherStrip.vue'
 const weatherStore = useWeatherStore()
 const executionStore = useExecutionStore()
 const planningStore = usePlanningStore()
+
+// Visible comets
+const visibleComets = ref([])
+const cometsLoading = ref(false)
+
+async function fetchVisibleComets() {
+  cometsLoading.value = true
+  try {
+    const resp = await axios.get('/api/comets/visible-tonight', { params: { min_altitude: 20 } })
+    visibleComets.value = resp.data
+  } catch (e) {
+    visibleComets.value = []
+  } finally {
+    cometsLoading.value = false
+  }
+}
 
 // Header date label
 const todayLabel = computed(() => {
@@ -208,5 +251,6 @@ onMounted(async () => {
   await weatherStore.fetchLocalWeather()
   weatherStore.fetchMultiDayForecast()
   await planningStore.loadSavedPlans()
+  fetchVisibleComets()
 })
 </script>

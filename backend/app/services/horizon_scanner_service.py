@@ -57,26 +57,31 @@ class HorizonScannerService:
         az_step: int = 15,
         alt_min: float = 2.0,
         alt_max: float = 45.0,
+        scan_mode: str = "binary",
     ):
         self.host = telescope_host
         self.port = telescope_port
         self.az_step = az_step
         self.alt_min = alt_min
         self.alt_max = alt_max
+        self.scan_mode = scan_mode
         self._snapshot_url = "http://localhost:9247/api/telescope/preview/snapshot"
 
     def _is_sky(self, ratio: float) -> bool:
         return ratio >= SKY_RATIO_THRESHOLD
 
     async def scan(self) -> AsyncGenerator[ScanProgress, None]:
-        """Sweep azimuths, binary-search altitude, yield progress after each az."""
+        """Sweep azimuths, find horizon altitude per scan_mode, yield progress after each az."""
         azimuths = list(range(0, 360, self.az_step))
         total = len(azimuths)
         points = []
 
         for i, az in enumerate(azimuths):
             try:
-                alt = await self._find_horizon_altitude(az)
+                if self.scan_mode == "steps":
+                    alt = await self._find_horizon_altitude_steps(az)
+                else:
+                    alt = await self._find_horizon_altitude(az)
             except Exception as e:
                 logger.warning("Scan failed at az=%.0f: %s", az, e)
                 alt = self.alt_min  # fallback
@@ -109,6 +114,20 @@ class HorizonScannerService:
                 low = mid
 
         return (low + high) / 2.0
+
+    async def _find_horizon_altitude_steps(self, azimuth: float) -> float:
+        """Step through altitudes in 2° increments; return first alt where sky ratio >= threshold."""
+        ALT_STEP = 2.0
+        alt = self.alt_min
+        while alt <= self.alt_max:
+            await self._move_scope(azimuth, alt)
+            await asyncio.sleep(SETTLE_SECONDS)
+            frame = await self._capture_frame()
+            ratio = analyze_frame_brightness(frame)
+            if ratio >= SKY_RATIO_THRESHOLD:
+                return alt
+            alt += ALT_STEP
+        return self.alt_max
 
     async def _move_scope(self, azimuth: float, altitude: float) -> None:
         """Command telescope to move to alt/az position."""

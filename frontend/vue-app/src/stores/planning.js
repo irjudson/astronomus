@@ -22,6 +22,7 @@ export const usePlanningStore = defineStore('planning', {
       object_types: [...DEFAULT_SETTINGS.planObjectTypes],
       daytime_planning: false,
     },
+    cometWishlist: [],
 
     // Execution state
     executionId: null,
@@ -83,6 +84,19 @@ export const usePlanningStore = defineStore('planning', {
       this.selectedTargets = []
     },
 
+    toggleCometWishlist(designation) {
+      const idx = this.cometWishlist.indexOf(designation)
+      if (idx >= 0) {
+        this.cometWishlist.splice(idx, 1)
+      } else {
+        this.cometWishlist.push(designation)
+      }
+    },
+
+    isCometWishlisted(designation) {
+      return this.cometWishlist.includes(designation)
+    },
+
     async generatePlan() {
       this.loading = true
       this.error = null
@@ -126,6 +140,9 @@ export const usePlanningStore = defineStore('planning', {
         }
         if (solarTargets.length > 0) {
           request.solar_targets = solarTargets
+        }
+        if (this.cometWishlist.length > 0) {
+          request.comet_targets = [...this.cometWishlist]
         }
 
         const response = await axios.post('/api/plan', request)
