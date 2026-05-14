@@ -94,6 +94,9 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import HorizonScanModal from '@/components/settings/HorizonScanModal.vue'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const props = defineProps({ minAltitude: { type: Number, default: 30 } })
 
@@ -128,6 +131,8 @@ async function save() {
   try {
     await axios.put('/api/settings/horizon-profile', profile.value)
     pendingSave.value = false
+  } catch (e) {
+    toastStore.error('Failed to save horizon profile: ' + (e.response?.data?.detail || e.message || 'unknown error'))
   } finally {
     saving.value = false
   }
@@ -137,8 +142,10 @@ function addPoint() {
   profile.value.push({ az: 0, alt: 10 })
 }
 
-function removePoint(i) {
-  profile.value.splice(i, 1)
+function removePoint(sortedIndex) {
+  const pt = sortedProfile.value[sortedIndex]
+  const idx = profile.value.indexOf(pt)
+  if (idx !== -1) profile.value.splice(idx, 1)
 }
 
 function clearProfile() {
@@ -152,7 +159,7 @@ async function startScan() {
     previousProfile.value = [...profile.value]
     showModal.value = true
   } catch (e) {
-    console.error('Scan failed to start:', e)
+    toastStore.error('Failed to start horizon scan: ' + (e.response?.data?.detail || e.message || 'unknown error'))
   }
 }
 
