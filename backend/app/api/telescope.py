@@ -330,7 +330,7 @@ async def get_execution_progress():
         execution = db.query(TelescopeExecution).order_by(TelescopeExecution.started_at.desc()).first()
 
         if not execution:
-            return {"state": "idle", "message": "No execution in progress"}
+            return {"state": "idle", "message": "No execution in progress", "active_plan_id": None}
 
         # Format elapsed time
         elapsed_time = None
