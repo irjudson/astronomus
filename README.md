@@ -27,72 +27,52 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 **Smart Scheduling**
 - Greedy algorithm with urgency-based lookahead optimizes target selection
 - Field rotation calculation for alt-az mounts
-- Automated daily plan generation at noon
+- Per-azimuth local horizon profile with linear interpolation
+- Satellite avoidance: blocked-interval scheduling using Celestrak visual TLEs
+- Planet/moon wishlist items scheduled as real time-blocks (Meeus magnitudes, ring tilt)
+- Automated daily plan generation at noon with Celery Beat
 
 **Comprehensive Catalog**
-- **12,400+ objects** from OpenNGC catalog
-- Messier, NGC, and IC catalogs
+- **12,400+ objects** from OpenNGC catalog (Messier, NGC, IC)
+- User-defined custom targets with CRUD API and "My Targets" tab
 - Advanced filtering by type, magnitude, constellation
-- Search by catalog ID or common name
+- Score-based sorting, visible-tonight filter
 
 **Weather Integration**
 - 7Timer astronomical seeing and transparency forecasts
-- OpenWeatherMap cloud cover and conditions
-- Composite weather scoring for target selection
+- Local Ambient Weather WS-2902 station (temp, humidity, wind, dew point)
+- Open-Meteo **7-day daily forecast** with color-coded astronomy score strip
+- Composite weather scoring integrated into target selection
 
 **Seestar S50 Integration**
-- Direct export to seestar_alp CSV format
-- QR code sharing for mobile workflow
+- Direct WiFi plan upload via `set_plan` API — **"Send to Scope"** button in Plan view
+- MJPEG live preview stream (`/api/telescope/preview/stream`)
+- Telescope-driven horizon scan (brightness-ratio sky/terrain detection)
+- Full telescope control: goto, capture, focus, gain, dew heater, polar alignment
 - Optimized for 50mm f/5 optics (1.27° × 0.71° FOV)
-- Alt-az mount field rotation compensation
 
 **GPU Processing**
-- CUDA-accelerated image stacking with CuPy
+- CUDA-accelerated FITS stacking with CuPy
 - Sigma-clipped mean stacking for outlier rejection
 - Auto-stretch matching Seestar native output
 - NVIDIA MPS for efficient GPU sharing
 
-**Automatic Planning**
-- Daily plan generation at configurable time
-- Celery Beat scheduler for periodic tasks
-- Webhook notifications for plan creation
-- Database-backed configuration
+**Vue 3 SPA**
+- Tonight / Sky / Plan / Observe / Archive navigation
+- Interactive timeline drag-editing with real-time conflict detection
+- Wishlist, saved plans, gap-filling optimizer
+- Toast notifications, settings modal with Horizon profile editor
 
-**Multiple Export Formats**
-- seestar_alp CSV (recommended)
-- Seestar Plan Mode JSON
-- Human-readable text
-- CSV for analysis
-- Complete JSON export
+### 📋 Next Up
 
-### 🚧 In Progress
-
-**Frontend Catalog Browser**
-- Interactive catalog exploration UI
-- Advanced search and filtering
-- Target preview and details
+**Post-Capture Processing UI**
+- Archive tab backend is functional; UI wiring and batch jobs in progress
 
 **Live Session Tracking**
-- Real-time execution monitoring
-- Progress updates during imaging
-- Weather-based re-planning
+- WebSocket link between Observe view and executing plan on telescope
 
-### 📋 Planned (2026)
-
-**Comet/Asteroid Ephemeris**
-- Automated position calculations
-- Integration with MPC and JPL databases
-- Moving object tracking
-
-**Mosaic Planning**
-- Multi-panel session planning
-- FOV overlap calculation
-- Automatic stitching support
-
-**Multi-Telescope Support**
-- Equipment profiles
-- Simultaneous telescope control
-- Cloud observation coordination
+**Comet / Asteroid Ephemeris**
+- MPC catalog refresh implemented; live position injection into scheduler pending
 
 [See full roadmap →](docs/planning/ROADMAP.md)
 
@@ -255,12 +235,8 @@ If you need assistance obtaining the key:
 - Skyfield for astronomical calculations
 
 **Frontend**
-- Vue.js 3 (new, in migration)
-- Vite for build tooling
-- Pinia for state management
-- Vue Router for SPA navigation
+- Vue 3 + Vite + Pinia + Vue Router
 - Tailwind CSS for styling
-- Vanilla JavaScript (legacy, being phased out)
 
 **Deployment**
 - Docker and Docker Compose
@@ -386,7 +362,7 @@ docker exec astronomus pytest --cov=app
 docker exec astronomus pytest tests/test_planner_service.py
 ```
 
-**Test Coverage:** 471 tests passing, 3 skipped
+**Test Coverage:** 700+ tests passing (unit + integration), 49 skipped (hardware)
 
 [Testing guide →](docs/development/TESTING_GUIDE.md)
 
