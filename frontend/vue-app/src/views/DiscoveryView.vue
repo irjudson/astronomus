@@ -35,8 +35,11 @@
           <p v-else-if="activeDiscoveryTab === 'solar-system'" class="text-sm text-gray-500">
             Solar system objects
           </p>
-          <p v-else class="text-sm text-gray-500">
+          <p v-else-if="activeDiscoveryTab === 'satellites'" class="text-sm text-gray-500">
             ISS &amp; satellite passes
+          </p>
+          <p v-else class="text-sm text-gray-500">
+            User-defined targets
           </p>
         </div>
 
@@ -75,6 +78,17 @@
           >
             Satellites
           </button>
+          <button
+            @click="activeDiscoveryTab = 'my-targets'"
+            :class="[
+              'px-4 py-1.5 rounded-t text-sm font-medium transition-colors',
+              activeDiscoveryTab === 'my-targets'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:text-gray-200'
+            ]"
+          >
+            My Targets
+          </button>
         </div>
 
         <!-- Content -->
@@ -84,6 +98,7 @@
           </template>
           <SolarSystemPanel v-else-if="activeDiscoveryTab === 'solar-system'" />
           <SatellitePassesPanel v-else-if="activeDiscoveryTab === 'satellites'" />
+          <CustomTargetsPanel v-else-if="activeDiscoveryTab === 'my-targets'" />
         </div>
       </div>
     </template>
@@ -98,6 +113,7 @@ import SearchFilters from '@/components/discovery/SearchFilters.vue'
 import CatalogGrid from '@/components/discovery/CatalogGrid.vue'
 import SolarSystemPanel from '@/components/discovery/SolarSystemPanel.vue'
 import SatellitePassesPanel from '@/components/discovery/SatellitePassesPanel.vue'
+import CustomTargetsPanel from '@/components/discovery/CustomTargetsPanel.vue'
 
 const catalogStore = useCatalogStore()
 const leftPanelVisible = ref(true)

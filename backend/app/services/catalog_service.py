@@ -85,6 +85,25 @@ class CatalogService:
             image_url=image_url,
         )
 
+    def _user_target_to_dso_target(self, ut) -> DSOTarget:
+        """Convert a UserTarget database row to a DSOTarget."""
+        mag = ut.magnitude if ut.magnitude is not None else 99.0
+        size = ut.size_arcmin if ut.size_arcmin is not None else 1.0
+        notes_str = f" — {ut.notes}" if ut.notes else ""
+        description = f"Custom target{notes_str}"
+        sanitized = ut.catalog_id.replace(" ", "_").replace("/", "_").replace(":", "_")
+        return DSOTarget(
+            name=ut.name,
+            catalog_id=ut.catalog_id,
+            object_type=ut.object_type or "other",
+            ra_hours=ut.ra_hours,
+            dec_degrees=ut.dec_degrees,
+            magnitude=mag,
+            size_arcmin=size,
+            description=description,
+            image_url=f"/api/images/targets/{sanitized}",
+        )
+
     def _get_constellation_full_name(self, abbreviation: str) -> str:
         """Look up full constellation name from abbreviation (O(1) via cache)."""
         if not abbreviation:
@@ -122,7 +141,13 @@ class CatalogService:
             query = query.limit(limit).offset(offset)
 
         dso_objects = query.all()
-        return [self._db_row_to_target(dso) for dso in dso_objects]
+        base_targets = [self._db_row_to_target(dso) for dso in dso_objects]
+
+        # Merge user-defined custom targets
+        from app.models.catalog_models import UserTarget
+
+        user_targets = [self._user_target_to_dso_target(ut) for ut in self.db.query(UserTarget).all()]
+        return base_targets + user_targets
 
     def get_target_by_id(self, catalog_id: str) -> Optional[DSOTarget]:
         """
@@ -212,7 +237,16 @@ class CatalogService:
             query = query.limit(limit).offset(offset)
 
         dso_objects = query.all()
-        return [self._db_row_to_target(dso) for dso in dso_objects]
+        base_targets = [self._db_row_to_target(dso) for dso in dso_objects]
+
+        # Merge user-defined custom targets
+        from app.models.catalog_models import UserTarget
+
+        user_query = self.db.query(UserTarget)
+        if object_types and len(object_types) > 0:
+            user_query = user_query.filter(UserTarget.object_type.in_(object_types))
+        user_targets = [self._user_target_to_dso_target(ut) for ut in user_query.all()]
+        return base_targets + user_targets
 
     def get_caldwell_targets(self, limit: Optional[int] = None, offset: int = 0) -> List[DSOTarget]:
         """

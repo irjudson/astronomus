@@ -55,6 +55,14 @@
                 Save Plan
               </button>
               <button
+                @click="sendToScope"
+                :disabled="planningStore.loading || !lastSavedPlanId"
+                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Upload this plan to the telescope"
+              >
+                Send to Scope
+              </button>
+              <button
                 @click="exportPlan"
                 class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors"
               >
@@ -233,6 +241,7 @@ const router = useRouter()
 const planningStore = usePlanningStore()
 const executionStore = useExecutionStore()
 const leftPanelVisible = ref(true)
+const lastSavedPlanId = ref(null)
 
 const targetRefs = ref([])
 const selectedTargetIndex = ref(null)
@@ -276,10 +285,20 @@ const savePlan = async () => {
     return
   }
   try {
-    await planningStore.savePlan()
+    const saved = await planningStore.savePlan()
+    if (saved?.id) lastSavedPlanId.value = saved.id
     alert(`Plan saved as "${planningStore.planName}"`)
   } catch (err) {
     alert('Failed to save plan: ' + err.message)
+  }
+}
+
+const sendToScope = async () => {
+  if (!lastSavedPlanId.value) return
+  try {
+    await planningStore.sendToTelescope(lastSavedPlanId.value)
+  } catch (err) {
+    alert('Failed to upload plan to telescope: ' + (err.response?.data?.detail || err.message))
   }
 }
 

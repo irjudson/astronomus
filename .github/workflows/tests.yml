@@ -41,7 +41,7 @@ jobs:
 
     - name: Check import sorting with isort
       run: |
-        isort --check-only --profile=black --line-length=120 backend/app backend/tests
+        isort --check-only --profile=black --line-length=120 --settings-path=backend backend/app backend/tests
 
     - name: Lint with ruff
       run: |
