@@ -29,6 +29,7 @@ class CustomTargetCreate(BaseModel):
     size_arcmin: Optional[float] = None
     object_type: str = Field(default="other", max_length=50)
     notes: Optional[str] = None
+    image_url: Optional[str] = Field(default=None, max_length=500)
 
 
 class CustomTargetOut(BaseModel):
@@ -41,6 +42,7 @@ class CustomTargetOut(BaseModel):
     size_arcmin: Optional[float]
     object_type: str
     notes: Optional[str]
+    image_url: Optional[str]
     created_at: datetime
 
     class Config:
@@ -67,6 +69,7 @@ async def create_custom_target(payload: CustomTargetCreate, db: Session = Depend
         size_arcmin=payload.size_arcmin,
         object_type=payload.object_type,
         notes=payload.notes,
+        image_url=payload.image_url,
     )
     db.add(ut)
     db.commit()

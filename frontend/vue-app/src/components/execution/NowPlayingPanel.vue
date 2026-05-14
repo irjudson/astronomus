@@ -84,9 +84,10 @@
             <button
               @click="executionStore.skipTarget()"
               :disabled="executionStore.currentTargetIndex + 1 >= (executionStore.scheduledTargets?.length ?? 0)"
-              class="flex-1 px-3 py-2 text-sm rounded bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Mark current target done and advance to next"
+              class="flex-1 px-3 py-2 text-sm rounded bg-green-700 hover:bg-green-600 text-gray-200 border border-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              Skip ⏭
+              Done →
             </button>
             <button
               @click="executionStore.extendTarget(15)"

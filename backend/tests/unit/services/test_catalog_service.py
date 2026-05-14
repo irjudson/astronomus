@@ -391,6 +391,60 @@ class TestCatalogServiceCaldwell:
         assert "C14" in (target.catalog_id or "")
 
 
+class TestCatalogServiceArp:
+    def test_arp_object_returned_by_id(self, override_get_db):
+        from scripts.seed_arp import seed_arp_if_needed
+
+        seed_arp_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("ARP85")
+        assert target is not None
+
+    def test_arp_object_lowercase(self, override_get_db):
+        from scripts.seed_arp import seed_arp_if_needed
+
+        seed_arp_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("arp85")
+        assert target is not None
+
+    def test_arp_object_not_found(self, override_get_db):
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("ARP9999")
+        assert target is None
+
+
+class TestCatalogServiceSharpless:
+    def test_sharpless_object_returned_by_id(self, override_get_db):
+        from scripts.seed_sharpless import seed_sharpless_if_needed
+
+        seed_sharpless_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("SH2-106")
+        assert target is not None
+
+    def test_sharpless_object_sh_prefix(self, override_get_db):
+        from scripts.seed_sharpless import seed_sharpless_if_needed
+
+        seed_sharpless_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("SH106")
+        assert target is not None
+
+    def test_sharpless_object_lowercase(self, override_get_db):
+        from scripts.seed_sharpless import seed_sharpless_if_needed
+
+        seed_sharpless_if_needed(override_get_db)
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("sh2-106")
+        assert target is not None
+
+    def test_sharpless_object_not_found(self, override_get_db):
+        service = CatalogService(override_get_db)
+        target = service.get_target_by_id("SH2-9999")
+        assert target is None
+
+
 class TestCatalogServiceUserTargets:
     def test_filter_targets_includes_user_targets(self, override_get_db):
         from app.models.catalog_models import UserTarget

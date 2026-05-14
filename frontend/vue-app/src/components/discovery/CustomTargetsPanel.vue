@@ -34,6 +34,10 @@
           <label class="text-xs text-gray-400">Notes (optional)</label>
           <input v-model="form.notes" class="input-dark w-full mt-1" placeholder="Observing notes..." />
         </div>
+        <div class="col-span-2">
+          <label class="text-xs text-gray-400">Image URL (optional)</label>
+          <input v-model="form.image_url" class="input-dark w-full mt-1" placeholder="https://..." />
+        </div>
       </div>
       <button
         @click="addTarget"
@@ -69,6 +73,9 @@
               <span v-if="t.magnitude != null"> · mag {{ t.magnitude }}</span>
             </div>
             <div v-if="t.notes" class="text-xs text-gray-600 mt-0.5 truncate">{{ t.notes }}</div>
+            <div v-if="t.image_url" class="mt-1">
+              <img :src="t.image_url" alt="Target preview" class="h-16 w-24 object-cover rounded border border-gray-700" />
+            </div>
           </div>
           <button
             @click="deleteTarget(t.id)"
@@ -98,6 +105,7 @@ const form = ref({
   object_type: 'other',
   magnitude: null,
   notes: '',
+  image_url: '',
 })
 
 async function fetchTargets() {
@@ -123,10 +131,11 @@ async function addTarget() {
       object_type: form.value.object_type || 'other',
       magnitude: form.value.magnitude || null,
       notes: form.value.notes || null,
+      image_url: form.value.image_url || null,
     }
     const resp = await axios.post('/api/targets/custom/', payload)
     targets.value.unshift(resp.data)
-    form.value = { name: '', ra_hours: null, dec_degrees: null, object_type: 'other', magnitude: null, notes: '' }
+    form.value = { name: '', ra_hours: null, dec_degrees: null, object_type: 'other', magnitude: null, notes: '', image_url: '' }
   } catch (err) {
     addError.value = err.response?.data?.detail || 'Failed to add target'
   } finally {
