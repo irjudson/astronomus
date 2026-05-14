@@ -73,6 +73,23 @@
       </div>
     </div>
 
+    <!-- Inline confirm after scan completes -->
+    <div v-if="pendingSave" class="bg-gray-800 border border-blue-700 rounded p-3 space-y-2">
+      <p class="text-sm text-gray-200">
+        Scan found <strong>{{ profile.length }}</strong> horizon points. Replace current profile?
+      </p>
+      <div class="flex gap-2">
+        <button @click="acceptScan"
+          class="flex-1 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-sm rounded transition-colors">
+          Yes, Save
+        </button>
+        <button @click="discardScan"
+          class="flex-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors">
+          Discard
+        </button>
+      </div>
+    </div>
+
     <!-- Save button -->
     <button @click="save" :disabled="saving"
       class="w-full px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded transition-colors">
@@ -167,6 +184,16 @@ function onScanComplete(pts) {
   showModal.value = false
   profile.value = pts
   pendingSave.value = true
+}
+
+function acceptScan() {
+  pendingSave.value = false
+  save()
+}
+
+function discardScan() {
+  profile.value = previousProfile.value
+  pendingSave.value = false
 }
 
 function exportProfile() {
