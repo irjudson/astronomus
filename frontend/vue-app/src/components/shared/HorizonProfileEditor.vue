@@ -18,12 +18,24 @@
       </svg>
     </div>
 
+    <!-- Scan mode selection -->
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-gray-400">Scan mode:</span>
+      <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
+        <input type="radio" v-model="scanMode" value="binary" class="text-blue-500" />
+        Binary search
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
+        <input type="radio" v-model="scanMode" value="sweep" class="text-blue-500" />
+        Full sweep
+      </label>
+    </div>
+
     <!-- Controls row -->
     <div class="flex gap-2 flex-wrap">
       <button @click="startScan"
-        :disabled="scanning"
-        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded transition-colors">
-        {{ scanning ? `Scanning ${scanProgress}%…` : 'Scan Horizon' }}
+        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors">
+        Scan Horizon
       </button>
       <button @click="addPoint"
         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded">
@@ -66,20 +78,32 @@
       class="w-full px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded transition-colors">
       {{ saving ? 'Saving…' : 'Save Horizon Profile' }}
     </button>
+
+    <!-- Horizon scan modal -->
+    <HorizonScanModal
+      v-if="showModal && activeScanId"
+      :scan-id="activeScanId"
+      :scan-mode="scanMode"
+      @scan-complete="onScanComplete"
+      @close="showModal = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import HorizonScanModal from '@/components/settings/HorizonScanModal.vue'
 
 const props = defineProps({ minAltitude: { type: Number, default: 30 } })
 
 const profile = ref([])
 const saving = ref(false)
-const scanning = ref(false)
-const scanProgress = ref(0)
-let scanPollInterval = null
+const showModal = ref(false)
+const activeScanId = ref(null)
+const scanMode = ref('binary')
+const previousProfile = ref([])
+const pendingSave = ref(false)
 
 const sortedProfile = computed(() =>
   [...profile.value].sort((a, b) => a.az - b.az)
@@ -103,6 +127,7 @@ async function save() {
   saving.value = true
   try {
     await axios.put('/api/settings/horizon-profile', profile.value)
+    pendingSave.value = false
   } finally {
     saving.value = false
   }
@@ -121,24 +146,20 @@ function clearProfile() {
 }
 
 async function startScan() {
-  scanning.value = true
-  scanProgress.value = 0
   try {
-    const res = await axios.post('/api/horizon/scan')
-    const scanId = res.data.scan_id
-    scanPollInterval = setInterval(async () => {
-      const status = await axios.get(`/api/horizon/scan/${scanId}/status`)
-      scanProgress.value = Math.round(status.data.progress || 0)
-      if (status.data.points?.length) profile.value = status.data.points
-      if (status.data.status === 'complete' || status.data.status === 'error') {
-        clearInterval(scanPollInterval)
-        scanning.value = false
-      }
-    }, 2000)
+    const res = await axios.post('/api/horizon/scan', null, { params: { scan_mode: scanMode.value } })
+    activeScanId.value = String(res.data.scan_id)
+    previousProfile.value = [...profile.value]
+    showModal.value = true
   } catch (e) {
-    scanning.value = false
-    console.error('Scan failed:', e)
+    console.error('Scan failed to start:', e)
   }
+}
+
+function onScanComplete(pts) {
+  showModal.value = false
+  profile.value = pts
+  pendingSave.value = true
 }
 
 function exportProfile() {
