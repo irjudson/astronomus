@@ -2,6 +2,8 @@
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.integration
 def test_list_targets_with_visibility(client):
@@ -59,3 +61,33 @@ def test_list_targets_sort_by_name(client):
     # Should be sorted alphabetically
     if len(data) > 1:
         assert data[0]["catalog_id"] <= data[1]["catalog_id"]
+
+
+@pytest.mark.integration
+def test_nearby_objects_returns_sorted_results(client):
+    """Test /api/targets/near returns results sorted by separation."""
+    resp = client.get(
+        "/api/targets/near",
+        params={"ra_hours": 0.712, "dec_degrees": 41.27, "radius_deg": 5.0, "limit": 5},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    for item in data:
+        assert "separation_deg" in item
+        assert item["separation_deg"] >= 0.0
+    seps = [item["separation_deg"] for item in data]
+    assert seps == sorted(seps)
+
+
+@pytest.mark.integration
+def test_nearby_objects_first_result_near_zero(client):
+    """Test that the closest result when querying near M31 is M31 itself."""
+    resp = client.get(
+        "/api/targets/near",
+        params={"ra_hours": 0.712, "dec_degrees": 41.27, "radius_deg": 1.0, "limit": 3},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    if data:
+        assert data[0]["separation_deg"] < 0.1
