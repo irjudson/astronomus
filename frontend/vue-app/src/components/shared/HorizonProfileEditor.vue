@@ -18,12 +18,24 @@
       </svg>
     </div>
 
+    <!-- Scan mode selection -->
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-gray-400">Scan mode:</span>
+      <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
+        <input type="radio" v-model="scanMode" value="binary" class="text-blue-500" />
+        Binary search
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
+        <input type="radio" v-model="scanMode" value="steps" class="text-blue-500" />
+        Fixed alt steps
+      </label>
+    </div>
+
     <!-- Controls row -->
     <div class="flex gap-2 flex-wrap">
       <button @click="startScan"
-        :disabled="scanning"
-        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded transition-colors">
-        {{ scanning ? `Scanning ${scanProgress}%…` : 'Scan Horizon' }}
+        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors">
+        Scan Horizon
       </button>
       <button @click="addPoint"
         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded">
@@ -61,25 +73,57 @@
       </div>
     </div>
 
+    <!-- Inline confirm after scan completes -->
+    <div v-if="pendingSave" class="bg-gray-800 border border-blue-700 rounded p-3 space-y-2">
+      <p class="text-sm text-gray-200">
+        Scan found <strong>{{ profile.length }}</strong> horizon points. Replace current profile?
+      </p>
+      <div class="flex gap-2">
+        <button @click="acceptScan"
+          class="flex-1 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-sm rounded transition-colors">
+          Yes, Save
+        </button>
+        <button @click="discardScan"
+          class="flex-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors">
+          Discard
+        </button>
+      </div>
+    </div>
+
     <!-- Save button -->
     <button @click="save" :disabled="saving"
       class="w-full px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded transition-colors">
       {{ saving ? 'Saving…' : 'Save Horizon Profile' }}
     </button>
+
+    <!-- Horizon scan modal -->
+    <HorizonScanModal
+      v-if="showModal && activeScanId"
+      :scan-id="activeScanId"
+      :scan-mode="scanMode"
+      @scan-complete="onScanComplete"
+      @close="showModal = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
+import HorizonScanModal from '@/components/settings/HorizonScanModal.vue'
+import { useToastStore } from '@/stores/toast'
+
+const toastStore = useToastStore()
 
 const props = defineProps({ minAltitude: { type: Number, default: 30 } })
 
 const profile = ref([])
 const saving = ref(false)
-const scanning = ref(false)
-const scanProgress = ref(0)
-let scanPollInterval = null
+const showModal = ref(false)
+const activeScanId = ref(null)
+const scanMode = ref('binary')
+const previousProfile = ref([])
+const pendingSave = ref(false)
 
 const sortedProfile = computed(() =>
   [...profile.value].sort((a, b) => a.az - b.az)
@@ -103,6 +147,9 @@ async function save() {
   saving.value = true
   try {
     await axios.put('/api/settings/horizon-profile', profile.value)
+    pendingSave.value = false
+  } catch (e) {
+    toastStore.error('Failed to save horizon profile: ' + (e.response?.data?.detail || e.message || 'unknown error'))
   } finally {
     saving.value = false
   }
@@ -112,8 +159,10 @@ function addPoint() {
   profile.value.push({ az: 0, alt: 10 })
 }
 
-function removePoint(i) {
-  profile.value.splice(i, 1)
+function removePoint(sortedIndex) {
+  const pt = sortedProfile.value[sortedIndex]
+  const idx = profile.value.indexOf(pt)
+  if (idx !== -1) profile.value.splice(idx, 1)
 }
 
 function clearProfile() {
@@ -121,24 +170,30 @@ function clearProfile() {
 }
 
 async function startScan() {
-  scanning.value = true
-  scanProgress.value = 0
   try {
-    const res = await axios.post('/api/horizon/scan')
-    const scanId = res.data.scan_id
-    scanPollInterval = setInterval(async () => {
-      const status = await axios.get(`/api/horizon/scan/${scanId}/status`)
-      scanProgress.value = Math.round(status.data.progress || 0)
-      if (status.data.points?.length) profile.value = status.data.points
-      if (status.data.status === 'complete' || status.data.status === 'error') {
-        clearInterval(scanPollInterval)
-        scanning.value = false
-      }
-    }, 2000)
+    const res = await axios.post('/api/horizon/scan', null, { params: { scan_mode: scanMode.value } })
+    activeScanId.value = String(res.data.scan_id)
+    previousProfile.value = [...profile.value]
+    showModal.value = true
   } catch (e) {
-    scanning.value = false
-    console.error('Scan failed:', e)
+    toastStore.error('Failed to start horizon scan: ' + (e.response?.data?.detail || e.message || 'unknown error'))
   }
+}
+
+function onScanComplete(pts) {
+  showModal.value = false
+  profile.value = pts
+  pendingSave.value = true
+}
+
+function acceptScan() {
+  pendingSave.value = false
+  save()
+}
+
+function discardScan() {
+  profile.value = previousProfile.value
+  pendingSave.value = false
 }
 
 function exportProfile() {

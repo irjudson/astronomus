@@ -211,6 +211,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { usePlanningStore } from '@/stores/planning'
+import { useExecutionStore } from '@/stores/execution'
 
 const props = defineProps({
   plan: { type: Object, required: true }
@@ -218,6 +219,7 @@ const props = defineProps({
 const emit = defineEmits(['select-target'])
 
 const planningStore = usePlanningStore()
+const executionStore = useExecutionStore()
 const svgRef = ref(null)
 const dragState = ref(null)
 // dragState shape: { index, mode: 'move'|'left'|'right', startClientX, origStartMs, origEndMs }
@@ -494,10 +496,16 @@ const gaps = computed(() => {
   return result
 })
 
-// Blue "now" line if current time is within the session window
+// Blue "now" line if current time is within the session window.
+// Use executionStore.nowTime (updated on each 3s poll tick) when executing;
+// fall back to the local 60s tick otherwise.
+const nowMs = computed(() =>
+  executionStore.nowTime?.getTime() ?? nowTick.value
+)
+
 const nowX = computed(() => {
   if (!sessionDur.value) return null
-  const now = nowTick.value
+  const now = nowMs.value
   if (now < sessionStart.value || now > sessionEnd.value) return null
   return ML + ((now - sessionStart.value) / sessionDur.value) * CW
 })

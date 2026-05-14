@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 import pytz
 from sqlalchemy.orm import Session
 
-from app.models import GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
+from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
 from app.services.image_preview_service import ImagePreviewService
@@ -192,8 +192,6 @@ class PlannerService:
                 # Convert comet visibility objects to DSOTarget format for scheduler compatibility
                 # This is a simplified conversion - comets need special handling for moving targets
                 for comet_vis in visible_comets:
-                    from app.models import DSOTarget
-
                     comet_target = DSOTarget(
                         catalog_name="Comet",
                         catalog_id=comet_vis.comet.designation,
@@ -211,10 +209,12 @@ class PlannerService:
                 # Log error but don't fail the entire plan
                 logger.warning("Failed to add comets to plan: %s", e)
 
+        # Compute session midpoint (naive UTC) for solar system and comet ephemeris lookups
+        midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
+        midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
+
         # Inject solar system wishlist targets as schedulable pseudo-targets
         if request.solar_targets:
-            midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
-            midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
             for planet_name in request.solar_targets:
                 try:
                     pos = self.planetary_ephemeris.get_position(
@@ -245,6 +245,29 @@ class PlannerService:
                     )
                 except Exception as e:
                     logger.warning("Failed to add solar target %s: %s", planet_name, e)
+
+        # Inject comet wishlist targets
+        if request.comet_targets:
+            for designation in request.comet_targets:
+                try:
+                    comet = self.comet_service.get_comet_by_designation(designation)
+                    if comet:
+                        eph = self.comet_service.compute_ephemeris(comet, midpoint_naive)
+                        comet_target = DSOTarget(
+                            name=designation,
+                            catalog_id=f"COMET:{designation}",
+                            object_type="comet",
+                            ra_hours=eph.ra_hours,
+                            dec_degrees=eph.dec_degrees,
+                            magnitude=eph.magnitude or 10.0,
+                            size_arcmin=5.0,
+                            description=f"Comet {designation}",
+                            preferred_duration_minutes=15,
+                        )
+                        targets.append(comet_target)
+                        logger.debug("Added comet target %s", designation)
+                except Exception as e:
+                    logger.warning("Failed to add comet target %s: %s", designation, e)
 
         # Get weather forecast
         t2 = time.time()

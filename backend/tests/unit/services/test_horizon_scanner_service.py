@@ -49,3 +49,17 @@ class TestBrightnessAnalysis:
     def test_is_above_horizon_terrain_ratio(self):
         svc = HorizonScannerService(telescope_host="127.0.0.1", telescope_port=4700)
         assert svc._is_sky(ratio=0.7) is False
+
+
+class TestStepScanMode:
+    def test_scanner_instantiates_with_steps_mode(self):
+        svc = HorizonScannerService(
+            telescope_host="127.0.0.1",
+            telescope_port=4700,
+            scan_mode="steps",
+        )
+        assert svc.scan_mode == "steps"
+
+    def test_scanner_defaults_to_binary_mode(self):
+        svc = HorizonScannerService(telescope_host="127.0.0.1", telescope_port=4700)
+        assert svc.scan_mode == "binary"

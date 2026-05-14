@@ -409,3 +409,22 @@ class TestPlannerServiceComprehensive:
         plan = planner.generate_plan(request)
         assert plan is not None
         assert isinstance(plan.scheduled_targets, list)
+
+    def test_generate_plan_with_comet_targets(self, override_get_db):
+        """Test that comet_targets in PlanRequest is accepted without raising."""
+        request = PlanRequest(
+            location=Location(
+                name="Test Location",
+                latitude=45.0,
+                longitude=-110.0,
+                elevation=1000.0,
+                timezone="America/Denver",
+            ),
+            observing_date="2025-01-15",
+            constraints=ObservingConstraints(min_altitude=30.0),
+            comet_targets=["C/2021 TEST1"],
+        )
+        planner = PlannerService(override_get_db)
+        plan = planner.generate_plan(request)
+        assert plan is not None
+        assert isinstance(plan.total_targets, int)

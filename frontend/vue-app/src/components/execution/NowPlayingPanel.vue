@@ -36,6 +36,18 @@
         <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
           <div class="h-full bg-blue-500 transition-none" :style="{ width: progressPct + '%' }" />
         </div>
+
+        <!-- Frames captured progress bar -->
+        <div v-if="executionStore.totalFrames > 0" class="space-y-1 mt-2">
+          <div class="flex justify-between text-xs text-gray-400">
+            <span>Frame {{ executionStore.framesCaptures }} of {{ executionStore.totalFrames }}</span>
+            <span v-if="estTimeRemaining" class="text-gray-200">~{{ estTimeRemaining }}</span>
+          </div>
+          <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div class="h-full bg-green-500 transition-none"
+              :style="{ width: frameProgressPct + '%' }" />
+          </div>
+        </div>
       </div>
 
       <!-- Status badge when not running -->
@@ -204,6 +216,22 @@ const elapsedLabel = computed(() => {
   const elapsed = Math.max(0, now.value - startMs.value)
   const m = Math.floor(elapsed / 60000)
   return `${m}m elapsed`
+})
+
+const frameProgressPct = computed(() => {
+  const total = executionStore.totalFrames
+  if (!total) return 0
+  return Math.min(100, Math.round((executionStore.framesCaptures / total) * 100))
+})
+
+const estTimeRemaining = computed(() => {
+  const remaining = executionStore.totalFrames - executionStore.framesCaptures
+  if (remaining <= 0) return null
+  const expSec = 10 // default 10s exposure
+  const totalSec = remaining * expSec
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return m > 0 ? `${m}m ${s}s` : `${s}s`
 })
 
 const formatTime = (iso) => {

@@ -19,13 +19,14 @@ async def start_horizon_scan(
     telescope_host: str = "192.168.2.47",
     telescope_port: int = 4700,
     az_step: int = 15,
+    scan_mode: str = "binary",
 ):
     """Start a background horizon scan. Returns a scan_id to poll for status."""
     scan_id = str(uuid.uuid4())[:8]
     _scans[scan_id] = {"status": "scanning", "progress": 0, "points": [], "current_az": 0}
 
     async def _run():
-        svc = HorizonScannerService(telescope_host, telescope_port, az_step=az_step)
+        svc = HorizonScannerService(telescope_host, telescope_port, az_step=az_step, scan_mode=scan_mode)
         async for progress in svc.scan():
             _scans[scan_id].update(
                 {

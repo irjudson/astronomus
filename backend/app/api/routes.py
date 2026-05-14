@@ -1,6 +1,7 @@
 """API routes for the Astro Planner."""
 
 import logging
+import math
 import os
 import uuid
 from datetime import datetime
@@ -89,6 +90,52 @@ async def generate_plan(request: PlanRequest, db: Session = Depends(get_db)):
 
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error generating plan: {str(e)}")
+
+
+@router.get("/targets/near")
+async def get_nearby_targets(
+    ra_hours: float = Query(..., description="Reference RA in hours"),
+    dec_degrees: float = Query(..., description="Reference Dec in degrees"),
+    radius_deg: float = Query(2.0, description="Search radius in degrees", gt=0, le=20),
+    limit: int = Query(10, description="Max results", gt=0, le=50),
+    db: Session = Depends(get_db),
+):
+    """Return DSO objects within radius_deg of given coordinates, sorted by separation."""
+    from app.models.catalog_models import DSOCatalog
+
+    ref_ra_deg = ra_hours * 15.0
+    dec_min = dec_degrees - radius_deg
+    dec_max = dec_degrees + radius_deg
+
+    candidates = db.query(DSOCatalog).filter(DSOCatalog.dec_degrees >= dec_min, DSOCatalog.dec_degrees <= dec_max).all()
+
+    results = []
+    for obj in candidates:
+        ra1, dec1 = math.radians(ref_ra_deg), math.radians(dec_degrees)
+        ra2, dec2 = math.radians(obj.ra_hours * 15.0), math.radians(obj.dec_degrees)
+        delta_ra = ra2 - ra1
+        delta_dec = dec2 - dec1
+        a = math.sin(delta_dec / 2) ** 2 + math.cos(dec1) * math.cos(dec2) * math.sin(delta_ra / 2) ** 2
+        sep_deg = math.degrees(2 * math.asin(math.sqrt(min(a, 1.0))))
+
+        if sep_deg <= radius_deg:
+            results.append(
+                {
+                    "catalog_id": obj.common_name or f"{obj.catalog_name}{obj.catalog_number}",
+                    "name": obj.common_name or f"{obj.catalog_name} {obj.catalog_number}",
+                    "catalog_name": obj.catalog_name,
+                    "catalog_number": obj.catalog_number,
+                    "object_type": obj.object_type,
+                    "ra_hours": obj.ra_hours,
+                    "dec_degrees": obj.dec_degrees,
+                    "magnitude": obj.magnitude,
+                    "constellation": obj.constellation,
+                    "separation_deg": round(sep_deg, 3),
+                }
+            )
+
+    results.sort(key=lambda x: x["separation_deg"])
+    return results[:limit]
 
 
 @router.get("/targets", response_model=List[DSOTarget])

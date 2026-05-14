@@ -71,6 +71,9 @@ export const useExecutionStore = defineStore('execution', {
     currentTargetIndex: 0,
     resumeOffset: 0,            // index offset when resuming a paused plan
     executionStatus: 'idle',    // idle, running, paused, completed
+    nowTime: new Date(),        // live clock updated on each progress poll tick
+    framesCaptures: 0,
+    totalFrames: 0,
 
     // Position polling
     positionInterval: null,
@@ -420,10 +423,18 @@ export const useExecutionStore = defineStore('execution', {
             return
           }
           // Map backend index (0-based within current execution) back to plan index
+          // Update live clock on every poll tick
+          this.nowTime = new Date()
+
           const backendIndex = p.current_target_index ?? -1
-          if (backendIndex >= 0) {
+          if (backendIndex >= 0 && backendIndex !== (this.currentTargetIndex - this.resumeOffset)) {
             this.currentTargetIndex = this.resumeOffset + backendIndex
           }
+
+          // Frames captured progress
+          if (p.frames_captured != null) this.framesCaptures = p.frames_captured
+          if (p.total_frames != null) this.totalFrames = p.total_frames
+
           if (p.state === 'completed') {
             this.executionStatus = 'completed'
             this.addMessage('Plan execution completed')
