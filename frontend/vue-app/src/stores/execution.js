@@ -75,6 +75,9 @@ export const useExecutionStore = defineStore('execution', {
     framesCaptures: 0,
     totalFrames: 0,
 
+    // Auto-advance tracking
+    lastAutoAdvancedIndex: -1,
+
     // Position polling
     positionInterval: null,
     progressPollInterval: null, // for polling /api/telescope/progress
@@ -435,6 +438,17 @@ export const useExecutionStore = defineStore('execution', {
           if (p.frames_captured != null) this.framesCaptures = p.frames_captured
           if (p.total_frames != null) this.totalFrames = p.total_frames
 
+          // Auto-advance when current target's frames are complete
+          if (
+            this.totalFrames > 0 &&
+            this.framesCaptures >= this.totalFrames &&
+            this.executionStatus === 'running' &&
+            this.currentTargetIndex !== this.lastAutoAdvancedIndex
+          ) {
+            this.lastAutoAdvancedIndex = this.currentTargetIndex
+            this.skipTarget()
+          }
+
           if (p.state === 'completed') {
             this.executionStatus = 'completed'
             this.addMessage('Plan execution completed')
@@ -551,6 +565,7 @@ export const useExecutionStore = defineStore('execution', {
       this.scheduledTargets = []
       this.currentTargetIndex = 0
       this.resumeOffset = 0
+      this.lastAutoAdvancedIndex = -1
       this.addMessage('Plan stopped')
     },
 
