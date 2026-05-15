@@ -1,6 +1,6 @@
 # Astronomus Roadmap
 
-**Last Updated**: 2026-05-14
+**Last Updated**: 2026-05-15
 
 ---
 
@@ -44,38 +44,54 @@
 - User-defined custom catalog targets (`user_targets` table, CRUD API, My Targets tab in Sky)
 - S50 plan upload: `set_plan`/`list_plan`/`delete_plan` via seestar-api; "Send to Scope" button in Plan view
 
+### Horizon UX, Comet Planner, Live Tracking, Catalog Enrichment (2026-05 — PR #12)
+- Horizon scanner binary/steps mode with live SVG update and cancel button
+- Comet targets in plan — `PlanRequest.comet_targets`; CometService ephemeris injected as DSOTarget pseudo-objects
+- "Currently visible comets" card in Tonight view with one-click plan toggle
+- Live now-marker advances from `executionStore.nowTime` (polled from backend)
+- Frame progress bar in NowPlayingPanel — "Frame X of Y" with time remaining
+- `active_plan_id` in telescope progress response
+- Nearby objects in catalog cards — expandable "within 2°" list via `/api/targets/near`
+- Caldwell seeder — 109 Caldwell objects seeded on startup; C{n} IDs resolve
+
+### Live Tracking Polish, Comet Toggle, Arp/Sharpless, Custom Target Images (2026-05 — PR #13)
+- Auto-advance when frames complete — NowPlayingPanel skips to next target automatically
+- "Done →" primary green button; tooltip added
+- "Include visible comets" plan toggle in PlanningControls
+- Arp Atlas catalog — 50 Arp peculiar galaxies, `arp_number` column, ARP{n} IDs, idempotent seeder
+- Sharpless HII catalog — 50 Sharpless regions, `sharpless_number` column, SH2-{n}/SH{n} IDs
+- Custom target `image_url` — optional field: migration, model, API models, create endpoint, form + thumbnail
+
+### Unmanned Capture Automation (2026-05 — PR #14)
+- Auto-execute at dusk — Celery Beat 3pm task computes astronomical twilight, queues plan via `apply_async(eta=...)`
+- Scope connectivity retries — TCP-ping every 5 min, up to 6 configurable attempts before giving up
+- Weather watchdog — every 10 min during astronomical night; aborts on rain, excess wind, or high humidity
+- Session webhooks — scope unreachable, session started, session completed/aborted
+- Auto-save before "Send to Scope" — no manual save required
+- Automation settings tab — auto-execute toggle, retry count, weather abort thresholds
+
 ---
 
 ## 🚧 Next (Prioritized)
 
-### 1. Horizon Autoscan UX Polish
-The scanner works but requires careful setup (telescope connected, daytime, clear sky). Remaining gaps:
-- Progress modal with live SVG update while scanning
-- Auto-save prompt on scan completion
-- Scan from fixed alt steps (not binary search) option for faster results
-
-### 2. Post-Capture Processing Pipeline
+### 1. Post-Capture Processing Pipeline
 The processing backend (auto-stretch, TIFF export, Celery jobs) exists and is wired. The Archive tab UI is functional. What's missing:
-- File ingest from `$SEESTAR_FITS_PATH` mount
-- Job queue visibility in the Archive tab
-- 16-bit TIFF export pipeline (backend exists, UI wiring needed)
+- File ingest from `$SEESTAR_FITS_PATH` mount showing captured sessions
+- Job queue visibility in the Archive tab (submit, status, cancel)
+- 16-bit TIFF export pipeline end-to-end (backend exists, UI wiring needed)
 - Batch processing multiple sessions
 
-### 3. Comet / Asteroid Ephemeris
-MPC integration for comet catalog refresh is implemented (`POST /comets/refresh`). Still needed:
-- Live position computation at session time (RA/Dec from orbital elements)
-- Comet targets injected into scheduler (same pattern as planet pseudo-targets)
-- "Currently visible comets" indicator in Sky view
+### 2. Unmanned Capture Reliability Improvements
+Now that the automation layer exists, a few gaps remain:
+- Webhook delivery confirmation / retry visibility in UI
+- "Session dry run" — validate plan and scope reachability without actually starting
+- Notification when daily plan generation fails (no targets for tonight)
+- Manual trigger button in UI for "run plan now" (bypasses dusk timer)
 
-### 4. Live Session Tracking
-WebSocket or polling link between Observe view and the currently-executing plan on the telescope:
-- Auto-advance now-marker when telescope reports target change
-- Remaining frames / time estimate from S50 status
-
-### 5. Catalog Enrichment
-- Caldwell, Arp, Sharpless catalog import (sources and schema ready)
-- Image thumbnails for custom targets
-- "Objects near X" angular proximity search
+### 3. Horizon Scanner UX Polish
+The scanner works. Remaining minor gaps:
+- Auto-save prompt on scan completion (currently user must manually save)
+- Scan quality indicator — flag azimuths with ambiguous brightness ratio
 
 ---
 

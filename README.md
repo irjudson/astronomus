@@ -30,13 +30,21 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 - Per-azimuth local horizon profile with linear interpolation
 - Satellite avoidance: blocked-interval scheduling using Celestrak visual TLEs
 - Planet/moon wishlist items scheduled as real time-blocks (Meeus magnitudes, ring tilt)
+- Comet targets in plan via MPC ephemeris; "visible comets tonight" card in Tonight view
 - Automated daily plan generation at noon with Celery Beat
 
+**Unmanned Capture Automation**
+- Auto-execute at dusk — Celery Beat computes astronomical twilight, queues plan at exact time
+- Scope connectivity retries — TCP-pings S50 every 5 min, up to 6 attempts
+- Weather watchdog — aborts session if rain, excess wind, or high humidity detected
+- Session webhooks — scope unreachable, session started, completed/aborted notifications
+- Automation settings tab — all thresholds configurable in UI
+
 **Comprehensive Catalog**
-- **12,400+ objects** from OpenNGC catalog (Messier, NGC, IC)
-- User-defined custom targets with CRUD API and "My Targets" tab
+- **12,400+ objects** from OpenNGC, Caldwell (109), Arp Atlas (50), Sharpless HII (50)
+- User-defined custom targets with CRUD API, image thumbnails, and "My Targets" tab
 - Advanced filtering by type, magnitude, constellation
-- Score-based sorting, visible-tonight filter
+- Score-based sorting, visible-tonight filter, nearby-objects proximity search
 
 **Weather Integration**
 - 7Timer astronomical seeing and transparency forecasts
@@ -51,6 +59,11 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 - Full telescope control: goto, capture, focus, gain, dew heater, polar alignment
 - Optimized for 50mm f/5 optics (1.27° × 0.71° FOV)
 
+**Live Session Tracking**
+- Live now-marker advances in real time during active session
+- NowPlayingPanel: current/next target, frame progress bar, auto-advance on completion
+- "Done →" button to skip to next target; extend target duration inline
+
 **GPU Processing**
 - CUDA-accelerated FITS stacking with CuPy
 - Sigma-clipped mean stacking for outlier rejection
@@ -61,18 +74,15 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 - Tonight / Sky / Plan / Observe / Archive navigation
 - Interactive timeline drag-editing with real-time conflict detection
 - Wishlist, saved plans, gap-filling optimizer
-- Toast notifications, settings modal with Horizon profile editor
+- Toast notifications, settings modal with Horizon and Automation tabs
 
 ### 📋 Next Up
 
 **Post-Capture Processing UI**
-- Archive tab backend is functional; UI wiring and batch jobs in progress
+- Archive tab backend is functional; file ingest, job queue UI, and batch export in progress
 
-**Live Session Tracking**
-- WebSocket link between Observe view and executing plan on telescope
-
-**Comet / Asteroid Ephemeris**
-- MPC catalog refresh implemented; live position injection into scheduler pending
+**Unmanned Capture Reliability**
+- Manual "run now" trigger, dry-run validation, webhook delivery visibility
 
 [See full roadmap →](docs/planning/ROADMAP.md)
 
@@ -362,7 +372,7 @@ docker exec astronomus pytest --cov=app
 docker exec astronomus pytest tests/test_planner_service.py
 ```
 
-**Test Coverage:** 700+ tests passing (unit + integration), 49 skipped (hardware)
+**Test Coverage:** 726 tests passing (unit + integration), 49 skipped (hardware)
 
 [Testing guide →](docs/development/TESTING_GUIDE.md)
 
@@ -373,10 +383,10 @@ docker exec astronomus pytest tests/test_planner_service.py
 Contributions are welcome! Areas of interest:
 
 **Features:**
-- Additional DSO catalogs (Caldwell, Arp, Sharpless)
-- Comet/asteroid ephemeris integration
-- Mosaic planning capabilities
+- Mosaic planning (multi-panel FOV, overlap calculator)
 - Advanced image processing algorithms
+- Mobile PWA / offline favorites
+- Interactive sky map overlay
 
 **Improvements:**
 - Enhanced scheduling algorithms
