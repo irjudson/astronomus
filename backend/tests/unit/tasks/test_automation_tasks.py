@@ -56,9 +56,11 @@ def test_auto_execute_skips_when_no_plan():
 def test_auto_execute_retries_when_scope_unreachable():
     from app.tasks.automation_tasks import auto_execute_plan_task
 
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._check_scope_reachable", return_value=False
-    ), patch("app.tasks.automation_tasks.auto_execute_plan_task.apply_async") as mock_async:
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._check_scope_reachable", return_value=False),
+        patch("app.tasks.automation_tasks.auto_execute_plan_task.apply_async") as mock_async,
+    ):
         db = MagicMock()
         enabled = MagicMock()
         enabled.value = "true"
@@ -100,9 +102,11 @@ def test_auto_execute_starts_execution():
             }
         }
     ]
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._check_scope_reachable", return_value=True
-    ), patch("app.tasks.automation_tasks.execute_observation_plan_task") as mock_exec:
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._check_scope_reachable", return_value=True),
+        patch("app.tasks.automation_tasks.execute_observation_plan_task") as mock_exec,
+    ):
         db = MagicMock()
         enabled = MagicMock()
         enabled.value = "true"
@@ -126,8 +130,9 @@ def test_auto_execute_starts_execution():
 def test_weather_watchdog_skips_daytime():
     from app.tasks.automation_tasks import weather_watchdog_task
 
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._is_astronomical_night", return_value=False
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._is_astronomical_night", return_value=False),
     ):
         mock_sl.return_value = MagicMock()
         result = weather_watchdog_task()
@@ -138,8 +143,9 @@ def test_weather_watchdog_skips_daytime():
 def test_weather_watchdog_skips_no_execution():
     from app.tasks.automation_tasks import weather_watchdog_task
 
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._is_astronomical_night", return_value=True
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True),
     ):
         db = MagicMock()
         db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
@@ -152,13 +158,13 @@ def test_weather_watchdog_skips_no_execution():
 def test_weather_watchdog_aborts_on_rain():
     from app.tasks.automation_tasks import weather_watchdog_task
 
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._is_astronomical_night", return_value=True
-    ), patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls, patch(
-        "app.tasks.automation_tasks.abort_observation_plan_task"
-    ) as mock_abort, patch(
-        "app.tasks.automation_tasks.WebhookService"
-    ) as mock_wh_cls:
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True),
+        patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls,
+        patch("app.tasks.automation_tasks.abort_observation_plan_task") as mock_abort,
+        patch("app.tasks.automation_tasks.WebhookService") as mock_wh_cls,
+    ):
         db = MagicMock()
         execution = MagicMock()
         execution.execution_id = "abc123"
@@ -191,9 +197,11 @@ def test_weather_watchdog_aborts_on_rain():
 def test_weather_watchdog_ok_when_clear():
     from app.tasks.automation_tasks import weather_watchdog_task
 
-    with patch("app.tasks.automation_tasks.SessionLocal") as mock_sl, patch(
-        "app.tasks.automation_tasks._is_astronomical_night", return_value=True
-    ), patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls:
+    with (
+        patch("app.tasks.automation_tasks.SessionLocal") as mock_sl,
+        patch("app.tasks.automation_tasks._is_astronomical_night", return_value=True),
+        patch("app.tasks.automation_tasks.LocalWeatherService") as mock_wx_cls,
+    ):
         db = MagicMock()
         execution = MagicMock()
         execution.execution_id = "xyz"
