@@ -502,6 +502,12 @@ _PREF_KEYS = {
     # Imaging
     "imagingMode": "user.pref.imaging_mode",
     "annotationsEnabled": "user.pref.annotations_enabled",
+    # Automation
+    "autoExecuteEnabled": "planning.auto_execute_enabled",
+    "autoExecuteRetryCount": "telescope.auto_execute_retry_count",
+    "weatherAbortOnRain": "weather.abort_on_rain",
+    "weatherAbortWindMph": "weather.abort_wind_mph",
+    "weatherAbortHumidityPct": "weather.abort_humidity_pct",
 }
 
 _PREF_DEFAULTS = {
@@ -521,6 +527,11 @@ _PREF_DEFAULTS = {
     "catalogUseScoring": "false",
     "imagingMode": "deep-sky",
     "annotationsEnabled": "false",
+    "autoExecuteEnabled": "false",
+    "autoExecuteRetryCount": "6",
+    "weatherAbortOnRain": "true",
+    "weatherAbortWindMph": "25.0",
+    "weatherAbortHumidityPct": "95",
 }
 
 
@@ -552,6 +563,12 @@ class UserSettings(BaseModel):
     # Imaging
     imagingMode: str = "deep-sky"
     annotationsEnabled: bool = False
+    # Automation
+    autoExecuteEnabled: bool = False
+    autoExecuteRetryCount: int = 6
+    weatherAbortOnRain: bool = True
+    weatherAbortWindMph: float = 25.0
+    weatherAbortHumidityPct: int = 95
 
 
 @router.get("/user", response_model=UserSettings)
@@ -596,6 +613,11 @@ async def get_user_settings(db: Session = Depends(get_db)):
         catalogUseScoring=_bool(_pref("catalogUseScoring")),
         imagingMode=_pref("imagingMode"),
         annotationsEnabled=_bool(_pref("annotationsEnabled")),
+        autoExecuteEnabled=_bool(_pref("autoExecuteEnabled")),
+        autoExecuteRetryCount=int(_pref("autoExecuteRetryCount")),
+        weatherAbortOnRain=_bool(_pref("weatherAbortOnRain")),
+        weatherAbortWindMph=float(_pref("weatherAbortWindMph")),
+        weatherAbortHumidityPct=int(_pref("weatherAbortHumidityPct")),
     )
 
 
@@ -685,6 +707,11 @@ async def update_user_settings(settings: UserSettings, db: Session = Depends(get
         _PREF_KEYS["catalogUseScoring"]: str(settings.catalogUseScoring).lower(),
         _PREF_KEYS["imagingMode"]: settings.imagingMode,
         _PREF_KEYS["annotationsEnabled"]: str(settings.annotationsEnabled).lower(),
+        _PREF_KEYS["autoExecuteEnabled"]: str(settings.autoExecuteEnabled).lower(),
+        _PREF_KEYS["autoExecuteRetryCount"]: str(settings.autoExecuteRetryCount),
+        _PREF_KEYS["weatherAbortOnRain"]: str(settings.weatherAbortOnRain).lower(),
+        _PREF_KEYS["weatherAbortWindMph"]: str(settings.weatherAbortWindMph),
+        _PREF_KEYS["weatherAbortHumidityPct"]: str(settings.weatherAbortHumidityPct),
     }
     existing_prefs = {
         row.key: row for row in db.query(AppSetting).filter(AppSetting.key.in_(list(pref_values.keys()))).all()

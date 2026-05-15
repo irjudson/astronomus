@@ -56,7 +56,7 @@
               </button>
               <button
                 @click="sendToScope"
-                :disabled="planningStore.loading || !lastSavedPlanId"
+                :disabled="planningStore.loading || !planningStore.currentPlan"
                 class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Upload this plan to the telescope"
               >
@@ -293,13 +293,19 @@ const savePlan = async () => {
   }
 }
 
-const sendToScope = async () => {
-  if (!lastSavedPlanId.value) return
+async function sendToScope() {
+  if (!planningStore.currentPlan) return
+  if (!lastSavedPlanId.value) {
+    try {
+      const saved = await planningStore.savePlan()
+      if (saved?.id) lastSavedPlanId.value = saved.id
+    } catch {
+      return // savePlan already shows error toast
+    }
+  }
   try {
     await planningStore.sendToTelescope(lastSavedPlanId.value)
-  } catch (err) {
-    alert('Failed to upload plan to telescope: ' + (err.response?.data?.detail || err.message))
-  }
+  } catch { /* handled in store */ }
 }
 
 const exportPlan = async () => {

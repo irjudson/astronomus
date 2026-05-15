@@ -12,9 +12,53 @@ from app.database import SessionLocal
 from app.models import ScheduledTarget
 from app.models.telescope_models import TelescopeExecution, TelescopeExecutionTarget
 from app.services.telescope_service import TelescopeService
+from app.services.webhook_service import WebhookService
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+def _get_db_setting(db, key: str, default: str = "") -> str:
+    from app.models.settings_models import AppSetting
+
+    s = db.query(AppSetting).filter(AppSetting.key == key).first()
+    return s.value if s else default
+
+
+def _webhook_session_started(db, execution_id: str, saved_plan_id, targets_data: list) -> None:
+    try:
+        webhook_url = _get_db_setting(db, "planning.webhook_url")
+        if not webhook_url:
+            return
+        target_names = [t.get("target", {}).get("name", "") for t in targets_data]
+        plan_name = f"plan-{saved_plan_id}" if saved_plan_id else execution_id
+        WebhookService(webhook_url=webhook_url).send_session_started_notification(
+            execution_id=execution_id,
+            plan_name=plan_name,
+            target_count=len(targets_data),
+            target_names=target_names,
+        )
+    except Exception as exc:
+        logger.warning(f"session_started webhook failed: {exc}")
+
+
+def _webhook_session_completed(db, execution_id: str, saved_plan_id, final_progress) -> None:
+    try:
+        webhook_url = _get_db_setting(db, "planning.webhook_url")
+        if not webhook_url:
+            return
+        plan_name = f"plan-{saved_plan_id}" if saved_plan_id else execution_id
+        WebhookService(webhook_url=webhook_url).send_session_completed_notification(
+            execution_id=execution_id,
+            plan_name=plan_name,
+            state=final_progress.state.value,
+            targets_completed=final_progress.targets_completed,
+            targets_failed=final_progress.targets_failed,
+            total_targets=final_progress.total_targets,
+            duration_str=str(final_progress.elapsed_time) if final_progress.elapsed_time else None,
+        )
+    except Exception as exc:
+        logger.warning(f"session_completed webhook failed: {exc}")
 
 
 class TelescopeExecutionTask(Task):
@@ -189,6 +233,9 @@ def execute_observation_plan_task(
             execution.state = "running"
             db.commit()
 
+            # Notify session started
+            _webhook_session_started(db, execution_id, saved_plan_id, targets_data)
+
             # Execute the plan (blocks until complete)
             final_progress = loop.run_until_complete(
                 self.telescope_service.execute_plan(
@@ -221,6 +268,9 @@ def execute_observation_plan_task(
                     for err in final_progress.errors
                 ]
             db.commit()
+
+            # Notify session completed
+            _webhook_session_completed(db, execution_id, saved_plan_id, final_progress)
 
             logger.info(f"Execution {execution_id} completed: {final_progress.state.value}")
 
