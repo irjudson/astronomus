@@ -288,6 +288,22 @@ class PlannerService:
             except Exception as e:
                 logger.warning("Satellite avoidance failed, proceeding without it: %s", e)
 
+        # Build priority set from user-selected solar targets + DSO wishlist items.
+        # Also ensure wishlist DSOs are in the candidate pool (they may have been
+        # filtered out by the top-200 magnitude limit).
+        priority_targets: set = set()
+        if request.solar_targets:
+            priority_targets.update(request.solar_targets)
+        if request.preferred_gap_fillers:
+            priority_targets.update(request.preferred_gap_fillers)
+            existing_ids = {t.catalog_id for t in targets} | {t.name for t in targets}
+            for name in request.preferred_gap_fillers:
+                if name not in existing_ids:
+                    dso = self.catalog.get_target_by_id(name)
+                    if dso:
+                        targets.append(dso)
+                        logger.debug("Injected priority DSO target %s into candidate pool", name)
+
         # Schedule targets
         t3 = time.time()
         scheduled_targets = self.scheduler.schedule_session(
@@ -297,6 +313,7 @@ class PlannerService:
             constraints=request.constraints,
             weather_forecasts=weather_forecast,
             blocked_intervals=blocked_intervals,
+            priority_targets=priority_targets or None,
         )
         logger.debug("[TIMING] Scheduler: %.2fs (%d scheduled)", time.time() - t3, len(scheduled_targets))
 

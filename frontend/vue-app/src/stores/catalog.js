@@ -181,7 +181,7 @@ export const useCatalogStore = defineStore('catalog', {
      * Add a target to the selected targets list for planning
      */
     addSelectedTarget(item) {
-      const exists = this.selectedTargets.some(t => t.id === item.id || t.name === item.name);
+      const exists = this.selectedTargets.some(t => (item.id != null && t.id === item.id) || t.name === item.name);
       if (!exists) {
         this.selectedTargets.push(item);
         useToastStore().success(`${item.name} added to plan`);

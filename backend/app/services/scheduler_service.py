@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class SchedulerService:
         constraints: ObservingConstraints,
         weather_forecasts: List,
         blocked_intervals: Optional[List] = None,
+        priority_targets: Optional[Set[str]] = None,
     ) -> List[ScheduledTarget]:
         """
         Schedule targets for an observing session using greedy algorithm.
@@ -108,6 +109,7 @@ class SchedulerService:
                 constraints=constraints,
                 weather_forecasts=weather_forecasts,
                 observed_targets=observed_targets,
+                priority_targets=priority_targets,
             )
 
             if best_target is None or duration < min_duration or target_score < min_score_threshold:
@@ -221,6 +223,7 @@ class SchedulerService:
         constraints: ObservingConstraints,
         weather_forecasts: List,
         observed_targets: set,
+        priority_targets: Optional[Set[str]] = None,
     ) -> Tuple[Optional[DSOTarget], timedelta, float]:
         """
         Find the best target for the current time using urgency-based scoring.
@@ -277,6 +280,12 @@ class SchedulerService:
             )
 
             total_score = score_data.total_score + urgency_bonus
+
+            # Boost user-selected priority targets above auto-selected candidates
+            if priority_targets and (
+                target.name in priority_targets or target.catalog_id in priority_targets
+            ):
+                total_score += 0.3
 
             if total_score > best_score:
                 best_score = total_score

@@ -135,16 +135,23 @@ export const usePlanningStore = defineStore('planning', {
         // The planner auto-selects the best objects for the night, then fills gaps
         // preferring wishlist items when possible.
         // Solar system wishlist items are sent as solar_targets and scheduled as real time-blocks.
-        const wishlist = useCatalogStore().wishlist
+        const catalogStore = useCatalogStore()
+        const wishlist = catalogStore.wishlist
         const SOLAR_TYPES = new Set(['planet', 'moon', 'star'])
         const dsoTargets = wishlist.filter(t => !SOLAR_TYPES.has(t.type)).map(t => t.name)
         const solarTargets = wishlist.filter(t => SOLAR_TYPES.has(t.type)).map(t => t.name)
 
+        // Also include solar targets added via "Add to Plan" button (selectedTargets)
+        const selectedSolar = catalogStore.selectedTargets
+          .filter(t => SOLAR_TYPES.has(t.type) || SOLAR_TYPES.has(t.object_type))
+          .map(t => t.name)
+        const allSolarTargets = [...new Set([...solarTargets, ...selectedSolar])]
+
         if (dsoTargets.length > 0) {
           request.preferred_gap_fillers = dsoTargets
         }
-        if (solarTargets.length > 0) {
-          request.solar_targets = solarTargets
+        if (allSolarTargets.length > 0) {
+          request.solar_targets = allSolarTargets
         }
         if (this.cometWishlist.length > 0) {
           request.comet_targets = [...this.cometWishlist]
