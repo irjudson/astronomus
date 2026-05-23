@@ -1521,11 +1521,12 @@ def _compute_solar_system_objects_sync(
         img_end = _utc.localize((_base + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0))
 
     # Build list of 30-minute sample times during the imaging window (naive UTC for PlanetaryEphemeris)
+    import pytz as _pytz2
     sample_times_naive = []
     t_sample = img_start
     while t_sample <= img_end:
-        # Strip tzinfo to pass naive UTC datetimes to pe.get_position()
-        sample_times_naive.append(t_sample.replace(tzinfo=None))
+        # Convert to UTC first, then strip tzinfo — img_start/end may be in local tz
+        sample_times_naive.append(t_sample.astimezone(_pytz2.UTC).replace(tzinfo=None))
         t_sample += _td(minutes=30)
 
     # Map from lowercase body name → sample altitude list
@@ -1579,7 +1580,7 @@ def _compute_solar_system_objects_sync(
                     except Exception:
                         pass
 
-            is_visible_tonight = peak_alt_tonight >= 10.0
+            is_visible_tonight = bool(peak_alt_tonight >= 10.0)
             parent_visible_tonight[name] = is_visible_tonight
 
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
@@ -1588,12 +1589,12 @@ def _compute_solar_system_objects_sync(
                 {
                     "name": name,
                     "type": obj_type,
-                    "magnitude": round(eph.magnitude, 1),
-                    "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
-                    "altitude_deg": round(altitude_deg, 1),
-                    "is_visible": is_visible,
+                    "magnitude": round(float(eph.magnitude), 1),
+                    "angular_diameter_arcsec": round(float(eph.angular_diameter_arcsec), 1),
+                    "altitude_deg": round(float(altitude_deg), 1),
+                    "is_visible": bool(is_visible),
                     "is_visible_tonight": is_visible_tonight,
-                    "peak_altitude_tonight": round(peak_alt_tonight, 1),
+                    "peak_altitude_tonight": round(float(peak_alt_tonight), 1),
                     "constellation": eph.constellation,
                     "notes": planet.notes if planet else None,
                 }
