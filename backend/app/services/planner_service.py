@@ -218,17 +218,31 @@ class PlannerService:
         # Jupiter to image Io, so multiple moons of the same parent are collapsed
         # into one session with summed duration and a combined display name.
         _SUPPORTED_SOLAR = {
-            "sun", "moon", "mercury", "venus", "mars",
-            "jupiter", "saturn", "uranus", "neptune",
+            "sun",
+            "moon",
+            "mercury",
+            "venus",
+            "mars",
+            "jupiter",
+            "saturn",
+            "uranus",
+            "neptune",
         }
         _SATELLITE_PARENTS = {
-            "io": "jupiter", "europa": "jupiter", "ganymede": "jupiter", "callisto": "jupiter",
-            "titan": "saturn", "rhea": "saturn", "tethys": "saturn",
-            "dione": "saturn", "enceladus": "saturn",
+            "io": "jupiter",
+            "europa": "jupiter",
+            "ganymede": "jupiter",
+            "callisto": "jupiter",
+            "titan": "saturn",
+            "rhea": "saturn",
+            "tethys": "saturn",
+            "dione": "saturn",
+            "enceladus": "saturn",
         }
         if request.solar_targets:
             # Group targets by ephemeris body (collapses satellite moons onto parent)
             from collections import defaultdict
+
             grouped: dict = defaultdict(list)
             for planet_name in request.solar_targets:
                 body_name = planet_name.lower()
@@ -251,8 +265,7 @@ class PlannerService:
                     satellites = [m for m in members if m.lower() != ephemeris_name]
                     base_name = members[0] if len(members) == 1 else ephemeris_name.capitalize()
                     display_name = (
-                        f"{ephemeris_name.capitalize()} ({', '.join(satellites)})"
-                        if satellites else base_name
+                        f"{ephemeris_name.capitalize()} ({', '.join(satellites)})" if satellites else base_name
                     )
                     # Sum 10 min per member, cap at 60 min; Moon stays 5 min
                     if ephemeris_name == "moon":
@@ -274,7 +287,10 @@ class PlannerService:
                     targets.append(planet_target)
                     logger.info(
                         "Added solar target %s (%d min) at RA=%.2fh Dec=%.1f°",
-                        display_name, duration_hint, pos["ra_hours"], pos["dec_degrees"],
+                        display_name,
+                        duration_hint,
+                        pos["ra_hours"],
+                        pos["dec_degrees"],
                     )
                 except Exception as e:
                     logger.warning("Failed to add solar target %s: %s", ephemeris_name, e)
@@ -444,16 +460,18 @@ class PlannerService:
                         pass
                     t_step += timedelta(minutes=30)
                 dur = timedelta(minutes=min(target.preferred_duration_minutes or 60, 90))
-                candidates.append(CandidateTarget(
-                    name=target.name or target.catalog_id,
-                    catalog_id=target.catalog_id,
-                    object_type=target.object_type,
-                    score=round(score_data.total_score, 3),
-                    peak_altitude=round(peak_alt, 1),
-                    proposed_start=peak_time,
-                    proposed_end=peak_time + dur,
-                    image_url=target.image_url,
-                ))
+                candidates.append(
+                    CandidateTarget(
+                        name=target.name or target.catalog_id,
+                        catalog_id=target.catalog_id,
+                        object_type=target.object_type,
+                        score=round(score_data.total_score, 3),
+                        peak_altitude=round(peak_alt, 1),
+                        proposed_start=peak_time,
+                        proposed_end=peak_time + dur,
+                        image_url=target.image_url,
+                    )
+                )
             except Exception:
                 pass
 
