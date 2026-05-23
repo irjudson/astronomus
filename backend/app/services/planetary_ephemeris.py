@@ -79,6 +79,8 @@ class PlanetaryEphemeris:
         # Get current time or use provided
         if time is None:
             time = datetime.now(timezone.utc)
+        if time.tzinfo is None:
+            time = time.replace(tzinfo=timezone.utc)
         t = self.ts.from_datetime(time)
 
         # Calculate position

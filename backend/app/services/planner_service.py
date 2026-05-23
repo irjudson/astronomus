@@ -213,9 +213,18 @@ class PlannerService:
         midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
         midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
 
-        # Inject solar system wishlist targets as schedulable pseudo-targets
+        # Inject solar system wishlist targets as schedulable pseudo-targets.
+        # Only main planets + Moon are supported; satellite moons (Io, Titan, etc.)
+        # are skipped because DE421 does not model them individually.
+        _SUPPORTED_SOLAR = {
+            "sun", "moon", "mercury", "venus", "mars",
+            "jupiter", "saturn", "uranus", "neptune",
+        }
         if request.solar_targets:
             for planet_name in request.solar_targets:
+                if planet_name.lower() not in _SUPPORTED_SOLAR:
+                    logger.debug("Skipping unsupported solar body: %s", planet_name)
+                    continue
                 try:
                     pos = self.planetary_ephemeris.get_position(
                         planet_name.lower(),
