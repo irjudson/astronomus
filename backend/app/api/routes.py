@@ -1440,9 +1440,7 @@ async def get_target_preview(sanitized_catalog_id: str, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail=f"Error fetching target image: {str(e)}")
 
 
-def _compute_solar_system_objects_sync(
-    lat: float, lon: float, observing_date_str=None, timezone_str="UTC"
-) -> list:
+def _compute_solar_system_objects_sync(lat: float, lon: float, observing_date_str=None, timezone_str="UTC") -> list:
     """Fast sync computation of solar system objects — call via run_in_executor.
 
     Bypasses compute_visibility (which sweeps 24 h of rise/set times) and
@@ -1479,8 +1477,9 @@ def _compute_solar_system_objects_sync(
     img_start = None
     img_end = None
     try:
-        import pytz as _pytz
         from datetime import timedelta as _td
+
+        import pytz as _pytz
 
         from app.models import Location as _Location
         from app.services.ephemeris_service import EphemerisService as _EphSvc
@@ -1522,6 +1521,7 @@ def _compute_solar_system_objects_sync(
 
     # Build list of 30-minute sample times during the imaging window (naive UTC for PlanetaryEphemeris)
     import pytz as _pytz2
+
     sample_times_naive = []
     t_sample = img_start
     while t_sample <= img_end:
@@ -1602,7 +1602,15 @@ def _compute_solar_system_objects_sync(
         except Exception as exc:
             logger.warning("solar-system: failed to compute %s: %s", name, exc)
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
-            results.append({"name": name, "type": obj_type, "is_visible": False, "is_visible_tonight": False, "peak_altitude_tonight": -90.0})
+            results.append(
+                {
+                    "name": name,
+                    "type": obj_type,
+                    "is_visible": False,
+                    "is_visible_tonight": False,
+                    "peak_altitude_tonight": -90.0,
+                }
+            )
 
     for moon, parent in MOON_PARENTS.items():
         is_visible_tonight = parent_visible_tonight.get(parent, False)

@@ -282,9 +282,7 @@ class SchedulerService:
             total_score = score_data.total_score + urgency_bonus
 
             # Boost user-selected priority targets above auto-selected candidates
-            if priority_targets and (
-                target.name in priority_targets or target.catalog_id in priority_targets
-            ):
+            if priority_targets and (target.name in priority_targets or target.catalog_id in priority_targets):
                 total_score += 0.3
 
             if total_score > best_score:
