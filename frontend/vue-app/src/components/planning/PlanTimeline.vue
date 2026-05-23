@@ -93,46 +93,30 @@
         />
       </g>
 
-      <!-- 4a. Candidates strip — near misses shown below main chart -->
+      <!-- 4a. Candidates strip — near misses as evenly-distributed chips -->
       <g v-if="candidates.length">
-        <!-- Strip background -->
-        <rect
-          :x="ML" :y="MT + CH + 1"
-          :width="CW" :height="CAND_H - 2"
-          fill="rgba(15, 23, 42, 0.7)"
-        />
-        <!-- "near misses" label on left -->
-        <text
-          :x="ML + 3" :y="MT + CH + CAND_H / 2 + 3"
+        <rect :x="ML" :y="MT + CH + 1" :width="CW" :height="CAND_H - 2" fill="rgba(15, 23, 42, 0.7)" />
+        <text :x="ML + 3" :y="MT + CH + CAND_H / 2 + 3"
           fill="rgba(75, 85, 99, 0.8)" font-size="7"
-          font-family="ui-sans-serif,system-ui,sans-serif"
-          style="pointer-events: none"
-        >near misses</text>
-        <!-- Candidate bars -->
-        <rect
-          v-for="c in candidates" :key="'cand-' + c.catalog_id"
-          :x="Math.max(ML + 52, tx(c.proposed_start))"
-          :y="MT + CH + 4"
-          :width="Math.max(2, Math.min(tx(c.proposed_end), ML + CW) - Math.max(ML + 52, tx(c.proposed_start)))"
-          :height="CAND_H - 8"
-          fill="rgba(100, 116, 139, 0.18)"
-          stroke="rgba(100, 116, 139, 0.55)"
-          stroke-width="1"
-          stroke-dasharray="4,2"
-          style="pointer-events: none"
-        />
-        <!-- Candidate labels -->
-        <text
-          v-for="c in candidates" :key="'cand-lbl-' + c.catalog_id"
-          :x="(Math.max(ML + 52, tx(c.proposed_start)) + Math.min(tx(c.proposed_end), ML + CW)) / 2"
-          :y="MT + CH + CAND_H / 2 + 3"
-          text-anchor="middle"
-          fill="rgba(148, 163, 184, 0.85)"
-          font-size="8"
-          font-family="ui-sans-serif,system-ui,sans-serif"
-          style="pointer-events: none"
-          v-show="Math.min(tx(c.proposed_end), ML + CW) - Math.max(ML + 52, tx(c.proposed_start)) > 28"
-        >{{ c.name }} {{ Math.round(c.score * 100) }}%</text>
+          font-family="ui-sans-serif,system-ui,sans-serif" style="pointer-events:none">↓ near misses</text>
+        <template v-for="(c, i) in candidates" :key="'cand-' + c.catalog_id">
+          <rect
+            :x="ML + 58 + i * ((CW - 58) / candidates.length)"
+            :y="MT + CH + 4"
+            :width="(CW - 58) / candidates.length - 2"
+            :height="CAND_H - 8"
+            fill="rgba(100, 116, 139, 0.15)"
+            stroke="rgba(100, 116, 139, 0.45)"
+            stroke-width="1" stroke-dasharray="4,2"
+            style="pointer-events:none"
+          />
+          <text
+            :x="ML + 58 + i * ((CW - 58) / candidates.length) + (CW - 58) / candidates.length / 2"
+            :y="MT + CH + CAND_H / 2 + 3"
+            text-anchor="middle" fill="rgba(148, 163, 184, 0.8)" font-size="8"
+            font-family="ui-sans-serif,system-ui,sans-serif" style="pointer-events:none"
+          >{{ c.name }}</text>
+        </template>
       </g>
 
       <!-- 4. Target window rects + drag handles -->

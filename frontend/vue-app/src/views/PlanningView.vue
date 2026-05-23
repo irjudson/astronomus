@@ -207,6 +207,26 @@
               </div>
             </div>
 
+            <!-- Near-miss candidates -->
+            <div v-if="planningStore.currentPlan.candidates?.length" class="space-y-2 mt-4">
+              <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Near Misses — scored high, didn't fit</h3>
+              <div
+                v-for="c in planningStore.currentPlan.candidates"
+                :key="'cand-' + c.catalog_id"
+                class="bg-gray-900/40 border border-gray-800 border-l-4 border-l-gray-700 rounded-lg p-3 opacity-60"
+              >
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span class="text-gray-400 font-medium text-sm">{{ c.name }}</span>
+                  <span class="px-1.5 py-0.5 bg-gray-700/30 text-gray-500 text-xs rounded">{{ c.object_type }}</span>
+                  <span class="px-1.5 py-0.5 bg-gray-800 text-gray-600 text-xs rounded">near miss</span>
+                </div>
+                <div class="flex gap-4 text-xs text-gray-600">
+                  <span>Score {{ Math.round(c.score * 100) }}%</span>
+                  <span>Peak {{ c.peak_altitude }}° at {{ formatTime(c.proposed_start) }}</span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div v-else class="flex-1 flex items-center justify-center">
