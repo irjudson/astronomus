@@ -214,8 +214,9 @@ class PlannerService:
         midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
 
         # Inject solar system targets as schedulable pseudo-targets.
-        # Satellite moons use their parent planet's position (they're unresolvable
-        # from it in a small-aperture scope anyway — you point at Jupiter to image Io).
+        # Satellite moons share their parent planet's coordinates — you point at
+        # Jupiter to image Io, so multiple moons of the same parent are collapsed
+        # into one session with summed duration and a combined display name.
         _SUPPORTED_SOLAR = {
             "sun", "moon", "mercury", "venus", "mars",
             "jupiter", "saturn", "uranus", "neptune",
@@ -226,12 +227,18 @@ class PlannerService:
             "dione": "saturn", "enceladus": "saturn",
         }
         if request.solar_targets:
+            # Group targets by ephemeris body (collapses satellite moons onto parent)
+            from collections import defaultdict
+            grouped: dict = defaultdict(list)
             for planet_name in request.solar_targets:
                 body_name = planet_name.lower()
                 ephemeris_name = _SATELLITE_PARENTS.get(body_name, body_name)
                 if ephemeris_name not in _SUPPORTED_SOLAR:
                     logger.debug("Skipping unsupported solar body: %s", planet_name)
                     continue
+                grouped[ephemeris_name].append(planet_name)
+
+            for ephemeris_name, members in grouped.items():
                 try:
                     pos = self.planetary_ephemeris.get_position(
                         ephemeris_name,
@@ -240,27 +247,37 @@ class PlannerService:
                         elevation=request.location.elevation,
                         time=midpoint_naive,
                     )
-                    duration_hint = 5 if planet_name.lower() == "moon" else 10
+                    # Build display name: "Jupiter (Io, Europa)" or just "Moon"
+                    satellites = [m for m in members if m.lower() != ephemeris_name]
+                    base_name = members[0] if len(members) == 1 else ephemeris_name.capitalize()
+                    display_name = (
+                        f"{ephemeris_name.capitalize()} ({', '.join(satellites)})"
+                        if satellites else base_name
+                    )
+                    # Sum 10 min per member, cap at 60 min; Moon stays 5 min
+                    if ephemeris_name == "moon":
+                        duration_hint = 5
+                    else:
+                        duration_hint = min(10 * len(members), 60)
+                    catalog_id = ephemeris_name.capitalize() if not satellites else display_name
                     planet_target = DSOTarget(
-                        name=planet_name,
-                        catalog_id=planet_name,
-                        object_type="moon" if planet_name.lower() == "moon" else "planet",
+                        name=display_name,
+                        catalog_id=catalog_id,
+                        object_type="moon" if ephemeris_name == "moon" else "planet",
                         ra_hours=pos["ra_hours"],
                         dec_degrees=pos["dec_degrees"],
                         magnitude=pos.get("magnitude", 0.0) or 0.0,
                         size_arcmin=(pos.get("angular_diameter_arcsec") or 0.0) / 60.0,
-                        description=f"Solar system target ({duration_hint} min)",
+                        description=f"Solar system target — {', '.join(members)}",
                         preferred_duration_minutes=duration_hint,
                     )
                     targets.append(planet_target)
-                    logger.debug(
-                        "Added solar target %s at RA=%.2fh Dec=%.1f°",
-                        planet_name,
-                        pos["ra_hours"],
-                        pos["dec_degrees"],
+                    logger.info(
+                        "Added solar target %s (%d min) at RA=%.2fh Dec=%.1f°",
+                        display_name, duration_hint, pos["ra_hours"], pos["dec_degrees"],
                     )
                 except Exception as e:
-                    logger.warning("Failed to add solar target %s: %s", planet_name, e)
+                    logger.warning("Failed to add solar target %s: %s", ephemeris_name, e)
 
         # Inject comet wishlist targets
         if request.comet_targets:
