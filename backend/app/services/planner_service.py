@@ -236,7 +236,7 @@ class PlannerService:
                     duration_hint = 5 if planet_name.lower() == "moon" else 10
                     planet_target = DSOTarget(
                         name=planet_name,
-                        catalog_id=f"SOLAR:{planet_name}",
+                        catalog_id=planet_name,
                         object_type="moon" if planet_name.lower() == "moon" else "planet",
                         ra_hours=pos["ra_hours"],
                         dec_degrees=pos["dec_degrees"],
