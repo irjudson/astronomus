@@ -93,28 +93,45 @@
         />
       </g>
 
-      <!-- 4a. Ghost candidates: high-scoring but unscheduled -->
-      <g :clip-path="`url(#${clipId})`">
+      <!-- 4a. Candidates strip — near misses shown below main chart -->
+      <g v-if="candidates.length">
+        <!-- Strip background -->
         <rect
-          v-for="c in candidates" :key="'ghost-' + c.catalog_id"
-          :x="tx(c.proposed_start)" :y="MT + CH * 0.6"
-          :width="Math.max(2, tx(c.proposed_end) - tx(c.proposed_start))"
-          :height="CH * 0.35"
-          fill="rgba(148, 163, 184, 0.08)"
-          stroke="rgba(148, 163, 184, 0.35)"
+          :x="ML" :y="MT + CH + 1"
+          :width="CW" :height="CAND_H - 2"
+          fill="rgba(15, 23, 42, 0.7)"
+        />
+        <!-- "near misses" label on left -->
+        <text
+          :x="ML + 3" :y="MT + CH + CAND_H / 2 + 3"
+          fill="rgba(75, 85, 99, 0.8)" font-size="7"
+          font-family="ui-sans-serif,system-ui,sans-serif"
+          style="pointer-events: none"
+        >near misses</text>
+        <!-- Candidate bars -->
+        <rect
+          v-for="c in candidates" :key="'cand-' + c.catalog_id"
+          :x="Math.max(ML + 52, tx(c.proposed_start))"
+          :y="MT + CH + 4"
+          :width="Math.max(2, Math.min(tx(c.proposed_end), ML + CW) - Math.max(ML + 52, tx(c.proposed_start)))"
+          :height="CAND_H - 8"
+          fill="rgba(100, 116, 139, 0.18)"
+          stroke="rgba(100, 116, 139, 0.55)"
           stroke-width="1"
-          stroke-dasharray="4,3"
+          stroke-dasharray="4,2"
           style="pointer-events: none"
         />
+        <!-- Candidate labels -->
         <text
-          v-for="c in candidates" :key="'ghost-lbl-' + c.catalog_id"
-          :x="(tx(c.proposed_start) + tx(c.proposed_end)) / 2"
-          :y="MT + CH * 0.6 + CH * 0.35 / 2 + 4"
+          v-for="c in candidates" :key="'cand-lbl-' + c.catalog_id"
+          :x="(Math.max(ML + 52, tx(c.proposed_start)) + Math.min(tx(c.proposed_end), ML + CW)) / 2"
+          :y="MT + CH + CAND_H / 2 + 3"
           text-anchor="middle"
-          font-size="9"
-          fill="rgba(148, 163, 184, 0.5)"
+          fill="rgba(148, 163, 184, 0.85)"
+          font-size="8"
+          font-family="ui-sans-serif,system-ui,sans-serif"
           style="pointer-events: none"
-          v-show="tx(c.proposed_end) - tx(c.proposed_start) > 30"
+          v-show="Math.min(tx(c.proposed_end), ML + CW) - Math.max(ML + 52, tx(c.proposed_start)) > 28"
         >{{ c.name }} {{ Math.round(c.score * 100) }}%</text>
       </g>
 
@@ -196,12 +213,12 @@
         stroke="#3b82f6" stroke-width="1.5" opacity="0.85"
       />
 
-      <!-- 8. Target name labels (below each window) -->
+      <!-- 8. Target name labels (below candidates strip) -->
       <g>
         <text
           v-for="(target, i) in targets" :key="'lbl' + i"
           :x="(tx(target.start_time) + tx(target.end_time)) / 2"
-          :y="MT + CH + 13"
+          :y="MT + CH + CAND_H + 13"
           text-anchor="middle"
           :fill="objectColor(i)"
           fill-opacity="0.85"
@@ -216,11 +233,11 @@
         <template v-for="tick in hourTicks" :key="tick.label">
           <line
             :x1="tick.x" :x2="tick.x"
-            :y1="MT + CH" :y2="MT + CH + 4"
+            :y1="MT + CH + CAND_H" :y2="MT + CH + CAND_H + 4"
             stroke="#374151" stroke-width="1"
           />
           <text
-            :x="tick.x" :y="MT + CH + 23"
+            :x="tick.x" :y="MT + CH + CAND_H + 23"
             text-anchor="middle" fill="#6b7280" font-size="9"
             font-family="ui-sans-serif,system-ui,sans-serif"
           >{{ tick.label }}</text>
@@ -311,13 +328,14 @@ watch(() => props.plan?.session?.imaging_start, fetchAllCurves)
 
 // SVG dimensions & margins
 const W = 640
-const H = 230
+const H = 262
 const ML = 32   // margin left (Y-axis labels)
 const MR = 8    // margin right
 const MT = 10   // margin top
-const MB = 42   // margin bottom (X-axis labels + target names)
+const CAND_H = 30  // candidates strip height
+const MB = 44   // margin bottom (X-axis labels + target names)
 const CW = W - ML - MR   // chart width  = 600
-const CH = H - MT - MB   // chart height = 178
+const CH = H - MT - MB - CAND_H   // chart height = 178
 
 const yTicks = [0, 20, 45, 70, 85]
 

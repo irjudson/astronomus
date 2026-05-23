@@ -213,21 +213,28 @@ class PlannerService:
         midpoint_utc = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
         midpoint_naive = midpoint_utc.astimezone(pytz.UTC).replace(tzinfo=None)
 
-        # Inject solar system wishlist targets as schedulable pseudo-targets.
-        # Only main planets + Moon are supported; satellite moons (Io, Titan, etc.)
-        # are skipped because DE421 does not model them individually.
+        # Inject solar system targets as schedulable pseudo-targets.
+        # Satellite moons use their parent planet's position (they're unresolvable
+        # from it in a small-aperture scope anyway — you point at Jupiter to image Io).
         _SUPPORTED_SOLAR = {
             "sun", "moon", "mercury", "venus", "mars",
             "jupiter", "saturn", "uranus", "neptune",
         }
+        _SATELLITE_PARENTS = {
+            "io": "jupiter", "europa": "jupiter", "ganymede": "jupiter", "callisto": "jupiter",
+            "titan": "saturn", "rhea": "saturn", "tethys": "saturn",
+            "dione": "saturn", "enceladus": "saturn",
+        }
         if request.solar_targets:
             for planet_name in request.solar_targets:
-                if planet_name.lower() not in _SUPPORTED_SOLAR:
+                body_name = planet_name.lower()
+                ephemeris_name = _SATELLITE_PARENTS.get(body_name, body_name)
+                if ephemeris_name not in _SUPPORTED_SOLAR:
                     logger.debug("Skipping unsupported solar body: %s", planet_name)
                     continue
                 try:
                     pos = self.planetary_ephemeris.get_position(
-                        planet_name.lower(),
+                        ephemeris_name,
                         latitude=request.location.latitude,
                         longitude=request.location.longitude,
                         elevation=request.location.elevation,

@@ -47,7 +47,7 @@
           </div>
 
           <label class="flex items-center justify-between p-3 bg-gray-800 rounded cursor-pointer hover:bg-gray-750 transition-colors">
-            <span class="text-sm text-gray-200">Avoid Moon</span>
+            <span class="text-sm text-gray-200">Avoid moonlit targets</span>
             <input
               v-model="planningStore.constraints.avoid_moon"
               type="checkbox"
