@@ -8,6 +8,7 @@
       <span v-if="gaps.length > 0" class="text-orange-400">
         ● {{ gaps.length }} gap{{ gaps.length > 1 ? 's' : '' }} ({{ totalGapMinutes }} min wasted)
       </span>
+      <span v-if="candidates.length" class="text-gray-600 text-xs ml-2">+ {{ candidates.length }} near miss{{ candidates.length !== 1 ? 'es' : '' }}</span>
     </div>
 
     <!-- SVG chart -->
@@ -90,6 +91,31 @@
           :height="CH"
           fill="rgba(239, 68, 68, 0.1)"
         />
+      </g>
+
+      <!-- 4a. Ghost candidates: high-scoring but unscheduled -->
+      <g :clip-path="`url(#${clipId})`">
+        <rect
+          v-for="c in candidates" :key="'ghost-' + c.catalog_id"
+          :x="tx(c.proposed_start)" :y="MT + CH * 0.6"
+          :width="Math.max(2, tx(c.proposed_end) - tx(c.proposed_start))"
+          :height="CH * 0.35"
+          fill="rgba(148, 163, 184, 0.08)"
+          stroke="rgba(148, 163, 184, 0.35)"
+          stroke-width="1"
+          stroke-dasharray="4,3"
+          style="pointer-events: none"
+        />
+        <text
+          v-for="c in candidates" :key="'ghost-lbl-' + c.catalog_id"
+          :x="(tx(c.proposed_start) + tx(c.proposed_end)) / 2"
+          :y="MT + CH * 0.6 + CH * 0.35 / 2 + 4"
+          text-anchor="middle"
+          font-size="9"
+          fill="rgba(148, 163, 184, 0.5)"
+          style="pointer-events: none"
+          v-show="tx(c.proposed_end) - tx(c.proposed_start) > 30"
+        >{{ c.name }} {{ Math.round(c.score * 100) }}%</text>
       </g>
 
       <!-- 4. Target window rects + drag handles -->
@@ -298,9 +324,10 @@ const yTicks = [0, 20, 45, 70, 85]
 // Unique clip-path id per instance
 const clipId = `chart-clip-${Math.random().toString(36).slice(2, 8)}`
 
-const session  = computed(() => props.plan?.session ?? {})
-const targets  = computed(() => props.plan?.scheduled_targets ?? [])
-const minAlt   = computed(() => props.plan?.constraints?.min_altitude_degrees ?? 20)
+const session    = computed(() => props.plan?.session ?? {})
+const targets    = computed(() => props.plan?.scheduled_targets ?? [])
+const minAlt     = computed(() => props.plan?.constraints?.min_altitude_degrees ?? 20)
+const candidates = computed(() => props.plan?.candidates ?? [])
 
 const sessionStart = computed(() => {
   const v = session.value.imaging_start

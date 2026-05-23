@@ -1440,11 +1440,16 @@ async def get_target_preview(sanitized_catalog_id: str, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail=f"Error fetching target image: {str(e)}")
 
 
-def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
+def _compute_solar_system_objects_sync(
+    lat: float, lon: float, observing_date_str=None, timezone_str="UTC"
+) -> list:
     """Fast sync computation of solar system objects — call via run_in_executor.
 
     Bypasses compute_visibility (which sweeps 24 h of rise/set times) and
     uses a single shared AltAz frame for all bodies instead.
+
+    Also samples each body's altitude at 30-min intervals during the imaging
+    window (astronomical darkness) to compute is_visible_tonight / peak_altitude_tonight.
     """
     # Prevent network calls to IERS servers that can block or fail
     try:
@@ -1460,13 +1465,81 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
     from astropy.time import Time
 
     from app.services.planet_service import PlanetService
+    from app.services.planetary_ephemeris import PlanetaryEphemeris
 
     planet_service = PlanetService()
+    pe = PlanetaryEphemeris()
     now_utc = datetime.utcnow()
     t = Time(now_utc)
 
     earth_loc = EarthLocation(lat=lat * u.deg, lon=lon * u.deg)
     altaz_frame = AltAz(obstime=t, location=earth_loc)
+
+    # Compute the imaging window (astronomical darkness) for "visible tonight" check
+    img_start = None
+    img_end = None
+    try:
+        import pytz as _pytz
+        from datetime import timedelta as _td
+
+        from app.models import Location as _Location
+        from app.services.ephemeris_service import EphemerisService as _EphSvc
+
+        tz_obj = _pytz.timezone(timezone_str)
+        if observing_date_str:
+            check_dt = datetime.strptime(observing_date_str, "%Y-%m-%d")
+            check_dt = tz_obj.localize(check_dt)
+        else:
+            check_dt = datetime.now(tz_obj)
+
+        loc = _Location(
+            name="obs",
+            latitude=lat,
+            longitude=lon,
+            elevation=0.0,
+            timezone=timezone_str,
+        )
+        eph_svc = _EphSvc()
+        tw = eph_svc.calculate_twilight_times(loc, check_dt)
+        img_start = tw.get("astronomical_twilight_end")
+        img_end = tw.get("astronomical_twilight_start")
+    except Exception as exc:
+        logger.warning("solar-system: could not compute imaging window: %s", exc)
+
+    # Fallback imaging window: 21:00–09:00 UTC on the observing date
+    from datetime import timedelta as _td
+
+    if img_start is None or img_end is None:
+        import pytz as _pytz
+
+        _utc = _pytz.UTC
+        if observing_date_str:
+            _base = datetime.strptime(observing_date_str, "%Y-%m-%d")
+        else:
+            _base = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        img_start = _utc.localize(_base.replace(hour=21, minute=0, second=0, microsecond=0))
+        img_end = _utc.localize((_base + _td(days=1)).replace(hour=9, minute=0, second=0, microsecond=0))
+
+    # Build list of 30-minute sample times during the imaging window (naive UTC for PlanetaryEphemeris)
+    sample_times_naive = []
+    t_sample = img_start
+    while t_sample <= img_end:
+        # Strip tzinfo to pass naive UTC datetimes to pe.get_position()
+        sample_times_naive.append(t_sample.replace(tzinfo=None))
+        t_sample += _td(minutes=30)
+
+    # Map from lowercase body name → sample altitude list
+    _BODY_MAP = {
+        "Mercury": "mercury",
+        "Venus": "venus",
+        "Mars": "mars",
+        "Jupiter": "jupiter",
+        "Saturn": "saturn",
+        "Uranus": "uranus",
+        "Neptune": "neptune",
+        "Moon": "moon",
+        "Sun": "sun",
+    }
 
     MAIN_BODIES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon", "Sun"]
     MOON_PARENTS = {
@@ -1482,7 +1555,7 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
     }
 
     results = []
-    parent_visible: dict = {}
+    parent_visible_tonight: dict = {}
 
     for name in MAIN_BODIES:
         try:
@@ -1492,7 +1565,23 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
             altaz = body_coord.transform_to(altaz_frame)
             altitude_deg = float(altaz.alt.degree)
             is_visible = altitude_deg > 0
-            parent_visible[name] = is_visible
+
+            # Sample altitude during imaging window for "visible tonight"
+            peak_alt_tonight = -90.0
+            pe_name = _BODY_MAP.get(name)
+            if pe_name and sample_times_naive:
+                for st_naive in sample_times_naive:
+                    try:
+                        pos = pe.get_position(pe_name, lat, lon, 0.0, st_naive)
+                        a = pos.get("altitude", -90.0)
+                        if a > peak_alt_tonight:
+                            peak_alt_tonight = a
+                    except Exception:
+                        pass
+
+            is_visible_tonight = peak_alt_tonight >= 10.0
+            parent_visible_tonight[name] = is_visible_tonight
+
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
             planet = planet_service.get_planet_by_name(name)
             results.append(
@@ -1503,6 +1592,8 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
                     "angular_diameter_arcsec": round(eph.angular_diameter_arcsec, 1),
                     "altitude_deg": round(altitude_deg, 1),
                     "is_visible": is_visible,
+                    "is_visible_tonight": is_visible_tonight,
+                    "peak_altitude_tonight": round(peak_alt_tonight, 1),
                     "constellation": eph.constellation,
                     "notes": planet.notes if planet else None,
                 }
@@ -1510,15 +1601,18 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
         except Exception as exc:
             logger.warning("solar-system: failed to compute %s: %s", name, exc)
             obj_type = "moon" if name == "Moon" else ("star" if name == "Sun" else "planet")
-            results.append({"name": name, "type": obj_type, "is_visible": False})
+            results.append({"name": name, "type": obj_type, "is_visible": False, "is_visible_tonight": False, "peak_altitude_tonight": -90.0})
 
     for moon, parent in MOON_PARENTS.items():
+        is_visible_tonight = parent_visible_tonight.get(parent, False)
         results.append(
             {
                 "name": moon,
                 "type": "moon",
                 "parent": parent,
-                "is_visible": parent_visible.get(parent, False),
+                "is_visible": parent_visible_tonight.get(parent, False),
+                "is_visible_tonight": is_visible_tonight,
+                "peak_altitude_tonight": None,
                 "magnitude": None,
                 "altitude_deg": None,
                 "angular_diameter_arcsec": None,
@@ -1531,10 +1625,23 @@ def _compute_solar_system_objects_sync(lat: float, lon: float) -> list:
 
 
 @router.get("/solar-system/objects")
-async def get_solar_system_objects(lat: Optional[float] = Query(None), lon: Optional[float] = Query(None)):
+async def get_solar_system_objects(
+    lat: Optional[float] = Query(None),
+    lon: Optional[float] = Query(None),
+    date: Optional[str] = Query(None, description="Observing date (YYYY-MM-DD)"),
+    tz: Optional[str] = Query(None, description="IANA timezone string"),
+):
     """All solar system targets with current ephemeris, computed in a thread pool."""
     import asyncio
+    from functools import partial
 
     loop = asyncio.get_running_loop()
-    objects = await loop.run_in_executor(None, _compute_solar_system_objects_sync, lat or 0.0, lon or 0.0)
+    fn = partial(
+        _compute_solar_system_objects_sync,
+        lat or 0.0,
+        lon or 0.0,
+        date,
+        tz or "UTC",
+    )
+    objects = await loop.run_in_executor(None, fn)
     return {"objects": objects}

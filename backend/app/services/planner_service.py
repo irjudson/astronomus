@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 import pytz
 from sqlalchemy.orm import Session
 
-from app.models import DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
+from app.models import CandidateTarget, DSOTarget, GapFillStats, Location, ObservingPlan, PlanRequest, SessionInfo
 from app.services import CatalogService, EphemerisService, ExportService, SchedulerService, WeatherService
 from app.services.comet_service import CometService
 from app.services.image_preview_service import ImagePreviewService
@@ -390,6 +390,52 @@ class PlannerService:
         else:
             coverage_percent = 0.0
 
+        # Score unscheduled targets and return top N as ghost/candidate targets for timeline display
+        candidates = []
+        scheduled_ids = {st.target.catalog_id for st in all_scheduled}
+        midpoint = session.imaging_start + (session.imaging_end - session.imaging_start) / 2
+
+        for target in targets:
+            if target.catalog_id in scheduled_ids:
+                continue
+            try:
+                alt, _ = self.scheduler.ephemeris.calculate_position(target, request.location, midpoint)
+                if alt < (request.constraints.min_altitude or 10):
+                    continue
+                duration = timedelta(minutes=target.preferred_duration_minutes or 60)
+                score_data = self.scheduler._score_target(
+                    target, request.location, midpoint, duration, request.constraints, 0.7
+                )
+                # Sample peak altitude during window at 30-min intervals
+                peak_time = midpoint
+                peak_alt = alt
+                t_step = session.imaging_start
+                while t_step <= session.imaging_end:
+                    try:
+                        a, _ = self.scheduler.ephemeris.calculate_position(target, request.location, t_step)
+                        if a > peak_alt:
+                            peak_alt = a
+                            peak_time = t_step
+                    except Exception:
+                        pass
+                    t_step += timedelta(minutes=30)
+                dur = timedelta(minutes=min(target.preferred_duration_minutes or 60, 90))
+                candidates.append(CandidateTarget(
+                    name=target.name or target.catalog_id,
+                    catalog_id=target.catalog_id,
+                    object_type=target.object_type,
+                    score=round(score_data.total_score, 3),
+                    peak_altitude=round(peak_alt, 1),
+                    proposed_start=peak_time,
+                    proposed_end=peak_time + dur,
+                    image_url=target.image_url,
+                ))
+            except Exception:
+                pass
+
+        candidates.sort(key=lambda c: c.score, reverse=True)
+        candidates = candidates[:10]
+
         # Create complete plan
         plan = ObservingPlan(
             session=session,
@@ -401,6 +447,7 @@ class PlannerService:
             coverage_percent=coverage_percent,
             sky_quality=sky_quality_dict,
             gap_fill_stats=gap_fill_stats,
+            candidates=candidates,
         )
 
         return plan

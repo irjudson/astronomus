@@ -383,6 +383,19 @@ class GapFillStats(BaseModel):
     )
 
 
+class CandidateTarget(BaseModel):
+    """High-scoring target not scheduled — shown as ghost on timeline."""
+
+    name: str
+    catalog_id: str
+    object_type: str
+    score: float
+    peak_altitude: float
+    proposed_start: datetime
+    proposed_end: datetime
+    image_url: Optional[str] = None
+
+
 class ObservingPlan(BaseModel):
     """Complete observing plan for a session."""
 
@@ -397,6 +410,7 @@ class ObservingPlan(BaseModel):
     coverage_percent: float = Field(description="Percentage of night covered")
     sky_quality: Optional[Dict[str, Any]] = Field(default=None, description="Sky quality information for location")
     gap_fill_stats: Optional["GapFillStats"] = Field(default=None, description="Gap-filling statistics")
+    candidates: List["CandidateTarget"] = Field(default_factory=list, description="Top-scored unscheduled targets")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

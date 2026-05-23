@@ -86,9 +86,11 @@ import { defineComponent, h } from 'vue'
 import axios from 'axios'
 import { useCatalogStore } from '@/stores/catalog'
 import { useSettingsStore } from '@/stores/settings'
+import { usePlanningStore } from '@/stores/planning'
 
 const catalogStore = useCatalogStore()
 const settingsStore = useSettingsStore()
+const planningStore = usePlanningStore()
 
 const loading = ref(true)
 const error = ref(null)
@@ -132,10 +134,15 @@ async function loadData() {
   loading.value = true
   error.value = null
   try {
-    const { latitude, longitude } = settingsStore.settings
+    const { latitude, longitude, timezone } = settingsStore.settings
     const params = {}
     if (latitude != null) params.lat = latitude
     if (longitude != null) params.lon = longitude
+
+    // Pass the planning date and timezone so the API can compute the imaging window
+    const observingDate = planningStore.observationDate || new Date().toISOString().split('T')[0]
+    params.date = observingDate
+    if (timezone) params.tz = timezone
 
     const response = await axios.get('/api/solar-system/objects', { params, timeout: 15000 })
     objects.value = response.data.objects || []
@@ -162,14 +169,23 @@ const SolarSystemCard = defineComponent({
       const map = { planet: 'bg-blue-900/50 text-blue-300', moon: 'bg-purple-900/50 text-purple-300', star: 'bg-yellow-900/50 text-yellow-300' }
       return map[props.object.type] || 'bg-gray-700 text-gray-300'
     })
+    // Use is_visible_tonight (imaging-window check) when available; fall back to is_visible
+    const isVisibleTonightKnown = computed(() => props.object.is_visible_tonight != null)
+    const visibleTonight = computed(() =>
+      isVisibleTonightKnown.value ? props.object.is_visible_tonight : props.object.is_visible
+    )
     const visClass = computed(() =>
-      props.object.is_visible ? 'bg-green-500' : 'bg-gray-600'
+      visibleTonight.value ? 'bg-green-500' : 'bg-gray-600'
     )
-    const visLabel = computed(() =>
-      props.object.is_visible ? 'Visible' : 'Below horizon'
-    )
+    const visLabel = computed(() => {
+      if (visibleTonight.value) {
+        const peak = props.object.peak_altitude_tonight
+        return peak != null && peak >= 0 ? `Visible tonight (${Math.round(peak)}° peak)` : 'Visible tonight'
+      }
+      return 'Not visible tonight'
+    })
     const visTextClass = computed(() =>
-      props.object.is_visible ? 'text-green-400' : 'text-gray-500'
+      visibleTonight.value ? 'text-green-400' : 'text-gray-500'
     )
 
     return () => h('div', { class: 'bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-2' }, [
