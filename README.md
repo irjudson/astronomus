@@ -18,7 +18,7 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 - 📊 Data-driven session planning
 - 🌐 Any location worldwide
 
-<video src="astronomus-demo-final.mp4" autoplay loop muted playsinline width="100%"></video>
+<video src="https://github.com/user-attachments/assets/c7d2a73b-c59c-4d33-b3f8-50da1b46fa11" autoplay loop muted playsinline width="100%"></video>
 
 ---
 
