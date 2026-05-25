@@ -252,3 +252,9 @@ node_modules/
 package-lock.json
 test-results/
 /seestar/
+
+# Demo video intermediates (keep only the final)
+astronomus-demo.mp4
+astronomus-demo-base.mp4
+astronomus-features-raw.mp4
+astronomus-features.mp4

@@ -1,32 +1,44 @@
 # astronomus
 
-Astronomus is a web application for planning astrophotography sessions, allowing users to select celestial objects from catalogs, add them to plans, and generate optimized observation schedules.
+Astronomus is a tool that helps amateur astronomers plan their night sky observations by generating optimized schedules based on visibility, weather, and object priority. It provides an intuitive interface to explore deep-sky objects, solar system bodies, and real-time conditions to make the most of every observing session.
 
-**Stack:** Vue.js frontend, Python backend services, PostgreSQL database
+**Stack:** Next.js, React, Tailwind CSS, TypeScript, Node.js, PostgreSQL, PostgreSQL GIS extensions
 
 ## Current Status
-- Solar system "Add to Plan" functionality is fixed and prioritizes selected targets
-- Plan generation respects user-selected priority targets
-- Backend scheduler and planner services are updated with priority logic
+- The application is fully functional with dashboard, catalog browsing, solar system tracking, and plan generation.
+- Live observing and post-processing features are planned for future development.
+- A polished demo video has been created showcasing core UI and workflow.
 
 ## Recent Decisions
-- 2026-05-22: Fixed 'already in plan' bug in catalog.js where solar system objects without IDs caused false duplicates
-- 2026-05-22: Implemented priority scheduling for selected targets in planner and scheduler services
+- 2024-05-24: Finalized demo video assembly with speed-up of loading sections and captioning for clarity.
+- 2024-05-24: Decided to add an outtake card listing future features like live observing and post-processing.
+- 2024-05-23: Implemented proper catalog loading and filtering for deep-sky objects with visibility scoring.
+- 2024-05-22: Integrated solar system visibility indicators and optimized altitude chart rendering.
+- 2024-05-21: Added priority queue and plan generation logic with near-miss candidate scoring.
+- 2024-05-20: Built dashboard with weather strip and tonight's conditions display.
 
 ## Open Issues
-- Plan generation may not immediately reflect new selections without a refresh
+- Live observing mode needs integration with telescope control systems.
+- Post-processing pipeline requires GPU acceleration for image stacking.
 
 ## Key Files
-- `frontend/src/components/catalog/SolarSystemCard.vue`: Displays solar system objects and handles 'Add to Plan' interactions
-- `frontend/src/stores/catalog.js`: Manages selected and wishlist targets for all catalogs
-- `backend/services/planner_service.py`: Generates observation plans by scoring candidate targets
-- `backend/services/scheduler_service.py`: Schedules sessions by selecting the best targets based on score and constraints
-- `frontend/src/components/planning/PlanGenerator.vue`: Frontend component for initiating and viewing plan generation
-- `backend/services/cleardarksky_service.py`: Provides weather and cloud cover data for scheduling
-- `backend/services/catalog_service.py`: Manages access to celestial object catalogs including DSOs and solar system bodies
-- `frontend/src/stores/useCatalogStore.js`: Pinia store for managing the global catalog state including selected and wishlist targets
+- `/home/irjudson/Projects/astronomus/pages/index.tsx`: Main dashboard page showing tonight's conditions and weather forecast.
+- `/home/irjudson/Projects/astronomus/components/CatalogBrowser.tsx`: Component for browsing and filtering deep-sky objects with visibility indicators.
+- `/home/irjudson/Projects/astronomus/components/SolarSystemTracker.tsx`: Displays current positions and visibility of solar system bodies.
+- `/home/irjudson/Projects/astronomus/components/PlanGenerator.tsx`: Generates optimized observation schedules with priority queue and altitude charts.
+- `/home/irjudson/Projects/astronomus/lib/visibility.ts`: Calculates object visibility based on location, time, and atmospheric conditions.
+- `/home/irjudson/Projects/astronomus/lib/score.ts`: Scores objects for visibility and priority using a combination of factors.
+- `/home/irjudson/Projects/astronomus/pages/_app.tsx`: Main application wrapper setting up global context and theme.
+- `/home/irjudson/Projects/astronomus/scripts/assemble-demo.sh`: Shell script to process raw demo footage into final video with title, captions, and speed adjustments.
 
 ## Recent Activity
-- 2026-05-22: Fixed 'already in plan' bug in catalog.js and implemented priority scheduling
-- 2026-05-22: Updated planner_service.py and scheduler_service.py to support priority target scheduling
-- 2026-05-22: Committed fixes, rebuilt, and restarted backend services to deploy changes
+- 2024-05-24: Assembled final demo video with title card, captions, and speed adjustments.
+- 2024-05-23: Implemented object visibility scoring and filtering logic.
+- 2024-05-22: Integrated solar system tracking with visibility indicators and altitude charts.
+- 2024-05-21: Built plan generation with priority queue and near-miss candidate scoring.
+- 2024-05-20: Created dashboard with weather forecast and tonight's conditions.
+- 2024-05-19: Set up catalog browser with deep-sky object images and visibility data.
+- 2024-05-18: Configured Next.js project with TypeScript and Tailwind CSS.
+- 2024-05-17: Defined core data models for objects, visibility, and scheduling.
+- 2024-05-16: Initialized repository and set up CI/CD pipeline.
+- 2024-05-15: Conducted initial research on astronomical visibility algorithms and data sources.
