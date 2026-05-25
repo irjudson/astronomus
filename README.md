@@ -96,7 +96,7 @@ Astronomus is a comprehensive observing session planning tool that helps astroph
 
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # Access the application
 open http://localhost:9247
@@ -197,30 +197,31 @@ If you need assistance obtaining the key:
 
 ## Architecture
 
+Everything runs in a **single Docker container** (`astronomus`, port 9247). PostgreSQL, Redis, Celery workers, and the FastAPI web server are all co-located processes within that container.
+
 ```
-┌─────────────────────────────────────────────────────┐
-│              Frontend (Vue.js)                      │
-│         http://localhost:9247                       │
-└──────────────────┬──────────────────────────────────┘
-                   │ HTTP/REST API
-┌──────────────────▼──────────────────────────────────┐
-│           FastAPI Backend (Python 3.11)             │
-│  ┌────────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │  Planner   │  │  Catalog   │  │   Weather    │  │
-│  │  Service   │  │  Service   │  │   Service    │  │
-│  └────────────┘  └────────────┘  └──────────────┘  │
-│  ┌────────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │ Processing │  │ Telescope  │  │   Export     │  │
-│  │  Service   │  │  Service   │  │   Service    │  │
-│  └────────────┘  └────────────┘  └──────────────┘  │
-└──────────────────┬──────────────────────────────────┘
-                   │
-     ┌─────────────┼─────────────┐
-     │             │             │
-┌────▼────┐  ┌────▼─────┐  ┌───▼──────┐
-│PostgreSQL│  │  Redis   │  │  Celery  │
-│ Database │  │  Broker  │  │  Workers │
-└──────────┘  └──────────┘  └──────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Docker container: astronomus  (port 9247)                   │
+│                                                              │
+│  Vue 3 SPA ──HTTP──▶ FastAPI / Uvicorn                      │
+│                        Planner · Catalog · Weather ·         │
+│                        Telescope · Processing · Export       │
+│                               │                              │
+│          ┌────────────────────┼───────────────────┐          │
+│          ▼                    ▼                   ▼           │
+│    PostgreSQL 14          Redis 7            Celery           │
+│    (data store)       (task broker)    Worker + Beat         │
+│                                        daily plan gen,       │
+│                                        dusk auto-execute,    │
+│                                        weather watchdog      │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+       ┌──────────────────────┼─────────────────────┐
+       ▼                      ▼                      ▼
+ Seestar S50             wx-service            Internet APIs
+ TCP :4700            (shared-infra net)    Open-Meteo · 7Timer
+ WiFi / LAN           Ambient WS-2902       Celestrak TLEs
+                       local weather         SkyView images
 ```
 
 [Detailed architecture →](docs/architecture/ARCHITECTURE.md)
@@ -314,27 +315,33 @@ Targets setting within the lookahead window (30 minutes) receive priority bonus 
 **Planning:**
 - `POST /api/plan` - Generate observing plan
 - `GET /api/plans` - List saved plans
-- `POST /api/plans/{id}/execute` - Execute plan on telescope
+- `GET /api/catalog/search` - Search catalog (paginated, scored)
+- `GET /api/targets` - List DSO targets
+- `GET /api/targets/{catalog_id}` - Get target details
+- `GET /api/catalog/stats` - Catalog statistics
+- `GET /api/solar-system/objects` - All solar system bodies with current altitude
 
-**Catalog:**
-- `GET /api/targets` - List DSO targets (paginated)
-- `GET /api/targets/{id}` - Get target details
-- `GET /api/targets/search` - Search catalog
-- `GET /api/targets/stats` - Catalog statistics
+**Telescope:**
+- `POST /api/telescope/connect` - Connect to Seestar S50
+- `GET /api/telescope/status` - Device state
+- `POST /api/telescope/execute` - Start plan execution
+- `POST /api/telescope/abort` - Abort session
+- `GET /api/telescope/preview/stream` - MJPEG live preview stream
 
 **Weather:**
-- `GET /api/weather/current` - Current conditions
-- `GET /api/weather/forecast` - Multi-hour forecast
-- `GET /api/astronomy/weather/7timer` - Astronomical seeing
+- `GET /api/astronomy/weather/astronomy` - Astronomical seeing + transparency (7Timer)
+- `GET /api/astronomy/weather/local` - Current local station reading (Ambient WS-2902)
+- `GET /api/astronomy/weather/multiday` - 7-day daily forecast (Open-Meteo)
 
 **Processing:**
-- `POST /api/process/auto` - Auto-process FITS file
-- `POST /api/process/stack-and-stretch` - Stack and stretch
-- `GET /api/process/jobs/{id}` - Job status
+- `POST /api/processing/auto` - Auto-process FITS file
+- `POST /api/processing/stack-and-stretch` - Stack and stretch FITS
+- `GET /api/processing/jobs/{job_id}` - Job status
+- `GET /api/processing/browse` - Browse FITS file tree
 
 **System:**
 - `GET /api/health` - Health check
-- `GET /api/docs` - OpenAPI documentation
+- `GET /api/docs` - OpenAPI documentation (Swagger UI)
 
 [Complete API documentation →](http://localhost:9247/api/docs)
 
