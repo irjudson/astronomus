@@ -1133,5 +1133,5 @@ celery.conf.beat_schedule = {
 
 **Document Status**: Ready for Review
 **Last Updated**: 2025-10-30
-**Author**: Claude Code with User
+**Author**: Astro Planner
 **Next Review**: After user approval

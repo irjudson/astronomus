@@ -1,6 +1,5 @@
 # Execution View Redesign
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace the cluttered collapsible-panel execution view with a focused two-mode layout: Plan Mode (live timeline + now-playing panel) and Manual Mode (live preview + direct controls).
 

@@ -1,6 +1,5 @@
 # Interactive Timeline Drag-Editing Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Make the planning timeline and per-card mini-charts fully interactive — drag to reposition or resize target observation windows, with real-time conflict highlighting when windows overlap, have insufficient slew gaps, or fall outside a target's good-altitude range.
 

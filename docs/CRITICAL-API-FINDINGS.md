@@ -242,5 +242,5 @@ public final boolean getHeaterEnable() {
 - APK Version: Seestar v3.0.0
 - Decompilation Tool: jadx
 - Analysis Date: 2025-12-29
-- Analyzer: Claude Code + Human Review
+- Analyzer: Human Review
 

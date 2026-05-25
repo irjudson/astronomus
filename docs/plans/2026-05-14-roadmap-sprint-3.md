@@ -1,6 +1,5 @@
 # Roadmap Sprint 3 Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Live session tracking polish, comet auto-injection toggle, Arp/Sharpless catalog import, custom target image thumbnails.
 
@@ -1073,7 +1072,6 @@ gh pr create \
 - [ ] `docker exec astronomus python -c "from scripts.seed_sharpless import seed_sharpless_if_needed; print(seed_sharpless_if_needed())"` outputs row count
 - [ ] Add a custom target with image URL; thumbnail appears in the list
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```

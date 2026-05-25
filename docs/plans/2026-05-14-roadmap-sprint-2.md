@@ -1,6 +1,5 @@
 # Roadmap Sprint 2 Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Implement Horizon UX polish, comet ephemeris scheduling, live session tracking, and Caldwell/proximity catalog enrichment.
 
@@ -1526,7 +1525,6 @@ gh pr create \
 - [ ] Expanded catalog cards show Nearby Objects section
 - [ ] CI passes: black, isort, ruff, bandit
 
-🤖 Generated with Claude Code"
 ```
 
 ---

@@ -1,6 +1,5 @@
 # Unmanned Capture Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Walk away after setting up the scope at sunset; it starts automatically at dusk, aborts if weather turns bad, and sends a notification when done.
 
