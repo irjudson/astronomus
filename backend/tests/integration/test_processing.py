@@ -122,7 +122,7 @@ def create_session():
 
 def upload_file(session_id, fits_file):
     """Upload FITS file to session."""
-    print(f"\n📤 Uploading FITS file...")
+    print("\n📤 Uploading FITS file...")
 
     try:
         with open(fits_file, "rb") as f:
@@ -145,13 +145,13 @@ def upload_file(session_id, fits_file):
 
 def finalize_session(session_id):
     """Finalize the session."""
-    print(f"\n✅ Finalizing session...")
+    print("\n✅ Finalizing session...")
 
     try:
         response = requests.post(f"{API_BASE}/process/sessions/{session_id}/finalize", timeout=10)
         response.raise_for_status()
 
-        print(f"✓ Session finalized and ready for processing")
+        print("✓ Session finalized and ready for processing")
         return True
 
     except Exception as e:
@@ -209,12 +209,12 @@ def monitor_job(job_id, timeout=TIMEOUT):
             # Check if done
             if status in ["complete", "failed"]:
                 if status == "complete":
-                    print(f"\n✅ Processing completed successfully!")
+                    print("\n✅ Processing completed successfully!")
                     if "output_file" in job:
                         print(f"   Output: {job['output_file']}")
                     return True
                 else:
-                    print(f"\n❌ Processing failed!")
+                    print("\n❌ Processing failed!")
                     if "error_message" in job:
                         print(f"   Error: {job['error_message']}")
                     return False
@@ -231,7 +231,7 @@ def monitor_job(job_id, timeout=TIMEOUT):
 
 def download_result(job_id, output_dir="."):
     """Download the processed result."""
-    print(f"\n📥 Downloading result...")
+    print("\n📥 Downloading result...")
 
     try:
         response = requests.get(f"{API_BASE}/process/jobs/{job_id}/download", timeout=30, stream=True)

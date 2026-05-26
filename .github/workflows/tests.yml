@@ -45,7 +45,7 @@ jobs:
 
     - name: Lint with ruff
       run: |
-        ruff check backend/app --config backend/pyproject.toml
+        ruff check backend/app backend/tests --config backend/pyproject.toml
 
     - name: Type check with mypy
       run: |
@@ -196,8 +196,7 @@ jobs:
         REDIS_URL: redis://localhost:6379/1
       run: |
         cd backend
-        # Run all tests including integration tests (skip long-running ephemeris tests)
-        pytest -m "not slow" --cov=app --cov-report=xml --cov-report=term -v --no-cov
+        pytest -m "not slow" --cov=app --cov-report=xml --cov-report=term -v
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

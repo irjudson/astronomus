@@ -1,11 +1,10 @@
 """Tests for captures API endpoints."""
 
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.models.capture_models import CaptureHistory, OutputFile
+from app.models.capture_models import CaptureHistory
 
 # Mark all tests in this module as integration tests (require database)
 pytestmark = pytest.mark.integration

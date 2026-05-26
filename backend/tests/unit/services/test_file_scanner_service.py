@@ -1,6 +1,5 @@
 """Tests for file scanner service."""
 
-from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest

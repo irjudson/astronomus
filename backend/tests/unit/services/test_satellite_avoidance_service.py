@@ -1,9 +1,8 @@
 """Tests for satellite avoidance service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import patch
 
-import pytest
 import pytz
 
 from app.models import Location

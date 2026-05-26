@@ -6,8 +6,6 @@ telescope for operations that must NEVER execute on real hardware during CI/CD.
 Run:  pytest tests/seestar/test_dangerous.py -m mock
 """
 
-import asyncio
-from typing import Optional
 
 import pytest
 

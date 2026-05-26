@@ -59,7 +59,6 @@ _COMMAND_RESPONSES: Dict[str, Any] = {
     "scope_move_to_horizon": {"result": 0, "code": 0},
     "mount_go_home": {"result": 0, "code": 0},
     "scope_park": {"result": 0, "code": 0},
-    "iscope_stop_view": {"result": 0, "code": 0},
     # Dangerous system commands (mock only)
     "pi_shutdown": {"result": 0, "code": 0},
     "pi_reboot": {"result": 0, "code": 0},

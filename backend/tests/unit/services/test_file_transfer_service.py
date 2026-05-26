@@ -8,8 +8,6 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
-from app.models.capture_models import OutputFile
-from app.services.file_scanner_service import FileScannerService
 from app.services.file_transfer_service import FileTransferService
 
 

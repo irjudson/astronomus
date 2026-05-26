@@ -1,8 +1,6 @@
 """Pytest fixtures and options for Seestar S50 hardware test suite."""
 
 import asyncio
-import tempfile
-from pathlib import Path
 from typing import AsyncGenerator, Tuple
 
 import pytest
@@ -10,7 +8,7 @@ import pytest_asyncio
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from app.clients.seestar_client import CommandError, SeestarClient
+from app.clients.seestar_client import SeestarClient
 from tests.seestar.mock_server import MockSeestarServer
 
 # ---------------------------------------------------------------------------

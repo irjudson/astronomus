@@ -1,10 +1,6 @@
 """Unit tests for automation_tasks (dusk scheduler and auto-execute)."""
 
-from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
-
-import pytest
-import pytz
 
 
 def test_check_scope_reachable_success():

@@ -22,8 +22,8 @@ def analyze_frame_brightness(jpeg_bytes: bytes) -> float:
     img = Image.open(io.BytesIO(jpeg_bytes)).convert("L")  # grayscale
     w, h = img.size
     third = h // 3
-    top = list(img.crop((0, 0, w, third)).getdata())
-    bottom = list(img.crop((0, h - third, w, h)).getdata())
+    top = img.crop((0, 0, w, third)).get_flattened_data()
+    bottom = img.crop((0, h - third, w, h)).get_flattened_data()
     mean_top = sum(top) / len(top) if top else 1
     mean_bottom = sum(bottom) / len(bottom) if bottom else 1
     if mean_bottom == 0:

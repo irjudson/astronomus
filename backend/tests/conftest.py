@@ -125,8 +125,9 @@ def setup_test_db_schema():
     """
     import os
 
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
     from app.core.config import get_settings
 
     settings = get_settings()
