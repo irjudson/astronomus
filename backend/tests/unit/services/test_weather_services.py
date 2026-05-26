@@ -1,12 +1,22 @@
 """Tests for weather and 7Timer services."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
 import pytz
 
 from app.models import Location, WeatherForecast
+from app.services.cleardarksky_service import (
+    ClearDarkSkyForecast,
+    ClearDarkSkyService,
+    CloudCover,
+    Seeing,
+    Transparency,
+    _cloud_cover_enum,
+    _seeing_from_wind,
+    _transparency_from_visibility,
+)
 from app.services.seven_timer_service import SevenTimerService
 from app.services.weather_service import WeatherService
 
@@ -441,3 +451,242 @@ class TestWeatherService:
         assert len(forecasts) > 0
         assert all(f.conditions == "Clear sky (estimated)" for f in forecasts)
         assert all(f.cloud_cover == 20.0 for f in forecasts)
+
+
+# ============================================================
+# ClearDarkSky (Open-Meteo) tests
+# ============================================================
+
+
+class TestCloudCoverEnum:
+
+    def test_clear_at_zero(self):
+        assert _cloud_cover_enum(0) == CloudCover.CLEAR
+
+    def test_clear_at_10(self):
+        assert _cloud_cover_enum(10) == CloudCover.CLEAR
+
+    def test_mostly_clear(self):
+        assert _cloud_cover_enum(20) == CloudCover.MOSTLY_CLEAR
+
+    def test_partly_cloudy(self):
+        assert _cloud_cover_enum(50) == CloudCover.PARTLY_CLOUDY
+
+    def test_mostly_cloudy(self):
+        assert _cloud_cover_enum(80) == CloudCover.MOSTLY_CLOUDY
+
+    def test_overcast(self):
+        assert _cloud_cover_enum(100) == CloudCover.OVERCAST
+
+
+class TestTransparencyFromVisibility:
+
+    def test_excellent_high_visibility(self):
+        assert _transparency_from_visibility(30000) == Transparency.EXCELLENT
+
+    def test_above_average(self):
+        assert _transparency_from_visibility(20000) == Transparency.ABOVE_AVERAGE
+
+    def test_average(self):
+        assert _transparency_from_visibility(10000) == Transparency.AVERAGE
+
+    def test_below_average(self):
+        assert _transparency_from_visibility(5000) == Transparency.BELOW_AVERAGE
+
+    def test_poor_low_visibility(self):
+        assert _transparency_from_visibility(1000) == Transparency.POOR
+
+
+class TestSeeingFromWind:
+
+    def test_excellent_calm(self):
+        assert _seeing_from_wind(0) == Seeing.EXCELLENT
+
+    def test_good_light_wind(self):
+        assert _seeing_from_wind(10) == Seeing.GOOD
+
+    def test_average_moderate_wind(self):
+        assert _seeing_from_wind(20) == Seeing.AVERAGE
+
+    def test_below_average_strong_wind(self):
+        assert _seeing_from_wind(35) == Seeing.BELOW_AVERAGE
+
+    def test_poor_very_strong_wind(self):
+        assert _seeing_from_wind(50) == Seeing.POOR
+
+
+class TestClearDarkSkyForecastAstronomyScore:
+
+    def test_clear_excellent_conditions_high_score(self):
+        forecast = ClearDarkSkyForecast(
+            time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc),
+            cloud_cover=CloudCover.CLEAR,
+            transparency=Transparency.EXCELLENT,
+            seeing=Seeing.EXCELLENT,
+            temperature_c=5.0,
+            wind_speed_kmh=2.0,
+        )
+        score = forecast.astronomy_score()
+        assert score > 0.8
+
+    def test_overcast_poor_conditions_low_score(self):
+        forecast = ClearDarkSkyForecast(
+            time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc),
+            cloud_cover=CloudCover.OVERCAST,
+            transparency=Transparency.POOR,
+            seeing=Seeing.POOR,
+            temperature_c=5.0,
+            wind_speed_kmh=50.0,
+        )
+        score = forecast.astronomy_score()
+        assert score < 0.3
+
+    def test_score_between_zero_and_one(self):
+        for cc in CloudCover:
+            for t in Transparency:
+                for s in Seeing:
+                    forecast = ClearDarkSkyForecast(
+                        time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc),
+                        cloud_cover=cc,
+                        transparency=t,
+                        seeing=s,
+                        temperature_c=10.0,
+                        wind_speed_kmh=5.0,
+                    )
+                    score = forecast.astronomy_score()
+                    assert 0.0 <= score <= 1.0
+
+
+class TestClearDarkSkyServiceGetForecast:
+
+    def _make_response(self, times, clouds, vis, wind, temp):
+        mock_resp = Mock()
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            "hourly": {
+                "time": times,
+                "cloud_cover": clouds,
+                "visibility": vis,
+                "wind_speed_10m": wind,
+                "temperature_2m": temp,
+            }
+        }
+        return mock_resp
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_returns_list_of_forecasts(self, mock_get):
+        future_hour = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        from datetime import timedelta
+        times = [(future_hour + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(1, 4)]
+        mock_get.return_value = self._make_response(times, [5, 15, 50], [25000, 12000, 5000], [2, 10, 30], [5, 4, 3])
+
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0, hours=48)
+
+        assert isinstance(result, list)
+        assert len(result) == 3
+        assert all(isinstance(f, ClearDarkSkyForecast) for f in result)
+
+    @patch("app.services.cleardarksky_service.requests.get", side_effect=Exception("network error"))
+    def test_returns_empty_on_network_error(self, mock_get):
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0)
+        assert result == []
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_http_error_returns_empty(self, mock_get):
+        import requests
+        mock_resp = Mock()
+        mock_resp.raise_for_status.side_effect = requests.HTTPError("500")
+        mock_get.return_value = mock_resp
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0)
+        assert result == []
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_skips_past_hours(self, mock_get):
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        past = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M")
+        future = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+        mock_get.return_value = self._make_response(
+            [past, future], [10, 20], [25000, 20000], [2, 5], [10, 8]
+        )
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0, hours=48)
+        assert len(result) == 1
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_respects_hours_limit(self, mock_get):
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        times = [(now + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(1, 10)]
+        mock_get.return_value = self._make_response(
+            times, [0] * 9, [30000] * 9, [1] * 9, [10] * 9
+        )
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0, hours=3)
+        assert len(result) == 3
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_null_values_treated_as_zero(self, mock_get):
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        times = [(now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")]
+        mock_get.return_value = self._make_response(
+            times, [None], [None], [None], [None]
+        )
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0, hours=48)
+        assert len(result) == 1
+        assert result[0].wind_speed_kmh == 0.0
+        assert result[0].temperature_c == 0.0
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_skips_invalid_time_strings(self, mock_get):
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        future = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+        mock_get.return_value = self._make_response(
+            ["not-a-date", future], [10, 20], [25000, 20000], [2, 5], [10, 8]
+        )
+        svc = ClearDarkSkyService()
+        result = svc.get_forecast(45.0, -111.0, hours=48)
+        assert len(result) == 1
+
+
+class TestClearDarkSkyServiceLegacyMethods:
+
+    def test_find_nearest_chart_returns_string(self):
+        svc = ClearDarkSkyService()
+        result = svc.find_nearest_chart(45.12, -111.34)
+        assert "45.12" in result
+        assert "-111.34" in result
+
+    @patch("app.services.cleardarksky_service.requests.get")
+    def test_fetch_forecast_delegates_to_get_forecast(self, mock_get):
+        from datetime import timedelta
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        times = [(now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")]
+        mock_resp = Mock()
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            "hourly": {
+                "time": times,
+                "cloud_cover": [5],
+                "visibility": [25000],
+                "wind_speed_10m": [2],
+                "temperature_2m": [10],
+            }
+        }
+        mock_get.return_value = mock_resp
+
+        svc = ClearDarkSkyService()
+        chart_id = svc.find_nearest_chart(45.0, -111.0)
+        result = svc.fetch_forecast(chart_id)
+        assert isinstance(result, list)
+
+    def test_fetch_forecast_invalid_chart_id_returns_empty(self):
+        svc = ClearDarkSkyService()
+        result = svc.fetch_forecast("not_valid")
+        assert result == []
