@@ -733,7 +733,7 @@ def test_delete_plan_rejection(client_with_scope):
 # ---------------------------------------------------------------------------
 
 
-def test_upload_plan_success(client_with_scope, override_get_db):
+def test_upload_plan_success(client_with_scope):
     from app.models.plan_models import SavedPlan
 
     client, sc = client_with_scope
