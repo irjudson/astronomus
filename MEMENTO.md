@@ -36,3 +36,5 @@ make help                                # all available commands
 - 2026-05-25: Removed Claude attribution from commit history and documentation
 - 2026-05-25: Updated to single-container Docker architecture
 - 2026-05-26: Maintenance pass — Makefile overhaul, ruff fixes, Pillow deprecation fix, stray scripts moved to scripts/
+- 2026-05-27: Coverage push from 56% → 83.20% — 38 new test files added across api/, unit/services/, unit/tasks/, seestar/, unit/processing/
+- 2026-05-27: ruff config fixed — removed I-rules (conflict with isort), per-file-ignores changed to `**/tests/**`
