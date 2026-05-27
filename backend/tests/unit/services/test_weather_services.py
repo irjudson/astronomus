@@ -6,6 +6,8 @@ from unittest.mock import Mock, patch
 import pytest
 import pytz
 
+from unittest.mock import MagicMock, Mock, patch
+
 from app.models import Location, WeatherForecast
 from app.services.cleardarksky_service import (
     ClearDarkSkyForecast,
@@ -653,6 +655,198 @@ class TestClearDarkSkyServiceGetForecast:
         svc = ClearDarkSkyService()
         result = svc.get_forecast(45.0, -111.0, hours=48)
         assert len(result) == 1
+
+
+class TestWeatherServiceAdditionalBranches:
+    """Cover remaining branches in weather_service.py."""
+
+    def test_merge_forecasts_both_empty_returns_empty(self):
+        svc = WeatherService()
+        result = svc._merge_forecasts([], [])
+        assert result == []
+
+    def test_merge_forecasts_owm_only_returns_owm(self):
+        svc = WeatherService()
+        owm = [WeatherForecast(
+            timestamp=datetime.now(pytz.UTC),
+            cloud_cover=20.0, humidity=50.0, temperature=10.0,
+            wind_speed=3.0, conditions="clear", source="openweathermap"
+        )]
+        result = svc._merge_forecasts(owm, [])
+        assert result is owm
+
+    def test_merge_forecasts_seven_timer_only_returns_7timer(self):
+        svc = WeatherService()
+        st = [WeatherForecast(
+            timestamp=datetime.now(pytz.UTC),
+            cloud_cover=10.0, humidity=40.0, temperature=8.0,
+            wind_speed=2.0, conditions="clear", source="7timer"
+        )]
+        result = svc._merge_forecasts([], st)
+        assert result is st
+
+    def test_generate_default_forecast_returns_hourly_entries(self):
+        svc = WeatherService()
+        start = datetime(2025, 11, 6, 20, 0, 0)
+        end = datetime(2025, 11, 6, 23, 0, 0)
+        forecasts = svc._generate_default_forecast(start, end)
+        assert len(forecasts) == 4  # 20, 21, 22, 23
+        assert all(f.cloud_cover == 20.0 for f in forecasts)
+        assert all(f.conditions == "Clear sky (estimated)" for f in forecasts)
+
+    def test_astronomy_score_seeing_2_to_3(self):
+        svc = WeatherService()
+        # seeing = 2.5 → average bracket
+        score = svc._calculate_astronomy_score(2.5, 20.0)
+        assert 0.4 <= score <= 0.9
+
+    def test_astronomy_score_seeing_above_3(self):
+        svc = WeatherService()
+        # seeing = 4.0 → linear decay bracket; good transparency keeps overall score mid-range
+        score = svc._calculate_astronomy_score(4.0, 20.0)
+        assert 0.2 <= score <= 1.0
+
+    def test_astronomy_score_transparency_17_to_19(self):
+        svc = WeatherService()
+        score = svc._calculate_astronomy_score(1.0, 18.0)
+        assert 0.4 <= score <= 0.9
+
+    def test_astronomy_score_transparency_19_to_21(self):
+        svc = WeatherService()
+        score = svc._calculate_astronomy_score(1.0, 20.0)
+        assert 0.5 <= score <= 1.0
+
+    def test_astronomy_score_transparency_below_17(self):
+        svc = WeatherService()
+        # transparency=14 → poor; but excellent seeing (1.0) raises average; combined still < 0.7
+        score = svc._calculate_astronomy_score(1.0, 14.0)
+        assert score < 0.7
+
+    def test_general_weather_humidity_60_to_80(self):
+        svc = WeatherService()
+        score = svc._calculate_general_weather_score(0, 70, 3)
+        # humidity 70 is between 60-80 → intermediate score
+        assert 0.5 < score < 1.0
+
+    def test_general_weather_wind_5_to_10(self):
+        svc = WeatherService()
+        score = svc._calculate_general_weather_score(0, 50, 7)
+        # wind 7 m/s → intermediate
+        assert 0.7 < score <= 1.0
+
+    def test_weather_score_owm_only_source(self):
+        svc = WeatherService()
+        forecast = WeatherForecast(
+            timestamp=datetime.now(pytz.UTC),
+            cloud_cover=30.0, humidity=55.0, temperature=10.0,
+            wind_speed=4.0, conditions="partly cloudy",
+            source="openweathermap",
+        )
+        score = svc.calculate_weather_score(forecast)
+        assert 0.0 <= score <= 1.0
+
+    @patch("app.services.weather_service.requests.get")
+    @patch("app.services.weather_service.SevenTimerService")
+    def test_get_openweathermap_no_api_key_returns_empty(self, mock_seven_timer, mock_get, sample_location):
+        """With no OWM key, _get_openweathermap_forecast returns []."""
+        svc = WeatherService()
+        svc.api_key = None  # simulate missing key
+
+        result = svc._get_openweathermap_forecast(
+            sample_location,
+            datetime(2025, 11, 6, 0, 0, tzinfo=pytz.UTC),
+            datetime(2025, 11, 6, 6, 0, tzinfo=pytz.UTC),
+        )
+        assert result == []
+        mock_get.assert_not_called()
+
+    @patch("app.services.weather_service.SevenTimerService")
+    @patch("app.services.weather_service.requests.get")
+    def test_get_openweathermap_http_error_returns_empty(self, mock_get, mock_stt, sample_location):
+        mock_get.side_effect = Exception("timeout")
+        svc = WeatherService()
+        svc.api_key = "fakekey"
+
+        result = svc._get_openweathermap_forecast(
+            sample_location,
+            datetime(2025, 11, 6, 0, 0, tzinfo=pytz.UTC),
+            datetime(2025, 11, 6, 6, 0, tzinfo=pytz.UTC),
+        )
+        assert result == []
+
+    @patch("app.services.weather_service.SevenTimerService")
+    @patch("app.services.weather_service.requests.get")
+    def test_merge_conditions_without_seeing_returns_owm(self, mock_get, mock_stt):
+        svc = WeatherService()
+        result = svc._merge_conditions("Partly cloudy", "Generic forecast")
+        assert result == "Partly cloudy"
+
+    def test_merge_forecasts_both_nonempty_merges_by_hour(self):
+        """Cover the _merge_forecasts loop (lines 147-173)."""
+        svc = WeatherService()
+        ts = datetime(2025, 11, 6, 0, 0, 0, tzinfo=pytz.UTC)
+        owm = [WeatherForecast(
+            timestamp=ts, cloud_cover=10.0, humidity=50.0, temperature=10.0,
+            wind_speed=3.0, conditions="clear sky", source="openweathermap"
+        )]
+        st = [WeatherForecast(
+            timestamp=ts, cloud_cover=12.0, humidity=52.0, temperature=9.0,
+            wind_speed=2.0, conditions="Mostly clear, excellent seeing, good transparency",
+            seeing_arcseconds=0.8, transparency_magnitude=21.0, source="7timer"
+        )]
+        merged = svc._merge_forecasts(owm, st)
+        assert len(merged) == 1
+        assert merged[0].source == "composite"
+        assert merged[0].seeing_arcseconds == 0.8
+
+    def test_merge_forecasts_no_seven_timer_match_uses_owm(self):
+        """OWM entry with no 7Timer match in the merge loop."""
+        svc = WeatherService()
+        owm_ts = datetime(2025, 11, 6, 6, 0, 0, tzinfo=pytz.UTC)
+        st_ts = datetime(2025, 11, 6, 0, 0, 0, tzinfo=pytz.UTC)  # different slot
+        owm = [WeatherForecast(
+            timestamp=owm_ts, cloud_cover=20.0, humidity=55.0, temperature=8.0,
+            wind_speed=4.0, conditions="few clouds", source="openweathermap"
+        )]
+        st = [WeatherForecast(
+            timestamp=st_ts, cloud_cover=10.0, humidity=40.0, temperature=10.0,
+            wind_speed=2.0, conditions="clear", seeing_arcseconds=1.0,
+            transparency_magnitude=20.0, source="7timer"
+        )]
+        merged = svc._merge_forecasts(owm, st)
+        assert len(merged) == 1
+        assert merged[0].source == "openweathermap"  # no match found
+
+    @patch("app.services.weather_service.SevenTimerService")
+    @patch("app.services.weather_service.requests.get")
+    def test_get_openweathermap_forecast_parses_response(self, mock_get, mock_stt, sample_location):
+        """Cover lines 82-108: the OWM parsing loop."""
+        import pytz as _pytz
+        ts_utc = datetime(2025, 11, 6, 1, 0, 0, tzinfo=_pytz.UTC)
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            "list": [
+                {
+                    "dt": int(ts_utc.timestamp()),
+                    "clouds": {"all": 15},
+                    "main": {"humidity": 60, "temp": 5},
+                    "wind": {"speed": 3},
+                    "weather": [{"description": "light rain"}],
+                }
+            ]
+        }
+        mock_get.return_value = mock_resp
+
+        svc = WeatherService()
+        svc.api_key = "fakekey"
+        # Use timezone-aware start/end
+        start = datetime(2025, 11, 6, 0, 0, 0, tzinfo=_pytz.UTC)
+        end = datetime(2025, 11, 6, 6, 0, 0, tzinfo=_pytz.UTC)
+        forecasts = svc._get_openweathermap_forecast(sample_location, start, end)
+        assert len(forecasts) == 1
+        assert forecasts[0].cloud_cover == 15
+        assert forecasts[0].source == "openweathermap"
 
 
 class TestClearDarkSkyServiceLegacyMethods:

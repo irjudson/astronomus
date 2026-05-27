@@ -252,3 +252,113 @@ class TestScanFiles:
 
         # Should still process but with None catalog_id
         assert result == 1
+
+    @patch("app.services.file_scanner_service.os.walk")
+    @patch("app.services.file_scanner_service.os.path.getsize")
+    def test_scan_files_exception_in_processing_skips_file(self, mock_getsize, mock_walk,
+                                                             file_scanner_service, mock_db):
+        """Test that an exception during file processing is silently skipped."""
+        mock_walk.return_value = [("/path/to/dir", [], ["bad.fits"])]
+        mock_getsize.side_effect = OSError("permission denied")
+
+        result = file_scanner_service.scan_files("/path/to/dir", mock_db)
+
+        assert result == 0
+        mock_db.add.assert_not_called()
+
+    @patch("app.services.file_scanner_service.os.walk")
+    @patch("app.services.file_scanner_service.os.path.getsize")
+    @patch("app.services.file_scanner_service.fits")
+    def test_scan_files_no_metadata_for_fit_file(self, mock_fits, mock_getsize, mock_walk,
+                                                   file_scanner_service, mock_db):
+        """Test scan when FITS metadata extraction returns None."""
+        mock_walk.return_value = [("/path/to/dir", [], ["image.fit"])]
+        mock_getsize.return_value = 512
+        mock_fits.open.side_effect = Exception("corrupt FITS")
+        mock_db.add = Mock()
+        mock_db.commit = Mock()
+
+        result = file_scanner_service.scan_files("/path/to/dir", mock_db)
+
+        # File is processed even without metadata
+        assert result == 1
+        mock_db.add.assert_called_once()
+
+    @patch("app.services.file_scanner_service.os.walk")
+    @patch("app.services.file_scanner_service.os.path.getsize")
+    def test_scan_files_jpg_skips_fits_metadata(self, mock_getsize, mock_walk,
+                                                 file_scanner_service, mock_db):
+        """Non-FITS files skip metadata extraction."""
+        mock_walk.return_value = [("/path/to/dir", [], ["photo.jpg"])]
+        mock_getsize.return_value = 2048
+        mock_db.add = Mock()
+        mock_db.commit = Mock()
+
+        result = file_scanner_service.scan_files("/path/to/dir", mock_db)
+
+        assert result == 1
+        mock_db.add.assert_called_once()
+
+
+class TestFuzzyMatchEdgeCases:
+    def test_empty_target_name_returns_none(self, file_scanner_service):
+        result = file_scanner_service._fuzzy_match_catalog("")
+        assert result is None
+
+    def test_whitespace_only_target_name_returns_none(self, file_scanner_service):
+        result = file_scanner_service._fuzzy_match_catalog("   ")
+        assert result is None
+
+    def test_caldwell_number_generates_c_id(self, file_scanner_service, mock_db):
+        mock_dso = Mock()
+        mock_dso.common_name = "Blinking Nebula"
+        mock_dso.caldwell_number = 15
+        mock_dso.catalog_name = "NGC"
+        mock_dso.catalog_number = 6826
+        mock_db.query.return_value.all.return_value = [mock_dso]
+
+        result = file_scanner_service._fuzzy_match_catalog("Blinking Nebula")
+        if result:
+            catalog_id, _ = result
+            assert catalog_id == "C15"
+
+    def test_fallback_catalog_id_uses_name_and_number(self, file_scanner_service, mock_db):
+        mock_dso = Mock()
+        mock_dso.common_name = "Orion Nebula"
+        mock_dso.caldwell_number = None
+        mock_dso.catalog_name = "NGC"
+        mock_dso.catalog_number = 1976
+        mock_db.query.return_value.all.return_value = [mock_dso]
+
+        result = file_scanner_service._fuzzy_match_catalog("Orion Nebula")
+        if result:
+            catalog_id, _ = result
+            assert "NGC" in catalog_id
+
+
+class TestFitsMetadataEdgeCases:
+    @patch("app.services.file_scanner_service.fits")
+    def test_invalid_exptime_is_ignored(self, mock_fits, file_scanner_service):
+        mock_hdu = MagicMock()
+        mock_hdu.header = {"OBJECT": "Test", "EXPTIME": "not-a-number"}
+        mock_fits.open.return_value.__enter__.return_value = [mock_hdu]
+
+        result = file_scanner_service._extract_fits_metadata("/path/to/file.fits")
+        assert result is not None
+        assert result["exposure_seconds"] is None
+
+    @patch("app.services.file_scanner_service.fits")
+    def test_invalid_date_obs_is_ignored(self, mock_fits, file_scanner_service):
+        mock_hdu = MagicMock()
+        mock_hdu.header = {"OBJECT": "Test", "DATE-OBS": "not-a-date"}
+        mock_fits.open.return_value.__enter__.return_value = [mock_hdu]
+
+        result = file_scanner_service._extract_fits_metadata("/path/to/file.fits")
+        assert result is not None
+        assert result["observation_date"] is None
+
+
+class TestQualityMetricsNonFits:
+    def test_non_fits_returns_none_for_both(self, file_scanner_service):
+        result = file_scanner_service._calculate_quality_metrics("/path/to/image.jpg")
+        assert result == {"fwhm": None, "star_count": None}
