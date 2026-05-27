@@ -1,8 +1,5 @@
 """Tests for StackingService."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, call
-
 import numpy as np
 import pytest
 
@@ -23,6 +20,7 @@ def small_frame():
 def make_hdul(data):
     """Return a real astropy HDUList for the given data array."""
     from astropy.io import fits
+
     hdu = fits.PrimaryHDU(data=data)
     return fits.HDUList([hdu])
 
@@ -30,6 +28,7 @@ def make_hdul(data):
 # ---------------------------------------------------------------------------
 # __init__
 # ---------------------------------------------------------------------------
+
 
 class TestStackingServiceInit:
     def test_gpu_false_when_cupy_absent(self):
@@ -46,6 +45,7 @@ class TestStackingServiceInit:
 # load_subframes
 # ---------------------------------------------------------------------------
 
+
 class TestLoadSubframes:
     def test_no_files_raises(self, svc, tmp_path):
         with pytest.raises(ValueError, match="No files matching"):
@@ -53,6 +53,7 @@ class TestLoadSubframes:
 
     def test_loads_matching_files(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         fits_path = tmp_path / "Light_001.fit"
         fits.PrimaryHDU(data=small_frame).writeto(fits_path)
 
@@ -71,6 +72,7 @@ class TestLoadSubframes:
 
     def test_loads_multiple_frames(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         for i in range(3):
             fits.PrimaryHDU(data=small_frame + i).writeto(tmp_path / f"Light_{i:03d}.fit")
 
@@ -81,6 +83,7 @@ class TestLoadSubframes:
 # ---------------------------------------------------------------------------
 # debayer_rggb
 # ---------------------------------------------------------------------------
+
 
 class TestDebayerRggb:
     def test_output_shape_is_3_h_w(self, svc, small_frame):
@@ -96,6 +99,7 @@ class TestDebayerRggb:
 # ---------------------------------------------------------------------------
 # sigma_clip_stack
 # ---------------------------------------------------------------------------
+
 
 class TestSigmaClipStack:
     def test_stack_returns_correct_shape(self, svc, small_frame):
@@ -132,9 +136,11 @@ class TestSigmaClipStack:
 # save_stacked_fits
 # ---------------------------------------------------------------------------
 
+
 class TestSaveStackedFits:
     def test_saves_file(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         rgb = np.stack([small_frame, small_frame, small_frame], axis=0)
         out_path = tmp_path / "stacked.fit"
         svc.save_stacked_fits(rgb, out_path, num_frames=5)
@@ -145,6 +151,7 @@ class TestSaveStackedFits:
 
     def test_saves_with_original_header(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         rgb = np.stack([small_frame, small_frame, small_frame], axis=0)
         original_header = fits.Header()
         original_header["INSTRUME"] = "Seestar S50"
@@ -158,6 +165,7 @@ class TestSaveStackedFits:
 # stack_folder
 # ---------------------------------------------------------------------------
 
+
 class TestStackFolder:
     def test_stack_folder_raises_when_no_files(self, svc, tmp_path):
         with pytest.raises(ValueError):
@@ -165,6 +173,7 @@ class TestStackFolder:
 
     def test_stack_folder_full_pipeline(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         sub_dir = tmp_path / "NGC1234_sub"
         sub_dir.mkdir()
         for i in range(2):
@@ -178,6 +187,7 @@ class TestStackFolder:
 
     def test_stack_folder_with_explicit_output_path(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         sub_dir = tmp_path / "frames"
         sub_dir.mkdir()
         for i in range(2):
@@ -191,6 +201,7 @@ class TestStackFolder:
 
     def test_stack_folder_removes_sub_suffix_from_object_name(self, svc, tmp_path, small_frame):
         from astropy.io import fits
+
         sub_dir = tmp_path / "M42_sub"
         sub_dir.mkdir()
         for i in range(2):

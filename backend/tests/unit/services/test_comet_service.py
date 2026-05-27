@@ -204,10 +204,7 @@ def test_get_visible_comets_filters_faint(comet_service, override_get_db):
         data_source="Test",
     )
     comet_service.add_comet(faint_comet)
-    location = Location(
-        latitude=45.0, longitude=-111.0, elevation_meters=1000,
-        timezone="America/Denver", name="Test"
-    )
+    location = Location(latitude=45.0, longitude=-111.0, elevation_meters=1000, timezone="America/Denver", name="Test")
     visible = comet_service.get_visible_comets(
         location=location,
         time_utc=datetime(2020, 7, 15, 3, 0, 0),

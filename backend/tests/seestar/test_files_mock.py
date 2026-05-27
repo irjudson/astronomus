@@ -9,7 +9,7 @@ import pytest
 
 from app.clients.seestar.types import CommandError, ConnectionError
 from app.clients.seestar_client import SeestarClient
-from tests.seestar.mock_server import MockSeestarServer, _COMMAND_RESPONSES
+from tests.seestar.mock_server import _COMMAND_RESPONSES, MockSeestarServer
 
 pytestmark = pytest.mark.mock
 

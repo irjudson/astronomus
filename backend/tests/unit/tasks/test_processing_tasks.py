@@ -62,8 +62,9 @@ def test_cancel_job_delegates_to_service():
 
 
 def test_auto_process_raises_when_job_not_found():
-    from app.tasks.processing_tasks import auto_process_task
     import pytest
+
+    from app.tasks.processing_tasks import auto_process_task
 
     with patch("app.tasks.processing_tasks.SessionLocal") as mock_sl:
         db = MagicMock()
@@ -104,8 +105,9 @@ def test_auto_process_happy_path_sets_complete():
 
 
 def test_auto_process_marks_failed_on_exception():
-    from app.tasks.processing_tasks import auto_process_task
     import pytest
+
+    from app.tasks.processing_tasks import auto_process_task
 
     with (
         patch("app.tasks.processing_tasks.SessionLocal") as mock_sl,
@@ -127,8 +129,9 @@ def test_auto_process_marks_failed_on_exception():
 
 
 def test_stack_and_stretch_raises_when_job_not_found():
-    from app.tasks.processing_tasks import stack_and_stretch_task
     import pytest
+
+    from app.tasks.processing_tasks import stack_and_stretch_task
 
     with patch("app.tasks.processing_tasks.SessionLocal") as mock_sl:
         db = MagicMock()
@@ -182,8 +185,9 @@ def test_stack_and_stretch_happy_path():
 
 
 def test_stack_and_stretch_marks_failed_on_exception():
-    from app.tasks.processing_tasks import stack_and_stretch_task
     import pytest
+
+    from app.tasks.processing_tasks import stack_and_stretch_task
 
     with (
         patch("app.tasks.processing_tasks.SessionLocal") as mock_sl,

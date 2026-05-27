@@ -1,6 +1,6 @@
 """Tests for telescope_features API endpoints (telescope-agnostic, fast mock tests)."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_current_telescope
 from app.clients.seestar_client import SeestarClient
 from app.main import app
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -98,6 +97,7 @@ def client_with_scope():
 def client_no_scope():
     """TestClient with no telescope connected."""
     from app.api import telescope as tel_module
+
     old = tel_module.seestar_client
     tel_module.seestar_client = None
     client = TestClient(app)
@@ -756,6 +756,7 @@ def test_upload_plan_success(client_with_scope, override_get_db):
 
     # Override DB to return our fake plan
     from app.database import get_db
+
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = mock_plan
     app.dependency_overrides[get_db] = lambda: mock_db
@@ -772,6 +773,7 @@ def test_upload_plan_success(client_with_scope, override_get_db):
 def test_upload_plan_not_found(client_with_scope):
     client, sc = client_with_scope
     from app.database import get_db
+
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = None
     app.dependency_overrides[get_db] = lambda: mock_db
@@ -793,6 +795,7 @@ def test_upload_plan_telescope_rejection(client_with_scope):
     mock_plan.plan_data = {"scheduled_targets": [], "session": {}}
 
     from app.database import get_db
+
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = mock_plan
     app.dependency_overrides[get_db] = lambda: mock_db

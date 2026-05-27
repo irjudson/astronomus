@@ -1,12 +1,9 @@
 """Extended tests for captures API — covering uncovered branches."""
 
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from app.database import get_db
-from app.main import app
 from app.models.capture_models import CaptureHistory, OutputFile
 
 pytestmark = pytest.mark.integration

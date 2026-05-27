@@ -35,8 +35,9 @@ def test_post_returns_true_on_http_200():
 
 
 def test_post_returns_false_after_max_retries():
-    from app.services.webhook_service import WebhookService
     import requests as req_lib
+
+    from app.services.webhook_service import WebhookService
 
     svc = WebhookService(webhook_url="https://hooks.example.com")
     svc.max_retries = 2
@@ -114,9 +115,7 @@ def test_send_session_started_noop_when_not_configured():
     svc = WebhookService(webhook_url="")
 
     with patch.object(svc, "_post") as mock_post:
-        result = svc.send_session_started_notification(
-            execution_id="e", plan_name="p", target_count=0, target_names=[]
-        )
+        result = svc.send_session_started_notification(execution_id="e", plan_name="p", target_count=0, target_names=[])
 
     assert result is False
     mock_post.assert_not_called()

@@ -26,6 +26,7 @@ class TestMountMockScope:
     async def test_scope_goto_failure(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
         # Override mock to return failure
         from tests.seestar.mock_server import _COMMAND_RESPONSES
+
         original = _COMMAND_RESPONSES.get("scope_goto")
         _COMMAND_RESPONSES["scope_goto"] = {"result": -1, "code": 105}
         try:
@@ -49,6 +50,7 @@ class TestMountMockScope:
     @pytest.mark.asyncio
     async def test_move_to_horizon_failure(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
         from tests.seestar.mock_server import _COMMAND_RESPONSES
+
         original = _COMMAND_RESPONSES.get("scope_move_to_horizon")
         _COMMAND_RESPONSES["scope_move_to_horizon"] = {"result": -1, "code": 207}
         try:

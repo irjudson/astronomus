@@ -7,14 +7,10 @@ GPU_AVAILABLE=False branch and CPU fallback paths.  GPU-only paths
 
 import importlib
 import sys
-from io import BytesIO
-from pathlib import Path
-from types import ModuleType
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,6 +25,7 @@ def _reload_gpu_ops_without_cupy():
     sys.modules["cupy"] = None  # None causes ImportError in "import cupy"
     try:
         import app.processing.gpu_ops as gpu_ops
+
         importlib.reload(gpu_ops)
     finally:
         sys.modules.pop("cupy", None)
@@ -257,9 +254,10 @@ def test_histogram_stretch_uses_cpu_when_gpu_unavailable(tmp_path):
     in_path = str(tmp_path / "in.fits")
     out_path = str(tmp_path / "out.fits")
 
-    with patch.object(gpu_ops, "GPU_AVAILABLE", False), patch.object(
-        gpu_ops, "cpu_histogram_stretch", return_value=out_path
-    ) as mock_cpu:
+    with (
+        patch.object(gpu_ops, "GPU_AVAILABLE", False),
+        patch.object(gpu_ops, "cpu_histogram_stretch", return_value=out_path) as mock_cpu,
+    ):
         result = gpu_ops.histogram_stretch(in_path, out_path, {}, use_gpu=True)
 
     mock_cpu.assert_called_once_with(in_path, out_path, {})
@@ -272,9 +270,10 @@ def test_histogram_stretch_uses_cpu_when_use_gpu_false(tmp_path):
     in_path = str(tmp_path / "in.fits")
     out_path = str(tmp_path / "out.fits")
 
-    with patch.object(gpu_ops, "GPU_AVAILABLE", True), patch.object(
-        gpu_ops, "cpu_histogram_stretch", return_value=out_path
-    ) as mock_cpu:
+    with (
+        patch.object(gpu_ops, "GPU_AVAILABLE", True),
+        patch.object(gpu_ops, "cpu_histogram_stretch", return_value=out_path) as mock_cpu,
+    ):
         result = gpu_ops.histogram_stretch(in_path, out_path, {}, use_gpu=False)
 
     mock_cpu.assert_called_once()

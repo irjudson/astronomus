@@ -1,7 +1,7 @@
 """Tests for planets API endpoints."""
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -63,6 +63,7 @@ def _make_visibility(planet=None, ephemeris=None):
 # GET /api/planets/
 # ---------------------------------------------------------------------------
 
+
 def test_list_planets_returns_all():
     planets = [_make_planet("Mars"), _make_planet("Jupiter"), _make_planet("Saturn")]
     with patch("app.api.planets.planet_service") as mock_svc:
@@ -97,6 +98,7 @@ def test_list_planets_service_error():
 # GET /api/planets/{planet_name}
 # ---------------------------------------------------------------------------
 
+
 def test_get_planet_found():
     with patch("app.api.planets.planet_service") as mock_svc:
         mock_svc.get_planet_by_name.return_value = _make_planet("Mars")
@@ -126,6 +128,7 @@ def test_get_planet_service_error():
 # ---------------------------------------------------------------------------
 # POST /api/planets/{planet_name}/ephemeris
 # ---------------------------------------------------------------------------
+
 
 def test_compute_planet_ephemeris_success():
     with patch("app.api.planets.planet_service") as mock_svc:
@@ -165,6 +168,7 @@ def test_compute_planet_ephemeris_missing_time():
 # ---------------------------------------------------------------------------
 # POST /api/planets/{planet_name}/visibility
 # ---------------------------------------------------------------------------
+
 
 def test_compute_planet_visibility_success():
     with patch("app.api.planets.planet_service") as mock_svc:
@@ -221,6 +225,7 @@ def test_compute_planet_visibility_missing_time():
 # ---------------------------------------------------------------------------
 # POST /api/planets/visible
 # ---------------------------------------------------------------------------
+
 
 def test_get_visible_planets_success():
     visible = [_make_visibility(_make_planet("Mars")), _make_visibility(_make_planet("Jupiter"))]

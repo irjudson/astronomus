@@ -1,6 +1,5 @@
 """Tests for horizon profile altitude interpolation."""
 
-
 from app.models.models import HorizonPoint
 from app.services.ephemeris_service import EphemerisService
 

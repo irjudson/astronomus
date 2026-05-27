@@ -77,6 +77,7 @@ def disconnected_client():
 # POST /api/telescope/unpark
 # ============================================================================
 
+
 class TestUnparkTelescope:
     def test_unpark_success(self, client, connected_client):
         response = client.post("/api/telescope/unpark")
@@ -100,6 +101,7 @@ class TestUnparkTelescope:
 # ============================================================================
 # POST /api/telescope/switch-mode
 # ============================================================================
+
 
 class TestSwitchMode:
     def test_switch_to_equatorial(self, client, connected_client):
@@ -127,6 +129,7 @@ class TestSwitchMode:
 # ============================================================================
 # POST /api/telescope/move
 # ============================================================================
+
 
 class TestMoveTelescope:
     def test_move_up(self, client, connected_client):
@@ -163,6 +166,7 @@ class TestMoveTelescope:
 # POST /api/telescope/goto
 # ============================================================================
 
+
 class TestGotoCoordinates:
     def test_goto_success(self, client, connected_client):
         response = client.post("/api/telescope/goto", json={"ra": 1.5, "dec": 30.0, "target_name": "M31"})
@@ -188,6 +192,7 @@ class TestGotoCoordinates:
 # POST /api/telescope/stop-slew
 # ============================================================================
 
+
 class TestStopSlew:
     def test_stop_slew_success(self, client, connected_client):
         response = client.post("/api/telescope/stop-slew")
@@ -208,6 +213,7 @@ class TestStopSlew:
 # ============================================================================
 # POST /api/telescope/polar-align/*
 # ============================================================================
+
 
 class TestPolarAlign:
     def test_start_polar_align_success(self, client, connected_client):
@@ -237,6 +243,7 @@ class TestPolarAlign:
 # ============================================================================
 # POST /api/telescope/start-imaging / stop-imaging
 # ============================================================================
+
 
 class TestImaging:
     def test_start_imaging_success(self, client, connected_client):
@@ -268,6 +275,7 @@ class TestImaging:
 # POST /api/telescope/recording/*
 # ============================================================================
 
+
 class TestRecording:
     def test_start_recording_success(self, client, connected_client):
         response = client.post("/api/telescope/recording/start", json={"filename": "test.avi"})
@@ -292,6 +300,7 @@ class TestRecording:
 # GET /api/telescope/coordinates
 # ============================================================================
 
+
 class TestGetCoordinates:
     def test_get_coordinates_success(self, client, connected_client):
         response = client.get("/api/telescope/coordinates")
@@ -311,6 +320,7 @@ class TestGetCoordinates:
 # GET /api/telescope/app-state
 # ============================================================================
 
+
 class TestAppState:
     def test_get_app_state_success(self, client, connected_client):
         response = client.get("/api/telescope/app-state")
@@ -326,6 +336,7 @@ class TestAppState:
 # ============================================================================
 # GET /api/telescope/stacking-status
 # ============================================================================
+
 
 class TestStackingStatus:
     def test_stacking_status_not_complete(self, client, connected_client):
@@ -347,6 +358,7 @@ class TestStackingStatus:
 # ============================================================================
 # POST /api/telescope/plan/start, stop; GET /api/telescope/plan/state
 # ============================================================================
+
 
 class TestViewPlan:
     def test_start_view_plan_success(self, client, connected_client):
@@ -377,6 +389,7 @@ class TestViewPlan:
 # GET /api/telescope/solve-result; GET /api/telescope/field-annotations
 # ============================================================================
 
+
 class TestPlateSolveAndAnnotations:
     def test_get_solve_result_success(self, client, connected_client):
         response = client.get("/api/telescope/solve-result")
@@ -398,6 +411,7 @@ class TestPlateSolveAndAnnotations:
 # ============================================================================
 # POST /api/telescope/tracking/start, stop (use get_current_telescope dep)
 # ============================================================================
+
 
 class TestTracking:
     def test_start_tracking_success(self, client, connected_client):
@@ -434,6 +448,7 @@ class TestTracking:
 # POST /api/telescope/start-preview
 # ============================================================================
 
+
 class TestStartPreview:
     def test_start_preview_default_mode(self, client, connected_client):
         response = client.post("/api/telescope/start-preview", json={"mode": "scenery"})
@@ -466,6 +481,7 @@ class TestStartPreview:
 # GET /api/telescope/preview (no connection required - just checks /fits)
 # ============================================================================
 
+
 class TestTelescopePreview:
     def test_preview_no_fits_dir(self, client):
         with patch("app.api.telescope.Path") as MockPath:
@@ -483,6 +499,7 @@ class TestTelescopePreview:
 # POST /api/telescope/connect (device_id path)
 # ============================================================================
 
+
 class TestConnectWithDeviceId:
     def test_connect_no_host_no_device_id(self, client):
         response = client.post("/api/telescope/connect", json={})
@@ -491,6 +508,7 @@ class TestConnectWithDeviceId:
 
     def test_connect_device_id_not_found(self, client):
         from app.database import get_db
+
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = None
         app.dependency_overrides[get_db] = lambda: mock_db

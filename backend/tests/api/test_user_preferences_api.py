@@ -57,6 +57,7 @@ def _setting(value):
 # GET /api/user/preferences
 # ---------------------------------------------------------------------------
 
+
 def test_get_preferences_returns_defaults_when_no_settings():
     app.dependency_overrides[get_db] = lambda: _make_mock_db()
     client = TestClient(app)
@@ -140,6 +141,7 @@ def test_get_preferences_observing_fields():
 # ---------------------------------------------------------------------------
 # PUT /api/user/preferences
 # ---------------------------------------------------------------------------
+
 
 def _put_db():
     """Mock DB that always returns None (no existing settings) and records commits."""

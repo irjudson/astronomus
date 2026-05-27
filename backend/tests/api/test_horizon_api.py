@@ -1,6 +1,6 @@
 """Tests for horizon scan API endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,6 +17,7 @@ def clear_overrides():
 # ---------------------------------------------------------------------------
 # POST /api/horizon/scan  (start scan)
 # ---------------------------------------------------------------------------
+
 
 def test_start_horizon_scan_returns_scan_id():
     with patch("app.api.horizon.asyncio.create_task"):
@@ -61,6 +62,7 @@ def test_start_horizon_scan_initializes_scan_state():
 # ---------------------------------------------------------------------------
 # GET /api/horizon/scan/{scan_id}/status
 # ---------------------------------------------------------------------------
+
 
 def test_get_scan_status_found():
     import app.api.horizon as horizon_module
@@ -114,6 +116,7 @@ def test_get_scan_status_not_found():
 # ---------------------------------------------------------------------------
 # DELETE /api/horizon/scan/{scan_id}
 # ---------------------------------------------------------------------------
+
 
 def test_clear_scan_existing():
     import app.api.horizon as horizon_module

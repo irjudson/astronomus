@@ -1,12 +1,9 @@
 """Tests for PipelineRunner and main() in app/processing/runner.py."""
 
 import json
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import patch
 
 import pytest
-
 
 BASE_CONFIG = {
     "job_id": "42",
@@ -21,37 +18,41 @@ BASE_CONFIG = {
 # PipelineRunner.__init__
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineRunnerInit:
     def test_stores_config_fields(self):
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(BASE_CONFIG.copy())
         assert runner.job_id == "42"
         assert runner.input_file == "/data/input.fits"
 
     def test_directories_created(self):
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir") as mock_mkdir:
+        with (
+            patch("app.processing.runner.gpu_ops") as mock_gpu,
+            patch("app.processing.runner.Path.mkdir") as mock_mkdir,
+        ):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             from app.processing.runner import PipelineRunner
+
             PipelineRunner(BASE_CONFIG.copy())
         assert mock_mkdir.call_count >= 2
 
     def test_gpu_flag_true_when_available(self):
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": True}
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(BASE_CONFIG.copy())
         assert runner.use_gpu is True
 
     def test_gpu_flag_false_when_unavailable(self):
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(BASE_CONFIG.copy())
         assert runner.use_gpu is False
 
@@ -60,17 +61,18 @@ class TestPipelineRunnerInit:
 # PipelineRunner.run
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineRunnerRun:
     def _run_with_steps(self, steps, gpu_side_effects=None):
         config = BASE_CONFIG.copy()
         config["pipeline_steps"] = steps
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             if gpu_side_effects:
                 for attr, value in gpu_side_effects.items():
                     getattr(mock_gpu, attr).return_value = value
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(config)
             result = runner.run()
         return result, mock_gpu
@@ -125,11 +127,11 @@ class TestPipelineRunnerRun:
         steps = [{"step": "histogram_stretch", "params": {}}]
         config = BASE_CONFIG.copy()
         config["pipeline_steps"] = steps
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             mock_gpu.histogram_stretch.side_effect = RuntimeError("GPU exploded")
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(config)
             result = runner.run()
         assert result["status"] == "error"
@@ -142,12 +144,12 @@ class TestPipelineRunnerRun:
         ]
         config = BASE_CONFIG.copy()
         config["pipeline_steps"] = steps
-        with patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"):
+        with patch("app.processing.runner.gpu_ops") as mock_gpu, patch("app.processing.runner.Path.mkdir"):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             mock_gpu.histogram_stretch.return_value = "/data/working/stretched.fit"
             mock_gpu.export_image.return_value = "/data/output/final.jpg"
             from app.processing.runner import PipelineRunner
+
             runner = PipelineRunner(config)
             result = runner.run()
         assert result["status"] == "success"
@@ -159,16 +161,21 @@ class TestPipelineRunnerRun:
 # main()
 # ---------------------------------------------------------------------------
 
+
 class TestMain:
     def test_main_exits_1_when_config_missing(self):
-        with patch("sys.argv", ["runner.py", "--config", "/nonexistent.json"]), \
-             patch("app.processing.runner.Path.exists", return_value=False), \
-             patch("app.processing.runner.gpu_ops"), \
-             patch("app.processing.runner.Path.mkdir"), \
-             pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("sys.argv", ["runner.py", "--config", "/nonexistent.json"]),
+            patch("app.processing.runner.Path.exists", return_value=False),
+            patch("app.processing.runner.gpu_ops"),
+            patch("app.processing.runner.Path.mkdir"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             # Force reimport to pick up fresh state
             import importlib
+
             import app.processing.runner as runner_mod
+
             importlib.reload(runner_mod)
             runner_mod.main()
         assert exc_info.value.code == 1
@@ -179,14 +186,18 @@ class TestMain:
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config))
 
-        with patch("sys.argv", ["runner.py", "--config", str(config_file)]), \
-             patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"), \
-             patch("json.dump"), \
-             pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("sys.argv", ["runner.py", "--config", str(config_file)]),
+            patch("app.processing.runner.gpu_ops") as mock_gpu,
+            patch("app.processing.runner.Path.mkdir"),
+            patch("json.dump"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             import importlib
+
             import app.processing.runner as runner_mod
+
             importlib.reload(runner_mod)
             runner_mod.main()
         assert exc_info.value.code == 0
@@ -198,15 +209,19 @@ class TestMain:
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps(config))
 
-        with patch("sys.argv", ["runner.py", "--config", str(config_file)]), \
-             patch("app.processing.runner.gpu_ops") as mock_gpu, \
-             patch("app.processing.runner.Path.mkdir"), \
-             patch("json.dump"), \
-             pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("sys.argv", ["runner.py", "--config", str(config_file)]),
+            patch("app.processing.runner.gpu_ops") as mock_gpu,
+            patch("app.processing.runner.Path.mkdir"),
+            patch("json.dump"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             mock_gpu.check_gpu_available.return_value = {"available": False}
             mock_gpu.histogram_stretch.side_effect = RuntimeError("boom")
             import importlib
+
             import app.processing.runner as runner_mod
+
             importlib.reload(runner_mod)
             runner_mod.main()
         assert exc_info.value.code == 1

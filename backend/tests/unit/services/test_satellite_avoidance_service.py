@@ -1,8 +1,7 @@
 """Tests for satellite avoidance service."""
 
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytz
@@ -10,8 +9,6 @@ import pytz
 from app.models import Location
 from app.services.satellite_avoidance_service import (
     TLE_CACHE_HOURS,
-    TLE_CACHE_PATH,
-    TLE_URL,
     BlockedInterval,
     SatelliteAvoidanceService,
 )
@@ -116,17 +113,21 @@ class TestLoadTleData:
             "2 25544  51.6400 000.0000 0000001   0.0000 000.0000 15.50000000000000\n"
         )
         svc = SatelliteAvoidanceService()
-        with patch.object(svc, "_cache_is_fresh", return_value=False), \
-             patch.object(svc, "_download_tles", return_value=tle_text) as mock_dl, \
-             patch.object(mock_path, "write_text"):
+        with (
+            patch.object(svc, "_cache_is_fresh", return_value=False),
+            patch.object(svc, "_download_tles", return_value=tle_text) as mock_dl,
+            patch.object(mock_path, "write_text"),
+        ):
             result = svc._load_tle_data()
         mock_dl.assert_called_once()
 
     @patch("app.services.satellite_avoidance_service.TLE_CACHE_PATH")
     def test_returns_empty_on_download_failure(self, mock_path):
         svc = SatelliteAvoidanceService()
-        with patch.object(svc, "_cache_is_fresh", return_value=False), \
-             patch.object(svc, "_download_tles", return_value=""):
+        with (
+            patch.object(svc, "_cache_is_fresh", return_value=False),
+            patch.object(svc, "_download_tles", return_value=""),
+        ):
             result = svc._load_tle_data()
         assert result == []
 
@@ -151,6 +152,7 @@ class TestCacheIsFresh:
         cache_file.write_text("data")
         stale_mtime = time.time() - (TLE_CACHE_HOURS + 1) * 3600
         import os
+
         os.utime(str(cache_file), (stale_mtime, stale_mtime))
         svc = SatelliteAvoidanceService()
         with patch("app.services.satellite_avoidance_service.TLE_CACHE_PATH", cache_file):
@@ -203,11 +205,7 @@ class TestParseTles:
         assert len(sats) == 2
 
     def test_skips_malformed_blocks(self):
-        raw = (
-            "BAD BLOCK\n"
-            "not a tle line 1\n"
-            "not a tle line 2\n"
-        )
+        raw = "BAD BLOCK\n" "not a tle line 1\n" "not a tle line 2\n"
         svc = SatelliteAvoidanceService()
         sats = svc._parse_tles(raw)
         assert len(sats) == 0

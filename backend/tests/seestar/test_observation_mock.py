@@ -211,8 +211,6 @@ class TestObservationMock:
 
     @pytest.mark.asyncio
     async def test_configure_planetary_imaging(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
-        result = await mock_client.configure_planetary_imaging(
-            frame_count=500, save_frames=True, denoise=False
-        )
+        result = await mock_client.configure_planetary_imaging(frame_count=500, save_frames=True, denoise=False)
         assert isinstance(result, bool)
         assert mock_server_obj.received_method("set_setting")

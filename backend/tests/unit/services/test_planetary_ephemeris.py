@@ -8,9 +8,18 @@ import pytest
 
 def _make_mock_eph():
     """Return a mock ephemeris object that supports body lookup."""
-    bodies = ["sun", "moon", "mercury", "venus", "mars",
-              "jupiter barycenter", "saturn barycenter",
-              "uranus barycenter", "neptune barycenter", "earth"]
+    bodies = [
+        "sun",
+        "moon",
+        "mercury",
+        "venus",
+        "mars",
+        "jupiter barycenter",
+        "saturn barycenter",
+        "uranus barycenter",
+        "neptune barycenter",
+        "earth",
+    ]
 
     mock_eph = MagicMock()
 
@@ -75,6 +84,7 @@ class TestPlanetaryEphemerisInit:
         mock_load.timescale = Mock(return_value=MagicMock())
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         mock_load.assert_called_with("de421.bsp")
@@ -87,10 +97,10 @@ class TestPlanetaryEphemerisInit:
         mock_load.timescale = Mock(return_value=MagicMock())
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
-        expected = {"sun", "moon", "mercury", "venus", "mars",
-                    "jupiter", "saturn", "uranus", "neptune"}
+        expected = {"sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"}
         assert expected == set(svc.bodies.keys())
 
 
@@ -115,14 +125,16 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["mars"] = MagicMock()
 
         # Patch Topos to avoid real computation
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_position("mars", 45.0, -111.0, 1000.0,
-                                      time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
+            result = svc.get_position(
+                "mars", 45.0, -111.0, 1000.0, time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc)
+            )
 
         required_keys = {"name", "ra_hours", "dec_degrees", "altitude", "azimuth", "distance_au", "visible"}
         assert required_keys.issubset(set(result.keys()))
@@ -135,6 +147,7 @@ class TestGetPosition:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         with pytest.raises(ValueError, match="Unknown body"):
@@ -158,13 +171,13 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["venus"] = MagicMock()
 
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_position("venus", 45.0, -111.0,
-                                      time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
+            result = svc.get_position("venus", 45.0, -111.0, time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
 
         assert result["visible"] is True
 
@@ -186,13 +199,13 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["mercury"] = MagicMock()
 
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_position("mercury", 45.0, -111.0,
-                                      time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
+            result = svc.get_position("mercury", 45.0, -111.0, time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
 
         assert result["visible"] is False
 
@@ -214,6 +227,7 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["saturn"] = MagicMock()
@@ -241,14 +255,14 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["moon"] = MagicMock()
         svc.bodies["sun"] = MagicMock()
 
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_position("moon", 45.0, -111.0,
-                                      time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
+            result = svc.get_position("moon", 45.0, -111.0, time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
 
         assert "phase" in result
         assert "illumination" in result
@@ -274,13 +288,13 @@ class TestGetPosition:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["neptune"] = MagicMock()
 
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_position("neptune", 45.0, -111.0,
-                                      time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
+            result = svc.get_position("neptune", 45.0, -111.0, time=datetime(2025, 1, 15, 22, 0, tzinfo=timezone.utc))
 
         assert result["magnitude"] is None
 
@@ -295,6 +309,7 @@ class TestCalculateMoonPhase:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         # elongation ~ 0° → new moon
@@ -309,9 +324,11 @@ class TestCalculateMoonPhase:
 
         mock_observer.at.return_value.observe.return_value.apparent.return_value = moon_apparent
         # For sun
-        mock_observer.at.return_value.observe.side_effect = lambda b: MagicMock(
-            apparent=Mock(return_value=sun_apparent)
-        ) if b is svc.bodies.get("sun") else MagicMock(apparent=Mock(return_value=moon_apparent))
+        mock_observer.at.return_value.observe.side_effect = lambda b: (
+            MagicMock(apparent=Mock(return_value=sun_apparent))
+            if b is svc.bodies.get("sun")
+            else MagicMock(apparent=Mock(return_value=moon_apparent))
+        )
 
         result = svc._calculate_moon_phase(mock_observer, mock_t, MagicMock(), MagicMock())
         # Just verify keys exist and phase is a float
@@ -327,6 +344,7 @@ class TestCalculateMoonPhase:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         mock_observer = MagicMock()
@@ -350,6 +368,7 @@ class TestCalculateMoonPhase:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         mock_observer = MagicMock()
@@ -374,6 +393,7 @@ class TestGetAllVisible:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
 
@@ -382,9 +402,15 @@ class TestGetAllVisible:
         def fake_get_position(body_name, lat, lon, elev=0.0, time=None):
             alt = 50.0 if call_count[0] % 2 == 0 else -10.0
             call_count[0] += 1
-            return {"name": body_name, "altitude": alt, "azimuth": 180.0,
-                    "ra_hours": 6.0, "dec_degrees": 20.0, "distance_au": 1.0,
-                    "visible": alt > 0}
+            return {
+                "name": body_name,
+                "altitude": alt,
+                "azimuth": 180.0,
+                "ra_hours": 6.0,
+                "dec_degrees": 20.0,
+                "distance_au": 1.0,
+                "visible": alt > 0,
+            }
 
         with patch.object(svc, "get_position", side_effect=fake_get_position):
             result = svc.get_all_visible(45.0, -111.0, min_altitude=0.0)
@@ -399,15 +425,22 @@ class TestGetAllVisible:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         altitudes = iter([80.0, 45.0, 20.0, 60.0, 10.0, 55.0, 30.0, 70.0, 5.0])
 
         def fake_get_position(body_name, lat, lon, elev=0.0, time=None):
             alt = next(altitudes, 0.0)
-            return {"name": body_name, "altitude": alt, "azimuth": 180.0,
-                    "ra_hours": 6.0, "dec_degrees": 20.0, "distance_au": 1.0,
-                    "visible": alt > 0}
+            return {
+                "name": body_name,
+                "altitude": alt,
+                "azimuth": 180.0,
+                "ra_hours": 6.0,
+                "dec_degrees": 20.0,
+                "distance_au": 1.0,
+                "visible": alt > 0,
+            }
 
         with patch.object(svc, "get_position", side_effect=fake_get_position):
             result = svc.get_all_visible(45.0, -111.0, min_altitude=0.0)
@@ -423,14 +456,21 @@ class TestGetAllVisible:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         def fake_get_position(body_name, lat, lon, elev=0.0, time=None):
             if body_name == "mars":
                 raise Exception("ephemeris error")
-            return {"name": body_name, "altitude": 45.0, "azimuth": 180.0,
-                    "ra_hours": 6.0, "dec_degrees": 20.0, "distance_au": 1.0,
-                    "visible": True}
+            return {
+                "name": body_name,
+                "altitude": 45.0,
+                "azimuth": 180.0,
+                "ra_hours": 6.0,
+                "dec_degrees": 20.0,
+                "distance_au": 1.0,
+                "visible": True,
+            }
 
         with patch.object(svc, "get_position", side_effect=fake_get_position):
             result = svc.get_all_visible(45.0, -111.0)
@@ -449,6 +489,7 @@ class TestGetRiseSetTimes:
         mock_load.timescale.return_value = mock_ts
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
 
         with pytest.raises(ValueError, match="Unknown body"):
@@ -480,13 +521,13 @@ class TestGetRiseSetTimes:
         mock_eph.__getitem__ = Mock(return_value=earth)
 
         from app.services.planetary_ephemeris import PlanetaryEphemeris
+
         svc = PlanetaryEphemeris()
         svc.ts = mock_ts
         svc.bodies["mars"] = MagicMock()
 
         with patch("app.services.planetary_ephemeris.Topos", return_value=MagicMock()):
-            result = svc.get_rise_set_times("mars", 45.0, -111.0,
-                                            date=datetime(2025, 1, 15, tzinfo=timezone.utc))
+            result = svc.get_rise_set_times("mars", 45.0, -111.0, date=datetime(2025, 1, 15, tzinfo=timezone.utc))
 
         assert "rise" in result
         assert "set" in result
@@ -502,9 +543,11 @@ class TestGetEphemerisSingleton:
         mock_load.timescale.return_value = mock_ts
 
         import app.services.planetary_ephemeris as mod
+
         mod._ephemeris = None  # reset singleton
 
-        from app.services.planetary_ephemeris import get_ephemeris, PlanetaryEphemeris
+        from app.services.planetary_ephemeris import PlanetaryEphemeris, get_ephemeris
+
         result = get_ephemeris()
         assert isinstance(result, PlanetaryEphemeris)
 
@@ -516,9 +559,11 @@ class TestGetEphemerisSingleton:
         mock_load.timescale.return_value = mock_ts
 
         import app.services.planetary_ephemeris as mod
+
         mod._ephemeris = None  # reset singleton
 
         from app.services.planetary_ephemeris import get_ephemeris
+
         inst1 = get_ephemeris()
         inst2 = get_ephemeris()
         assert inst1 is inst2

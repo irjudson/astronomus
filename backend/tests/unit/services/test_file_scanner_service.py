@@ -255,8 +255,9 @@ class TestScanFiles:
 
     @patch("app.services.file_scanner_service.os.walk")
     @patch("app.services.file_scanner_service.os.path.getsize")
-    def test_scan_files_exception_in_processing_skips_file(self, mock_getsize, mock_walk,
-                                                             file_scanner_service, mock_db):
+    def test_scan_files_exception_in_processing_skips_file(
+        self, mock_getsize, mock_walk, file_scanner_service, mock_db
+    ):
         """Test that an exception during file processing is silently skipped."""
         mock_walk.return_value = [("/path/to/dir", [], ["bad.fits"])]
         mock_getsize.side_effect = OSError("permission denied")
@@ -269,8 +270,9 @@ class TestScanFiles:
     @patch("app.services.file_scanner_service.os.walk")
     @patch("app.services.file_scanner_service.os.path.getsize")
     @patch("app.services.file_scanner_service.fits")
-    def test_scan_files_no_metadata_for_fit_file(self, mock_fits, mock_getsize, mock_walk,
-                                                   file_scanner_service, mock_db):
+    def test_scan_files_no_metadata_for_fit_file(
+        self, mock_fits, mock_getsize, mock_walk, file_scanner_service, mock_db
+    ):
         """Test scan when FITS metadata extraction returns None."""
         mock_walk.return_value = [("/path/to/dir", [], ["image.fit"])]
         mock_getsize.return_value = 512
@@ -286,8 +288,7 @@ class TestScanFiles:
 
     @patch("app.services.file_scanner_service.os.walk")
     @patch("app.services.file_scanner_service.os.path.getsize")
-    def test_scan_files_jpg_skips_fits_metadata(self, mock_getsize, mock_walk,
-                                                 file_scanner_service, mock_db):
+    def test_scan_files_jpg_skips_fits_metadata(self, mock_getsize, mock_walk, file_scanner_service, mock_db):
         """Non-FITS files skip metadata extraction."""
         mock_walk.return_value = [("/path/to/dir", [], ["photo.jpg"])]
         mock_getsize.return_value = 2048

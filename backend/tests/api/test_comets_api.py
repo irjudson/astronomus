@@ -72,6 +72,7 @@ def _make_visibility(comet=None, ephemeris=None):
 # GET /api/comets/
 # ---------------------------------------------------------------------------
 
+
 def test_list_comets_returns_list():
     mock_svc = MagicMock()
     mock_svc.get_all_comets.return_value = [_make_comet("C/2020 F3"), _make_comet("1P", "Halley")]
@@ -127,6 +128,7 @@ def test_list_comets_service_error():
 # GET /api/comets/{designation}
 # ---------------------------------------------------------------------------
 
+
 def test_get_comet_found():
     mock_svc = MagicMock()
     # Use a designation without slashes to avoid URL path splitting issues
@@ -162,6 +164,7 @@ def test_get_comet_service_error():
 # ---------------------------------------------------------------------------
 # POST /api/comets/  (add comet)
 # ---------------------------------------------------------------------------
+
 
 def test_add_comet_success():
     mock_svc = MagicMock()
@@ -214,6 +217,7 @@ def test_add_comet_service_error():
 # POST /api/comets/{designation}/ephemeris
 # ---------------------------------------------------------------------------
 
+
 def test_compute_comet_ephemeris_success():
     mock_svc = MagicMock()
     mock_svc.get_comet_by_designation.return_value = _make_comet()
@@ -252,6 +256,7 @@ def test_compute_comet_ephemeris_with_time_param():
 # ---------------------------------------------------------------------------
 # POST /api/comets/{designation}/visibility
 # ---------------------------------------------------------------------------
+
 
 def test_check_comet_visibility_success():
     mock_svc = MagicMock()
@@ -294,6 +299,7 @@ def test_check_comet_visibility_not_found():
 # ---------------------------------------------------------------------------
 # POST /api/comets/visible
 # ---------------------------------------------------------------------------
+
 
 def test_list_visible_comets_success():
     mock_svc = MagicMock()
@@ -352,6 +358,7 @@ def test_list_visible_comets_service_error():
 # POST /api/comets/import  (import from Horizons)
 # ---------------------------------------------------------------------------
 
+
 def test_import_comet_success():
     mock_comet_svc = MagicMock()
     mock_comet_svc.get_comet_by_designation.return_value = None  # not yet in catalog
@@ -359,8 +366,10 @@ def test_import_comet_success():
     mock_horizons = MagicMock()
     mock_horizons.fetch_comet_by_designation.return_value = _make_comet("C/2024 A1", "TestComet")
 
-    with patch("app.api.comets.CometService", return_value=mock_comet_svc), \
-         patch("app.api.comets.horizons_service", mock_horizons):
+    with (
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+        patch("app.api.comets.horizons_service", mock_horizons),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.post("/api/comets/import?designation=C%2F2024%20A1")
@@ -387,8 +396,10 @@ def test_import_comet_not_found_in_horizons():
     mock_horizons = MagicMock()
     mock_horizons.fetch_comet_by_designation.return_value = None
 
-    with patch("app.api.comets.CometService", return_value=mock_comet_svc), \
-         patch("app.api.comets.horizons_service", mock_horizons):
+    with (
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+        patch("app.api.comets.horizons_service", mock_horizons),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.post("/api/comets/import?designation=UNKNOWN")
@@ -398,6 +409,7 @@ def test_import_comet_not_found_in_horizons():
 # ---------------------------------------------------------------------------
 # GET /api/comets/search/bright
 # ---------------------------------------------------------------------------
+
 
 def test_search_bright_comets_success():
     mock_horizons = MagicMock()
@@ -436,17 +448,20 @@ def test_search_bright_comets_service_error():
 # POST /api/comets/refresh
 # ---------------------------------------------------------------------------
 
+
 def test_refresh_comet_catalog_success():
     mock_comet_svc = MagicMock()
     mock_comet_svc.upsert_comet.side_effect = [
-        (None, True),   # first comet: created
+        (None, True),  # first comet: created
         (None, False),  # second comet: updated
     ]
     mock_horizons = MagicMock()
     mock_horizons.fetch_bright_comets.return_value = [_make_comet("C/2020 F3"), _make_comet("1P")]
 
-    with patch("app.api.comets.CometService", return_value=mock_comet_svc), \
-         patch("app.api.comets.horizons_service", mock_horizons):
+    with (
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+        patch("app.api.comets.horizons_service", mock_horizons),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.post("/api/comets/refresh")
@@ -464,8 +479,10 @@ def test_refresh_comet_catalog_with_failures():
     mock_horizons = MagicMock()
     mock_horizons.fetch_bright_comets.return_value = [_make_comet("C/BAD")]
 
-    with patch("app.api.comets.CometService", return_value=mock_comet_svc), \
-         patch("app.api.comets.horizons_service", mock_horizons):
+    with (
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+        patch("app.api.comets.horizons_service", mock_horizons),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.post("/api/comets/refresh")
@@ -480,8 +497,10 @@ def test_refresh_comet_catalog_horizons_error():
     mock_horizons = MagicMock()
     mock_horizons.fetch_bright_comets.side_effect = RuntimeError("horizons down")
 
-    with patch("app.api.comets.CometService", return_value=mock_comet_svc), \
-         patch("app.api.comets.horizons_service", mock_horizons):
+    with (
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+        patch("app.api.comets.horizons_service", mock_horizons),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.post("/api/comets/refresh")
@@ -491,6 +510,7 @@ def test_refresh_comet_catalog_horizons_error():
 # ---------------------------------------------------------------------------
 # GET /api/comets/visible-tonight
 # ---------------------------------------------------------------------------
+
 
 def test_get_visible_comets_tonight_no_location():
     mock_settings_svc = MagicMock()
@@ -522,8 +542,10 @@ def test_get_visible_comets_tonight_with_location():
     mock_comet_svc = MagicMock()
     mock_comet_svc.get_visible_comets.return_value = [visibility]
 
-    with patch("app.api.comets.SettingsService", return_value=mock_settings_svc), \
-         patch("app.api.comets.CometService", return_value=mock_comet_svc):
+    with (
+        patch("app.api.comets.SettingsService", return_value=mock_settings_svc),
+        patch("app.api.comets.CometService", return_value=mock_comet_svc),
+    ):
         app.dependency_overrides[get_db] = lambda: MagicMock()
         client = TestClient(app)
         response = client.get("/api/comets/visible-tonight")

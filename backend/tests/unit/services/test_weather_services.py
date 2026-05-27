@@ -1,12 +1,10 @@
 """Tests for weather and 7Timer services."""
 
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
-
-from unittest.mock import MagicMock, Mock, patch
 
 from app.models import Location, WeatherForecast
 from app.services.cleardarksky_service import (
@@ -579,6 +577,7 @@ class TestClearDarkSkyServiceGetForecast:
     def test_returns_list_of_forecasts(self, mock_get):
         future_hour = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         from datetime import timedelta
+
         times = [(future_hour + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(1, 4)]
         mock_get.return_value = self._make_response(times, [5, 15, 50], [25000, 12000, 5000], [2, 10, 30], [5, 4, 3])
 
@@ -598,6 +597,7 @@ class TestClearDarkSkyServiceGetForecast:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_http_error_returns_empty(self, mock_get):
         import requests
+
         mock_resp = Mock()
         mock_resp.raise_for_status.side_effect = requests.HTTPError("500")
         mock_get.return_value = mock_resp
@@ -608,12 +608,11 @@ class TestClearDarkSkyServiceGetForecast:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_skips_past_hours(self, mock_get):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         past = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M")
         future = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
-        mock_get.return_value = self._make_response(
-            [past, future], [10, 20], [25000, 20000], [2, 5], [10, 8]
-        )
+        mock_get.return_value = self._make_response([past, future], [10, 20], [25000, 20000], [2, 5], [10, 8])
         svc = ClearDarkSkyService()
         result = svc.get_forecast(45.0, -111.0, hours=48)
         assert len(result) == 1
@@ -621,11 +620,10 @@ class TestClearDarkSkyServiceGetForecast:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_respects_hours_limit(self, mock_get):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         times = [(now + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(1, 10)]
-        mock_get.return_value = self._make_response(
-            times, [0] * 9, [30000] * 9, [1] * 9, [10] * 9
-        )
+        mock_get.return_value = self._make_response(times, [0] * 9, [30000] * 9, [1] * 9, [10] * 9)
         svc = ClearDarkSkyService()
         result = svc.get_forecast(45.0, -111.0, hours=3)
         assert len(result) == 3
@@ -633,11 +631,10 @@ class TestClearDarkSkyServiceGetForecast:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_null_values_treated_as_zero(self, mock_get):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         times = [(now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")]
-        mock_get.return_value = self._make_response(
-            times, [None], [None], [None], [None]
-        )
+        mock_get.return_value = self._make_response(times, [None], [None], [None], [None])
         svc = ClearDarkSkyService()
         result = svc.get_forecast(45.0, -111.0, hours=48)
         assert len(result) == 1
@@ -647,11 +644,10 @@ class TestClearDarkSkyServiceGetForecast:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_skips_invalid_time_strings(self, mock_get):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         future = (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
-        mock_get.return_value = self._make_response(
-            ["not-a-date", future], [10, 20], [25000, 20000], [2, 5], [10, 8]
-        )
+        mock_get.return_value = self._make_response(["not-a-date", future], [10, 20], [25000, 20000], [2, 5], [10, 8])
         svc = ClearDarkSkyService()
         result = svc.get_forecast(45.0, -111.0, hours=48)
         assert len(result) == 1
@@ -667,21 +663,33 @@ class TestWeatherServiceAdditionalBranches:
 
     def test_merge_forecasts_owm_only_returns_owm(self):
         svc = WeatherService()
-        owm = [WeatherForecast(
-            timestamp=datetime.now(pytz.UTC),
-            cloud_cover=20.0, humidity=50.0, temperature=10.0,
-            wind_speed=3.0, conditions="clear", source="openweathermap"
-        )]
+        owm = [
+            WeatherForecast(
+                timestamp=datetime.now(pytz.UTC),
+                cloud_cover=20.0,
+                humidity=50.0,
+                temperature=10.0,
+                wind_speed=3.0,
+                conditions="clear",
+                source="openweathermap",
+            )
+        ]
         result = svc._merge_forecasts(owm, [])
         assert result is owm
 
     def test_merge_forecasts_seven_timer_only_returns_7timer(self):
         svc = WeatherService()
-        st = [WeatherForecast(
-            timestamp=datetime.now(pytz.UTC),
-            cloud_cover=10.0, humidity=40.0, temperature=8.0,
-            wind_speed=2.0, conditions="clear", source="7timer"
-        )]
+        st = [
+            WeatherForecast(
+                timestamp=datetime.now(pytz.UTC),
+                cloud_cover=10.0,
+                humidity=40.0,
+                temperature=8.0,
+                wind_speed=2.0,
+                conditions="clear",
+                source="7timer",
+            )
+        ]
         result = svc._merge_forecasts([], st)
         assert result is st
 
@@ -738,8 +746,11 @@ class TestWeatherServiceAdditionalBranches:
         svc = WeatherService()
         forecast = WeatherForecast(
             timestamp=datetime.now(pytz.UTC),
-            cloud_cover=30.0, humidity=55.0, temperature=10.0,
-            wind_speed=4.0, conditions="partly cloudy",
+            cloud_cover=30.0,
+            humidity=55.0,
+            temperature=10.0,
+            wind_speed=4.0,
+            conditions="partly cloudy",
             source="openweathermap",
         )
         score = svc.calculate_weather_score(forecast)
@@ -785,15 +796,30 @@ class TestWeatherServiceAdditionalBranches:
         """Cover the _merge_forecasts loop (lines 147-173)."""
         svc = WeatherService()
         ts = datetime(2025, 11, 6, 0, 0, 0, tzinfo=pytz.UTC)
-        owm = [WeatherForecast(
-            timestamp=ts, cloud_cover=10.0, humidity=50.0, temperature=10.0,
-            wind_speed=3.0, conditions="clear sky", source="openweathermap"
-        )]
-        st = [WeatherForecast(
-            timestamp=ts, cloud_cover=12.0, humidity=52.0, temperature=9.0,
-            wind_speed=2.0, conditions="Mostly clear, excellent seeing, good transparency",
-            seeing_arcseconds=0.8, transparency_magnitude=21.0, source="7timer"
-        )]
+        owm = [
+            WeatherForecast(
+                timestamp=ts,
+                cloud_cover=10.0,
+                humidity=50.0,
+                temperature=10.0,
+                wind_speed=3.0,
+                conditions="clear sky",
+                source="openweathermap",
+            )
+        ]
+        st = [
+            WeatherForecast(
+                timestamp=ts,
+                cloud_cover=12.0,
+                humidity=52.0,
+                temperature=9.0,
+                wind_speed=2.0,
+                conditions="Mostly clear, excellent seeing, good transparency",
+                seeing_arcseconds=0.8,
+                transparency_magnitude=21.0,
+                source="7timer",
+            )
+        ]
         merged = svc._merge_forecasts(owm, st)
         assert len(merged) == 1
         assert merged[0].source == "composite"
@@ -804,15 +830,30 @@ class TestWeatherServiceAdditionalBranches:
         svc = WeatherService()
         owm_ts = datetime(2025, 11, 6, 6, 0, 0, tzinfo=pytz.UTC)
         st_ts = datetime(2025, 11, 6, 0, 0, 0, tzinfo=pytz.UTC)  # different slot
-        owm = [WeatherForecast(
-            timestamp=owm_ts, cloud_cover=20.0, humidity=55.0, temperature=8.0,
-            wind_speed=4.0, conditions="few clouds", source="openweathermap"
-        )]
-        st = [WeatherForecast(
-            timestamp=st_ts, cloud_cover=10.0, humidity=40.0, temperature=10.0,
-            wind_speed=2.0, conditions="clear", seeing_arcseconds=1.0,
-            transparency_magnitude=20.0, source="7timer"
-        )]
+        owm = [
+            WeatherForecast(
+                timestamp=owm_ts,
+                cloud_cover=20.0,
+                humidity=55.0,
+                temperature=8.0,
+                wind_speed=4.0,
+                conditions="few clouds",
+                source="openweathermap",
+            )
+        ]
+        st = [
+            WeatherForecast(
+                timestamp=st_ts,
+                cloud_cover=10.0,
+                humidity=40.0,
+                temperature=10.0,
+                wind_speed=2.0,
+                conditions="clear",
+                seeing_arcseconds=1.0,
+                transparency_magnitude=20.0,
+                source="7timer",
+            )
+        ]
         merged = svc._merge_forecasts(owm, st)
         assert len(merged) == 1
         assert merged[0].source == "openweathermap"  # no match found
@@ -822,6 +863,7 @@ class TestWeatherServiceAdditionalBranches:
     def test_get_openweathermap_forecast_parses_response(self, mock_get, mock_stt, sample_location):
         """Cover lines 82-108: the OWM parsing loop."""
         import pytz as _pytz
+
         ts_utc = datetime(2025, 11, 6, 1, 0, 0, tzinfo=_pytz.UTC)
         mock_resp = MagicMock()
         mock_resp.raise_for_status = Mock()
@@ -860,6 +902,7 @@ class TestClearDarkSkyServiceLegacyMethods:
     @patch("app.services.cleardarksky_service.requests.get")
     def test_fetch_forecast_delegates_to_get_forecast(self, mock_get):
         from datetime import timedelta
+
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         times = [(now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")]
         mock_resp = Mock()

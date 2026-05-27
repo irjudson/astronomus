@@ -37,9 +37,7 @@ def make_db():
     db.query.return_value.all.return_value = []
     db.query.return_value.count.return_value = 0
     db.query.return_value.scalar.return_value = 0
-    db.query.return_value.one.return_value = MagicMock(
-        very_bright=0, bright=0, moderate=0, faint=0
-    )
+    db.query.return_value.one.return_value = MagicMock(very_bright=0, bright=0, moderate=0, faint=0)
     return db
 
 
@@ -121,7 +119,9 @@ class TestTargetsNear:
 
     def test_uses_common_name_as_catalog_id(self, client_with_mock_db):
         client, db = client_with_mock_db
-        row = dso_row(catalog_name="NGC", catalog_number=224, common_name="Andromeda", ra_hours=0.712, dec_degrees=41.27)
+        row = dso_row(
+            catalog_name="NGC", catalog_number=224, common_name="Andromeda", ra_hours=0.712, dec_degrees=41.27
+        )
         db.query.return_value.filter.return_value.filter.return_value.all.return_value = [row]
         resp = client.get("/api/targets/near?ra_hours=0.712&dec_degrees=41.27&radius_deg=5.0")
         assert resp.status_code == 200
@@ -158,8 +158,13 @@ class TestTargetsList:
         from app.models import DSOTarget
 
         mock_target = DSOTarget(
-            name="M31", catalog_id="M31", object_type="galaxy",
-            ra_hours=0.712, dec_degrees=41.27, magnitude=3.4, size_arcmin=190.0
+            name="M31",
+            catalog_id="M31",
+            object_type="galaxy",
+            ra_hours=0.712,
+            dec_degrees=41.27,
+            magnitude=3.4,
+            size_arcmin=190.0,
         )
         with patch("app.api.routes.CatalogService") as MockCatalog:
             MockCatalog.return_value.filter_targets.return_value = [mock_target]
@@ -175,10 +180,24 @@ class TestTargetsList:
         from app.models import DSOTarget
 
         targets = [
-            DSOTarget(name="NGC1", catalog_id="NGC1", object_type="galaxy",
-                      ra_hours=1.0, dec_degrees=10.0, magnitude=9.0, size_arcmin=5.0),
-            DSOTarget(name="M31", catalog_id="M31", object_type="galaxy",
-                      ra_hours=0.712, dec_degrees=41.27, magnitude=3.4, size_arcmin=190.0),
+            DSOTarget(
+                name="NGC1",
+                catalog_id="NGC1",
+                object_type="galaxy",
+                ra_hours=1.0,
+                dec_degrees=10.0,
+                magnitude=9.0,
+                size_arcmin=5.0,
+            ),
+            DSOTarget(
+                name="M31",
+                catalog_id="M31",
+                object_type="galaxy",
+                ra_hours=0.712,
+                dec_degrees=41.27,
+                magnitude=3.4,
+                size_arcmin=190.0,
+            ),
         ]
         with patch("app.api.routes.CatalogService") as MockCatalog:
             MockCatalog.return_value.filter_targets.return_value = targets
@@ -200,8 +219,13 @@ class TestTargetById:
         from app.models import DSOTarget
 
         mock_target = DSOTarget(
-            name="M31", catalog_id="M31", object_type="galaxy",
-            ra_hours=0.712, dec_degrees=41.27, magnitude=3.4, size_arcmin=190.0
+            name="M31",
+            catalog_id="M31",
+            object_type="galaxy",
+            ra_hours=0.712,
+            dec_degrees=41.27,
+            magnitude=3.4,
+            size_arcmin=190.0,
         )
         with patch("app.api.routes.CatalogService") as MockCatalog:
             MockCatalog.return_value.get_target_by_id.return_value = mock_target
@@ -228,8 +252,15 @@ class TestCaldwell:
         from app.models import DSOTarget
 
         mock_targets = [
-            DSOTarget(name="C1", catalog_id="C1", object_type="cluster",
-                      ra_hours=0.5, dec_degrees=57.0, magnitude=4.0, size_arcmin=20.0)
+            DSOTarget(
+                name="C1",
+                catalog_id="C1",
+                object_type="cluster",
+                ra_hours=0.5,
+                dec_degrees=57.0,
+                magnitude=4.0,
+                size_arcmin=20.0,
+            )
         ]
         with patch("app.api.routes.CatalogService") as MockCatalog:
             MockCatalog.return_value.get_caldwell_targets.return_value = mock_targets
@@ -383,13 +414,9 @@ class TestCatalogStats:
         mock_q = MagicMock()
         mock_q.scalar.return_value = 100
         mock_q.filter.return_value.scalar.return_value = 10
-        mock_q.filter.return_value.one.return_value = MagicMock(
-            very_bright=5, bright=20, moderate=60, faint=15
-        )
+        mock_q.filter.return_value.one.return_value = MagicMock(very_bright=5, bright=20, moderate=60, faint=15)
         # for by_type and by_catalog group_by queries
-        mock_q.group_by.return_value.order_by.return_value.all.return_value = [
-            ("galaxy", 50), ("nebula", 30)
-        ]
+        mock_q.group_by.return_value.order_by.return_value.all.return_value = [("galaxy", 50), ("nebula", 30)]
         db.query.return_value = mock_q
 
         resp = client.get("/api/catalog/stats")
@@ -419,8 +446,13 @@ class TestTwilight:
             MockPlanner.return_value.calculate_twilight.return_value = mock_result
             resp = client.post(
                 "/api/twilight?date=2025-01-15",
-                json={"name": "Test", "latitude": 45.0, "longitude": -111.0,
-                      "elevation": 1234.0, "timezone": "America/Denver"},
+                json={
+                    "name": "Test",
+                    "latitude": 45.0,
+                    "longitude": -111.0,
+                    "elevation": 1234.0,
+                    "timezone": "America/Denver",
+                },
             )
         assert resp.status_code == 200
         data = resp.json()
@@ -432,8 +464,7 @@ class TestTwilight:
             MockPlanner.return_value.calculate_twilight.side_effect = Exception("ephemeris error")
             resp = client.post(
                 "/api/twilight?date=2025-01-15",
-                json={"name": "Test", "latitude": 45.0, "longitude": -111.0,
-                      "elevation": 1234.0, "timezone": "UTC"},
+                json={"name": "Test", "latitude": 45.0, "longitude": -111.0, "elevation": 1234.0, "timezone": "UTC"},
             )
         assert resp.status_code == 500
 
@@ -461,8 +492,11 @@ def _minimal_plan():
             "total_imaging_minutes": 540,
         },
         "location": {
-            "name": "Test", "latitude": 45.0, "longitude": -111.0,
-            "elevation": 1234.0, "timezone": "America/Denver",
+            "name": "Test",
+            "latitude": 45.0,
+            "longitude": -111.0,
+            "elevation": 1234.0,
+            "timezone": "America/Denver",
         },
         "scheduled_targets": [],
         "weather_forecast": [],
@@ -524,8 +558,9 @@ class TestSharePlan:
         assert resp.status_code == 404
 
     def test_get_shared_plan_expired(self, plain_client):
-        import app.api.routes as routes_module
         import time
+
+        import app.api.routes as routes_module
 
         plan_resp = plain_client.post("/api/share", json=self._minimal_plan())
         plan_id = plan_resp.json()["plan_id"]
@@ -644,10 +679,18 @@ class TestImageTargets:
 class TestSolarSystemObjects:
     def test_returns_objects_list(self, plain_client):
         mock_objects = [
-            {"name": "Jupiter", "type": "planet", "magnitude": -2.5,
-             "altitude_deg": 45.0, "is_visible": True, "is_visible_tonight": True,
-             "peak_altitude_tonight": 60.0, "constellation": "Leo",
-             "angular_diameter_arcsec": 45.0, "notes": None},
+            {
+                "name": "Jupiter",
+                "type": "planet",
+                "magnitude": -2.5,
+                "altitude_deg": 45.0,
+                "is_visible": True,
+                "is_visible_tonight": True,
+                "peak_altitude_tonight": 60.0,
+                "constellation": "Leo",
+                "angular_diameter_arcsec": 45.0,
+                "notes": None,
+            },
         ]
         with patch("app.api.routes._compute_solar_system_objects_sync", return_value=mock_objects):
             resp = plain_client.get("/api/solar-system/objects?lat=45.0&lon=-111.0")
@@ -666,9 +709,7 @@ class TestSolarSystemObjects:
     def test_passes_date_and_tz(self, plain_client):
         mock_objects = []
         with patch("app.api.routes._compute_solar_system_objects_sync", return_value=mock_objects) as mock_fn:
-            resp = plain_client.get(
-                "/api/solar-system/objects?lat=45.0&lon=-111.0&date=2025-06-01&tz=America/Denver"
-            )
+            resp = plain_client.get("/api/solar-system/objects?lat=45.0&lon=-111.0&date=2025-06-01&tz=America/Denver")
         assert resp.status_code == 200
         mock_fn.assert_called_once_with(45.0, -111.0, "2025-06-01", "America/Denver")
 

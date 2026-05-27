@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-
 _SAMPLE_DATA = {
     "timestamp": "2026-05-26T22:00:00Z",
     "outdoor_temp_f": 59.0,
@@ -121,7 +120,7 @@ def test_astronomy_suitability_score_near_dew_point():
 
 
 def test_get_current_returns_reading_on_success():
-    from app.services.local_weather_service import LocalWeatherService, LocalWeatherReading
+    from app.services.local_weather_service import LocalWeatherReading, LocalWeatherService
 
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
@@ -136,8 +135,9 @@ def test_get_current_returns_reading_on_success():
 
 
 def test_get_current_returns_none_on_http_error():
-    from app.services.local_weather_service import LocalWeatherService
     import requests as req_lib
+
+    from app.services.local_weather_service import LocalWeatherService
 
     with patch(
         "app.services.local_weather_service.requests.get",
@@ -150,8 +150,9 @@ def test_get_current_returns_none_on_http_error():
 
 
 def test_get_current_returns_none_on_timeout():
-    from app.services.local_weather_service import LocalWeatherService
     import requests as req_lib
+
+    from app.services.local_weather_service import LocalWeatherService
 
     with patch(
         "app.services.local_weather_service.requests.get",

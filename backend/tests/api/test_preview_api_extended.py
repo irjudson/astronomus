@@ -1,8 +1,7 @@
 """Extended tests for preview router — covering snapshot and stream endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 

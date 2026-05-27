@@ -53,8 +53,9 @@ def client_with_mock_db():
 # ---------------------------------------------------------------------------
 
 
-def mock_setting(key="test.key", value="test_value", value_type="string",
-                 description=None, category=None, is_secret=False, id=1):
+def mock_setting(
+    key="test.key", value="test_value", value_type="string", description=None, category=None, is_secret=False, id=1
+):
     s = MagicMock()
     s.id = id
     s.key = key
@@ -66,9 +67,17 @@ def mock_setting(key="test.key", value="test_value", value_type="string",
     return s
 
 
-def mock_location(id=1, name="Test Location", latitude=45.0, longitude=-111.0,
-                  elevation=1234.0, timezone="America/Denver", bortle_class=4,
-                  is_default=True, is_active=True):
+def mock_location(
+    id=1,
+    name="Test Location",
+    latitude=45.0,
+    longitude=-111.0,
+    elevation=1234.0,
+    timezone="America/Denver",
+    bortle_class=4,
+    is_default=True,
+    is_active=True,
+):
     loc = MagicMock()
     loc.id = id
     loc.name = name
@@ -83,10 +92,17 @@ def mock_location(id=1, name="Test Location", latitude=45.0, longitude=-111.0,
     return loc
 
 
-def mock_device(id=1, name="My Seestar", control_host="192.168.2.47",
-                control_port=4700, is_control_enabled=True,
-                mount_path=None, is_mount_enabled=False,
-                is_default=True, is_active=True):
+def mock_device(
+    id=1,
+    name="My Seestar",
+    control_host="192.168.2.47",
+    control_port=4700,
+    is_control_enabled=True,
+    mount_path=None,
+    is_mount_enabled=False,
+    is_default=True,
+    is_active=True,
+):
     dev = MagicMock()
     dev.id = id
     dev.name = name
@@ -160,8 +176,6 @@ class TestAppSettingsPost:
         db.query.return_value.filter.return_value.first.return_value = None
         new_s = mock_setting(key="new.setting", value="hello")
         db.refresh = MagicMock(return_value=None)
-
-        from app.models.settings_models import AppSetting
 
         with patch("app.api.settings.AppSetting") as MockSetting:
             MockSetting.return_value = new_s
@@ -347,8 +361,11 @@ class TestLocationsPost:
         resp = client.post(
             "/api/settings/locations",
             json={
-                "name": "Home", "latitude": 45.0, "longitude": -111.0,
-                "elevation": 0.0, "timezone": "UTC",
+                "name": "Home",
+                "latitude": 45.0,
+                "longitude": -111.0,
+                "elevation": 0.0,
+                "timezone": "UTC",
             },
         )
         assert resp.status_code == 400
@@ -359,8 +376,11 @@ class TestLocationsPost:
         resp = client.post(
             "/api/settings/locations",
             json={
-                "name": "Bad", "latitude": 999.0, "longitude": 0.0,
-                "elevation": 0.0, "timezone": "UTC",
+                "name": "Bad",
+                "latitude": 999.0,
+                "longitude": 0.0,
+                "elevation": 0.0,
+                "timezone": "UTC",
             },
         )
         assert resp.status_code == 422
@@ -519,8 +539,9 @@ class TestUserSettings:
 
     def test_get_user_settings_with_location(self, client_with_mock_db):
         client, db = client_with_mock_db
-        loc = mock_location(name="Three Forks", latitude=45.9, longitude=-111.5,
-                            elevation=1234.0, timezone="America/Denver")
+        loc = mock_location(
+            name="Three Forks", latitude=45.9, longitude=-111.5, elevation=1234.0, timezone="America/Denver"
+        )
         # first call returns location, subsequent calls return empty prefs
         db.query.return_value.filter.return_value.first.return_value = loc
         db.query.return_value.filter.return_value.all.return_value = []

@@ -1,8 +1,7 @@
 """Tests for ProcessingService."""
 
-from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -77,13 +76,15 @@ async def test_execute_pipeline_file_not_found_in_db(mock_session_local, mock_mk
 @patch("app.services.processing_service.Path.mkdir")
 @patch("app.services.processing_service.SessionLocal")
 @pytest.mark.asyncio
-async def test_execute_pipeline_input_file_missing(mock_session_local, mock_mkdir, mock_dp_cls,
-                                                    mock_file, mock_pipeline, mock_job):
+async def test_execute_pipeline_input_file_missing(
+    mock_session_local, mock_mkdir, mock_dp_cls, mock_file, mock_pipeline, mock_job
+):
     mock_db = MagicMock()
 
     def query_side_effect(model_cls):
         q = MagicMock()
         from app.models.processing_models import ProcessingFile, ProcessingJob, ProcessingPipeline
+
         if model_cls is ProcessingFile:
             q.filter.return_value.first.return_value = mock_file
         elif model_cls is ProcessingPipeline:
@@ -109,13 +110,15 @@ async def test_execute_pipeline_input_file_missing(mock_session_local, mock_mkdi
 @patch("app.services.processing_service.Path.mkdir")
 @patch("app.services.processing_service.SessionLocal")
 @pytest.mark.asyncio
-async def test_execute_pipeline_happy_path(mock_session_local, mock_mkdir, mock_dp_cls,
-                                           mock_copy2, mock_file, mock_pipeline, mock_job):
+async def test_execute_pipeline_happy_path(
+    mock_session_local, mock_mkdir, mock_dp_cls, mock_copy2, mock_file, mock_pipeline, mock_job
+):
     mock_db = MagicMock()
 
     def query_side_effect(model_cls):
         q = MagicMock()
         from app.models.processing_models import ProcessingFile, ProcessingJob, ProcessingPipeline
+
         if model_cls is ProcessingFile:
             q.filter.return_value.first.return_value = mock_file
         elif model_cls is ProcessingPipeline:
@@ -131,9 +134,11 @@ async def test_execute_pipeline_happy_path(mock_session_local, mock_mkdir, mock_
     output_path = Path("/app/data/processing/job_3/outputs/test.jpg")
     mock_dp_cls.return_value.process_fits.return_value = [output_path]
 
-    with patch("app.services.processing_service.Path.exists", return_value=True), \
-         patch.object(Path, "is_file", return_value=True), \
-         patch.object(Path, "suffix", new_callable=lambda: property(lambda self: ".jpg")):
+    with (
+        patch("app.services.processing_service.Path.exists", return_value=True),
+        patch.object(Path, "is_file", return_value=True),
+        patch.object(Path, "suffix", new_callable=lambda: property(lambda self: ".jpg")),
+    ):
         svc = ProcessingService()
         result = await svc.execute_pipeline(file_id=1, pipeline_id=2, job_id=3)
 
@@ -147,13 +152,15 @@ async def test_execute_pipeline_happy_path(mock_session_local, mock_mkdir, mock_
 @patch("app.services.processing_service.Path.mkdir")
 @patch("app.services.processing_service.SessionLocal")
 @pytest.mark.asyncio
-async def test_execute_pipeline_processor_exception_sets_failed(mock_session_local, mock_mkdir, mock_dp_cls,
-                                                                  mock_file, mock_pipeline, mock_job):
+async def test_execute_pipeline_processor_exception_sets_failed(
+    mock_session_local, mock_mkdir, mock_dp_cls, mock_file, mock_pipeline, mock_job
+):
     mock_db = MagicMock()
 
     def query_side_effect(model_cls):
         q = MagicMock()
         from app.models.processing_models import ProcessingFile, ProcessingJob, ProcessingPipeline
+
         if model_cls is ProcessingFile:
             q.filter.return_value.first.return_value = mock_file
         elif model_cls is ProcessingPipeline:
@@ -228,6 +235,7 @@ def test_cleanup_old_jobs_removes_old_dirs(mock_mkdir, mock_dp_cls, mock_rmtree)
     new_dir = MagicMock(spec=Path)
     new_dir.is_dir.return_value = True
     import time
+
     new_dir.stat.return_value.st_mtime = time.time()  # now — not old
 
     with patch.object(Path, "glob", return_value=[old_dir, new_dir]):

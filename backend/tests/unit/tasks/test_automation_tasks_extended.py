@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # _is_astronomical_night
 # ---------------------------------------------------------------------------
@@ -34,8 +33,10 @@ def test_is_astronomical_night_no_twilight_returns_false():
 
 
 def test_is_astronomical_night_currently_night():
-    import pytz
     from datetime import datetime, timedelta
+
+    import pytz
+
     from app.tasks.automation_tasks import _is_astronomical_night
 
     db = MagicMock()
@@ -61,8 +62,10 @@ def test_is_astronomical_night_currently_night():
 
 
 def test_is_astronomical_night_currently_day():
-    import pytz
     from datetime import datetime, timedelta
+
+    import pytz
+
     from app.tasks.automation_tasks import _is_astronomical_night
 
     db = MagicMock()
@@ -145,8 +148,10 @@ def test_schedule_dusk_twilight_unavailable_returns_skipped():
 
 
 def test_schedule_dusk_already_passed_returns_skipped():
-    import pytz
     from datetime import datetime, timedelta
+
+    import pytz
+
     from app.tasks.automation_tasks import schedule_dusk_execution_task
 
     tz = pytz.timezone("UTC")
@@ -166,17 +171,17 @@ def test_schedule_dusk_already_passed_returns_skipped():
         loc.timezone = "UTC"
         db.query.return_value.filter.return_value.first.side_effect = [enabled, loc]
         mock_sl.return_value = db
-        MockEph.return_value.calculate_twilight_times.return_value = {
-            "astronomical_twilight_end": dusk
-        }
+        MockEph.return_value.calculate_twilight_times.return_value = {"astronomical_twilight_end": dusk}
         result = schedule_dusk_execution_task()
     assert result["status"] == "skipped"
     assert result["reason"] == "dusk_already_passed"
 
 
 def test_schedule_dusk_schedules_future_dusk():
-    import pytz
     from datetime import datetime, timedelta
+
+    import pytz
+
     from app.tasks.automation_tasks import schedule_dusk_execution_task
 
     tz = pytz.timezone("UTC")
@@ -197,9 +202,7 @@ def test_schedule_dusk_schedules_future_dusk():
         loc.timezone = "UTC"
         db.query.return_value.filter.return_value.first.side_effect = [enabled, loc]
         mock_sl.return_value = db
-        MockEph.return_value.calculate_twilight_times.return_value = {
-            "astronomical_twilight_end": dusk
-        }
+        MockEph.return_value.calculate_twilight_times.return_value = {"astronomical_twilight_end": dusk}
         mock_task.apply_async = MagicMock()
         result = schedule_dusk_execution_task()
     assert result["status"] == "scheduled"

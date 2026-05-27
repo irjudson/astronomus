@@ -13,17 +13,19 @@ def _make_db_with_settings(settings_map: dict, db_location=None, saved_plan_firs
         return mock
 
     # We'll use side_effect on query to intercept by model
-    from app.models.settings_models import AppSetting, ObservingLocation
     from app.models.plan_models import SavedPlan
+    from app.models.settings_models import AppSetting, ObservingLocation
 
     def _query(model):
         q = MagicMock()
         if model is AppSetting:
+
             def _filter(condition):
                 f = MagicMock()
                 # Extract key from condition — use a counter instead
                 f.first.side_effect = lambda: None
                 return f
+
             q.filter = _filter
         elif model is ObservingLocation:
             q.filter.return_value.first.return_value = db_location
@@ -87,7 +89,14 @@ def test_uses_db_location_when_present():
         webhook_s.value = ""
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, None, min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            db_loc,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -135,7 +144,14 @@ def test_falls_back_to_env_vars_when_no_db_location():
         webhook_s.value = ""
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, None, None, min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            None,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -199,8 +215,16 @@ def test_generates_unique_plan_name_when_base_exists():
 
         # First SavedPlan query: base name exists; second: name-2 also exists; third: name-3 free
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, existing_plan, existing_plan, None,
-            min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            db_loc,
+            existing_plan,
+            existing_plan,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -257,7 +281,14 @@ def test_returns_success_with_correct_keys():
         webhook_s.value = ""
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, None, min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            db_loc,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -316,7 +347,14 @@ def test_sends_webhook_when_configured():
         webhook_s.value = "https://hooks.example.com/notify"
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, None, min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            db_loc,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -368,7 +406,14 @@ def test_skips_webhook_when_not_configured():
         webhook_s.value = ""
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, None, min_alt_s, moon_s, avoid_s, webhook_s,
+            enabled,
+            count_s,
+            db_loc,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
+            webhook_s,
         ]
         mock_sl.return_value = db
 
@@ -386,8 +431,9 @@ def test_skips_webhook_when_not_configured():
 
 
 def test_raises_on_planner_error():
-    from app.tasks.planning_tasks import generate_daily_plan_task
     import pytest
+
+    from app.tasks.planning_tasks import generate_daily_plan_task
 
     with (
         patch("app.tasks.planning_tasks.SessionLocal") as mock_sl,
@@ -412,7 +458,13 @@ def test_raises_on_planner_error():
         avoid_s.value = "true"
 
         db.query.return_value.filter.return_value.first.side_effect = [
-            enabled, count_s, db_loc, None, min_alt_s, moon_s, avoid_s,
+            enabled,
+            count_s,
+            db_loc,
+            None,
+            min_alt_s,
+            moon_s,
+            avoid_s,
         ]
         mock_sl.return_value = db
 

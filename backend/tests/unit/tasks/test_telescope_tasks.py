@@ -186,7 +186,7 @@ def test_abort_updates_state_and_revokes():
 
 
 def test_execute_observation_plan_creates_db_record():
-    from app.tasks.telescope_tasks import execute_observation_plan_task, TelescopeExecutionTask
+    from app.tasks.telescope_tasks import TelescopeExecutionTask, execute_observation_plan_task
 
     targets_data = [{"target": {"name": "M31"}, "duration_minutes": 120}]
 
@@ -225,10 +225,18 @@ def test_execute_observation_plan_creates_db_record():
         patch("app.tasks.telescope_tasks.asyncio.new_event_loop", return_value=mock_loop),
         patch("app.tasks.telescope_tasks.asyncio.set_event_loop"),
         patch("app.tasks.telescope_tasks.ScheduledTarget", return_value=mock_target),
-        patch.object(TelescopeExecutionTask, "seestar_client", new_callable=lambda: property(lambda self: seestar_mock)),
-        patch.object(TelescopeExecutionTask, "telescope_service", new_callable=lambda: property(lambda self: telescope_service_mock)),
+        patch.object(
+            TelescopeExecutionTask, "seestar_client", new_callable=lambda: property(lambda self: seestar_mock)
+        ),
+        patch.object(
+            TelescopeExecutionTask,
+            "telescope_service",
+            new_callable=lambda: property(lambda self: telescope_service_mock),
+        ),
         patch.object(TelescopeExecutionTask, "update_state", lambda self, **kw: None),
-        patch.object(TelescopeExecutionTask, "request", new_callable=lambda: property(lambda self: MagicMock(id="fake-task-id"))),
+        patch.object(
+            TelescopeExecutionTask, "request", new_callable=lambda: property(lambda self: MagicMock(id="fake-task-id"))
+        ),
     ):
         db = MagicMock()
         db.refresh.side_effect = lambda obj: None

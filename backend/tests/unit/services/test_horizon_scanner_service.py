@@ -1,6 +1,5 @@
 """Tests for horizon scanner service brightness analysis."""
 
-import asyncio
 import io
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -10,7 +9,6 @@ from PIL import Image
 from app.services.horizon_scanner_service import (
     HorizonScannerService,
     ScanProgress,
-    SKY_RATIO_THRESHOLD,
     analyze_frame_brightness,
 )
 
@@ -76,6 +74,7 @@ class TestStepScanMode:
 # ScanProgress dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestScanProgress:
     def test_progress_percent_zero_when_no_azimuths(self):
         sp = ScanProgress(current_az=0.0, total_azimuths=0, completed=0)
@@ -97,6 +96,7 @@ class TestScanProgress:
 # ---------------------------------------------------------------------------
 # HorizonScannerService.scan (binary mode)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def svc():
@@ -193,6 +193,7 @@ async def test_scan_steps_mode_yields_correct_count():
 # _find_horizon_altitude (binary search)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_find_horizon_altitude_terrain_only_returns_midpoint(svc, terrain_frame):
     async def fake_move(az, alt):
@@ -232,6 +233,7 @@ async def test_find_horizon_altitude_sky_only_returns_near_min(svc, sky_frame):
 # ---------------------------------------------------------------------------
 # _find_horizon_altitude_steps
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_find_horizon_altitude_steps_returns_first_sky_alt(svc, sky_frame, terrain_frame):
@@ -277,6 +279,7 @@ async def test_find_horizon_altitude_steps_all_terrain_returns_max(svc, terrain_
 # ---------------------------------------------------------------------------
 # _capture_frame
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_capture_frame_returns_bytes_from_snapshot(sky_frame):

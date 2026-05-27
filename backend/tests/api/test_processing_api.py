@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.database import get_db
+from app.main import app
 
 client = TestClient(app)
 
@@ -49,6 +49,7 @@ def make_mock_job(job_id=1, status="queued"):
 # GET /api/processing/files
 # ============================================================================
 
+
 class TestListProcessingFiles:
     def test_no_fits_dir_returns_empty(self):
         with patch("app.api.processing.Path") as mock_path_cls:
@@ -76,6 +77,7 @@ class TestListProcessingFiles:
 # ============================================================================
 # GET /api/processing/browse
 # ============================================================================
+
 
 class TestBrowseFiles:
     def test_fits_dir_not_mounted_raises_404(self):
@@ -129,6 +131,7 @@ class TestBrowseFiles:
 # GET /api/processing/scan-new
 # ============================================================================
 
+
 class TestScanNew:
     def test_no_fits_dir_returns_empty(self):
         mock_db = make_mock_db()
@@ -163,6 +166,7 @@ class TestScanNew:
 # ============================================================================
 # GET /api/processing/outputs
 # ============================================================================
+
 
 class TestListOutputs:
     def test_output_dir_not_exists(self):
@@ -203,6 +207,7 @@ class TestListOutputs:
 # GET /api/processing/outputs/{filename}
 # ============================================================================
 
+
 class TestGetOutputFile:
     def test_missing_file_returns_404(self):
         with patch("app.api.processing.PROCESSING_DIR") as mock_dir:
@@ -219,6 +224,7 @@ class TestGetOutputFile:
 # ============================================================================
 # GET /api/processing/jobs
 # ============================================================================
+
 
 class TestListJobs:
     def test_list_jobs_empty(self):
@@ -253,6 +259,7 @@ class TestListJobs:
 # GET /api/processing/jobs/{job_id}
 # ============================================================================
 
+
 class TestGetJob:
     def test_get_job_found(self):
         job = make_mock_job(42, "running")
@@ -276,6 +283,7 @@ class TestGetJob:
 # ============================================================================
 # POST /api/processing/jobs/{job_id}/cancel
 # ============================================================================
+
 
 class TestCancelJob:
     def test_cancel_job_not_found(self):
@@ -302,6 +310,7 @@ class TestCancelJob:
 # ============================================================================
 # GET /api/processing/jobs/{job_id}/download
 # ============================================================================
+
 
 class TestDownloadJobOutput:
     def test_download_job_not_found(self):
@@ -342,6 +351,7 @@ class TestDownloadJobOutput:
 # ============================================================================
 # POST /api/processing/auto
 # ============================================================================
+
 
 class TestAutoProcess:
     def test_auto_process_file_not_found(self):
@@ -431,6 +441,7 @@ class TestAutoProcess:
 # POST /api/processing/batch
 # ============================================================================
 
+
 class TestBatchProcess:
     def test_batch_folder_not_found(self):
         mock_db = make_mock_db()
@@ -481,6 +492,7 @@ class TestBatchProcess:
 # ============================================================================
 # POST /api/processing/stack-and-stretch
 # ============================================================================
+
 
 class TestStackAndStretch:
     def test_stack_folder_not_found(self):
@@ -578,6 +590,7 @@ class TestStackAndStretch:
 # ============================================================================
 # POST /api/processing/file (direct)
 # ============================================================================
+
 
 class TestProcessFileDirect:
     def test_direct_file_not_found(self):

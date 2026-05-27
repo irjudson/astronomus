@@ -1,7 +1,7 @@
 """Tests for DirectProcessor FITS processing."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -30,9 +30,11 @@ def rgb_data():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_hdul_ctx(data):
     """Return a context-manager-compatible hdul containing a real PrimaryHDU."""
     from astropy.io import fits as real_fits
+
     hdu = real_fits.PrimaryHDU(data=data)
     hdul = real_fits.HDUList([hdu])
     return hdul
@@ -41,6 +43,7 @@ def make_hdul_ctx(data):
 # ---------------------------------------------------------------------------
 # _load_fits
 # ---------------------------------------------------------------------------
+
 
 class TestLoadFits:
     @patch("app.services.direct_processor.fits.open")
@@ -54,6 +57,7 @@ class TestLoadFits:
     @patch("app.services.direct_processor.fits.open")
     def test_load_fits_no_image_data_raises(self, mock_open, processor):
         from astropy.io import fits as real_fits
+
         # HDU with no data
         hdu = real_fits.PrimaryHDU(data=None)
         mock_open.return_value = real_fits.HDUList([hdu])
@@ -72,6 +76,7 @@ class TestLoadFits:
 # ---------------------------------------------------------------------------
 # histogram_stretch
 # ---------------------------------------------------------------------------
+
 
 class TestHistogramStretch:
     def test_stretch_grayscale_returns_0_to_1(self, processor, grayscale_data):
@@ -99,6 +104,7 @@ class TestHistogramStretch:
 # ---------------------------------------------------------------------------
 # export_image
 # ---------------------------------------------------------------------------
+
 
 class TestExportImage:
     @patch("app.services.direct_processor.Image.fromarray")
@@ -150,6 +156,7 @@ class TestExportImage:
 # ---------------------------------------------------------------------------
 # process_fits (integration of steps)
 # ---------------------------------------------------------------------------
+
 
 class TestProcessFits:
     @patch("app.services.direct_processor.Image.fromarray")

@@ -38,9 +38,7 @@ class TestSystemMockExtra:
         assert isinstance(result, bool)
 
     @pytest.mark.asyncio
-    async def test_get_image_file_info_empty_path(
-        self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer
-    ):
+    async def test_get_image_file_info_empty_path(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
         result = await mock_client.get_image_file_info()
         assert isinstance(result, dict)
         assert mock_server_obj.received_method("get_img_file_info")
@@ -49,9 +47,7 @@ class TestSystemMockExtra:
         assert cmd["params"] == ""
 
     @pytest.mark.asyncio
-    async def test_get_image_file_info_with_path(
-        self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer
-    ):
+    async def test_get_image_file_info_with_path(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
         result = await mock_client.get_image_file_info("/data/img.fits")
         assert isinstance(result, dict)
         cmd = mock_server_obj.last_command("get_img_file_info")
@@ -202,9 +198,7 @@ class TestSystemMockExtra:
         assert mock_server_obj.received_method("remote_disjoin")
 
     @pytest.mark.asyncio
-    async def test_disconnect_remote_client_empty(
-        self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer
-    ):
+    async def test_disconnect_remote_client_empty(self, mock_client: SeestarClient, mock_server_obj: MockSeestarServer):
         result = await mock_client.disconnect_remote_client()
         assert isinstance(result, bool)
         assert mock_server_obj.received_method("remote_disconnect")

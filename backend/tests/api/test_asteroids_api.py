@@ -71,6 +71,7 @@ def _make_visibility(asteroid=None, ephemeris=None):
 # GET /api/asteroids/
 # ---------------------------------------------------------------------------
 
+
 def test_list_asteroids_returns_list():
     mock_svc = MagicMock()
     mock_svc.get_all_asteroids.return_value = [_make_asteroid("433"), _make_asteroid("1", "Ceres")]
@@ -127,6 +128,7 @@ def test_list_asteroids_service_error():
 # GET /api/asteroids/{designation}
 # ---------------------------------------------------------------------------
 
+
 def test_get_asteroid_found():
     mock_svc = MagicMock()
     mock_svc.get_asteroid_by_designation.return_value = _make_asteroid("433", "Eros")
@@ -163,6 +165,7 @@ def test_get_asteroid_service_error():
 # ---------------------------------------------------------------------------
 # POST /api/asteroids/  (add asteroid)
 # ---------------------------------------------------------------------------
+
 
 def test_add_asteroid_success():
     mock_svc = MagicMock()
@@ -215,6 +218,7 @@ def test_add_asteroid_service_error():
 # POST /api/asteroids/{designation}/ephemeris
 # ---------------------------------------------------------------------------
 
+
 def test_compute_ephemeris_success():
     mock_svc = MagicMock()
     mock_svc.get_asteroid_by_designation.return_value = _make_asteroid()
@@ -253,6 +257,7 @@ def test_compute_ephemeris_with_time_param():
 # ---------------------------------------------------------------------------
 # POST /api/asteroids/{designation}/visibility
 # ---------------------------------------------------------------------------
+
 
 def test_check_visibility_success():
     mock_svc = MagicMock()
@@ -295,6 +300,7 @@ def test_check_visibility_not_found():
 # ---------------------------------------------------------------------------
 # POST /api/asteroids/visible
 # ---------------------------------------------------------------------------
+
 
 def test_list_visible_asteroids_success():
     mock_svc = MagicMock()

@@ -96,7 +96,8 @@ class TestGetMultiDayWeatherUnit:
         mock_db = MagicMock()
         app.dependency_overrides[get_db] = lambda: mock_db
 
-        from app.models.models import DailyForecast, Location as Loc
+        from app.models.models import DailyForecast
+        from app.models.models import Location as Loc
 
         mock_loc = Loc(name="Test", latitude=45.0, longitude=-111.0, elevation=0.0, timezone="UTC")
         mock_fc = DailyForecast(
@@ -201,9 +202,7 @@ class TestSatellitePassesErrors:
     def test_satellite_passes_returns_name(self, MockSS):
         MockSS.return_value.get_satellite_passes.return_value = [_make_pass("Hubble")]
 
-        resp = client.get(
-            "/api/satellites/passes?norad_id=20580&lat=40.0&lon=-74.0&satellite_name=Hubble"
-        )
+        resp = client.get("/api/satellites/passes?norad_id=20580&lat=40.0&lon=-74.0&satellite_name=Hubble")
         assert resp.status_code == 200
         data = resp.json()
         assert data["satellite_name"] == "Hubble"
@@ -228,9 +227,7 @@ class TestViewingMonthsErrors:
     def test_viewing_months_returns_coordinates(self, MockVM):
         MockVM.return_value.calculate_viewing_months.return_value = [_make_month(1), _make_month(2)]
 
-        resp = client.get(
-            "/api/viewing-months?ra_hours=5.0&dec_degrees=-5.0&latitude=40.0&object_name=M42"
-        )
+        resp = client.get("/api/viewing-months?ra_hours=5.0&dec_degrees=-5.0&latitude=40.0&object_name=M42")
         assert resp.status_code == 200
         data = resp.json()
         assert data["coordinates"]["ra_hours"] == 5.0
